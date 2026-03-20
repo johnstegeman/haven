@@ -1,0 +1,32 @@
+[package]
+name = "dfiles"
+version = "0.1.0"
+edition = "2021"
+description = "AI-first dotfiles & environment manager"
+license = "MIT"
+
+[[bin]]
+name = "dfiles"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4", features = ["derive", "env"] }
+clap_complete = "4"
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
+anyhow = "1"
+walkdir = "2"
+chrono = { version = "0.4", features = ["serde"] }
+sha2 = "0.10"
+dirs = "5"
+serde_json = "1"
+tera = "1"
+ureq = "2"
+flate2 = "1"
+tar = "0.4"
+
+[dev-dependencies]
+tempfile = "3"
+insta = "1"
+assert_cmd = "2"
+predicates = "3"

@@ -137,7 +137,7 @@ enum AiAction {
     ///   dfiles ai scan ~/.agents/skills --dry-run
     Scan {
         /// Directory to scan for skill subdirectories.
-        dir: String,
+        path: String,
 
         /// Show what would be added without writing to ai/skills.toml.
         #[arg(long)]
@@ -206,6 +206,19 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Print the path to the dfiles repo directory and exit.
+    ///
+    /// Useful in shell scripts and aliases:
+    ///   cd $(dfiles source-path)
+    ///   alias dfiles-cd='cd $(dfiles source-path)'
+    ///
+    /// Resolution order:
+    ///   1. $DFILES_DIR env var
+    ///   2. ~/dfiles if it contains a dfiles repo (migration)
+    ///   3. $XDG_DATA_HOME/dfiles
+    ///   4. ~/.local/share/dfiles  (default for new installs)
+    SourcePath,
+
     /// Create a new dfiles repository (first-time setup).
     ///
     /// Without a source, creates a blank scaffold in the --dir directory.
@@ -606,6 +619,11 @@ fn run() -> Result<()> {
                 .join(".claude")
         });
     match &cli.command {
+        Commands::SourcePath => {
+            println!("{}", repo.display());
+            return Ok(());
+        }
+
         Commands::Init {
             source,
             branch,
@@ -778,11 +796,11 @@ fn run() -> Result<()> {
                     limit: *limit,
                 })?;
             }
-            AiAction::Scan { dir, dry_run } => {
+            AiAction::Scan { path, dry_run } => {
                 commands::ai::scan(&commands::ai::ScanOptions {
                     repo_root: &repo,
                     state_dir: &state_dir,
-                    dir,
+                    dir: path,
                     dry_run: *dry_run,
                 })?;
             }

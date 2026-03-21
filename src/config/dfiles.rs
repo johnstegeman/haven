@@ -147,11 +147,29 @@ modules = []
 }
 
 /// Canonical path of the dfiles repo root.
-/// Precedence: `DFILES_DIR` env var → `~/dfiles`.
+///
+/// Resolution order (first match wins):
+/// 1. `$DFILES_DIR` env var (explicit override)
+/// 2. `~/dfiles` if it contains a dfiles repo (backward-compatible migration path)
+/// 3. `$XDG_DATA_HOME/dfiles` if `$XDG_DATA_HOME` is set
+/// 4. `~/.local/share/dfiles` (XDG default — same convention as chezmoi)
+///
+/// Use `dfiles source-path` to print the resolved path.
 pub fn repo_root() -> Result<PathBuf> {
     if let Ok(dir) = std::env::var("DFILES_DIR") {
         return Ok(PathBuf::from(dir));
     }
     let home = dirs::home_dir().context("Cannot determine home directory")?;
-    Ok(home.join("dfiles"))
+
+    // Migration: honour ~/dfiles if it already contains a dfiles repo.
+    let legacy = home.join("dfiles");
+    if legacy.join("dfiles.toml").exists() || legacy.join("source").exists() {
+        return Ok(legacy);
+    }
+
+    // XDG Data Home: $XDG_DATA_HOME/dfiles or ~/.local/share/dfiles.
+    let xdg_data = std::env::var("XDG_DATA_HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| home.join(".local").join("share"));
+    Ok(xdg_data.join("dfiles"))
 }

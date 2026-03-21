@@ -1,4 +1,5 @@
 pub mod add;
+pub mod ai;
 pub mod apply;
 pub mod bootstrap;
 pub mod brew;

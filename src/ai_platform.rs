@@ -155,6 +155,14 @@ impl PlatformsConfig {
 /// Panics at runtime if the embedded TOML is malformed (compile-time defect).
 /// Silently ignores a malformed local file (prints a warning) so that one bad
 /// entry does not prevent dfiles from running.
+/// Return the full platform registry (embedded defaults merged with the
+/// machine-local `~/.dfiles/platforms.toml` overrides).
+///
+/// Used by `dfiles ai discover` to enumerate all known platforms.
+pub fn platform_registry() -> Vec<PlatformPlugin> {
+    builtin_platforms()
+}
+
 fn builtin_platforms() -> Vec<PlatformPlugin> {
     let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("~"));
     builtin_platforms_with_home(&home)

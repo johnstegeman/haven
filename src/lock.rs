@@ -113,6 +113,14 @@ impl LockFile {
     pub fn skill_sha(&self, key: &str) -> Option<&str> {
         self.skill.get(key).map(|e| e.sha.as_str())
     }
+
+    /// Remove the lock entry for a skill source key.
+    ///
+    /// Used by `dfiles ai update` to force a re-fetch: clearing the lock SHA
+    /// causes `SkillCache::ensure()` to treat the cache as a miss and re-fetch.
+    pub fn remove_skill(&mut self, key: &str) {
+        self.skill.remove(key);
+    }
 }
 
 fn lock_path(repo_root: &Path) -> PathBuf {

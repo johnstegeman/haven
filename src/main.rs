@@ -25,6 +25,90 @@ use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
 #[derive(Subcommand)]
+enum AiAction {
+    /// Scan this machine for installed AI agent platforms and offer to update
+    /// `ai/platforms.toml`.
+    ///
+    /// Detects platforms by checking for known binaries (claude, codex, cursor,
+    /// etc.) and config directories. Prints what was found and prompts before
+    /// making any changes.
+    ///
+    /// Example:
+    ///   dfiles ai discover
+    Discover,
+
+    /// Add a skill declaration to `ai/skills.toml`.
+    ///
+    /// Does not deploy the skill; run `dfiles apply --ai` afterward.
+    ///
+    /// Examples:
+    ///   dfiles ai add gh:anthropics/skills/pdf-processing
+    ///   dfiles ai add gh:owner/repo --name my-skill --platforms claude-code,codex
+    ///   dfiles ai add dir:~/projects/my-skill --deploy copy
+    Add {
+        /// Skill source: `gh:owner/repo[/subpath][@ref]` or `dir:~/path`.
+        source: String,
+
+        /// Local name for the skill. Defaults to the last path component of source.
+        #[arg(long)]
+        name: Option<String>,
+
+        /// Target platforms: `all`, `cross-client`, or comma-separated platform IDs
+        /// (e.g. `claude-code,codex`). Default: `all`.
+        #[arg(long, default_value = "all")]
+        platforms: String,
+
+        /// Deploy method: `symlink` (default) or `copy`.
+        #[arg(long, default_value = "symlink")]
+        deploy: String,
+    },
+
+    /// Download skills into the local cache without deploying them.
+    ///
+    /// Respects the lock file — already-cached skills at the pinned SHA are skipped.
+    /// `dir:` skills are always skipped (local dirs are read directly on apply).
+    ///
+    /// Examples:
+    ///   dfiles ai fetch
+    ///   dfiles ai fetch pdf-processing
+    Fetch {
+        /// Skill name to fetch. Omit to fetch all skills.
+        name: Option<String>,
+    },
+
+    /// Fetch the latest version of skills, ignoring the current lock SHA.
+    ///
+    /// Unlike `fetch`, this clears the lock entry before fetching so the
+    /// skill is always re-downloaded from its source. Run `dfiles apply --ai`
+    /// afterward to deploy updated skills.
+    ///
+    /// Examples:
+    ///   dfiles ai update
+    ///   dfiles ai update pdf-processing
+    Update {
+        /// Skill name to update. Omit to update all skills.
+        name: Option<String>,
+    },
+
+    /// Remove a skill from `ai/skills.toml` and optionally remove deployed copies.
+    ///
+    /// Never removes deployed files automatically — always prompts unless --yes
+    /// is given.
+    ///
+    /// Example:
+    ///   dfiles ai remove pdf-processing
+    ///   dfiles ai remove pdf-processing --yes
+    Remove {
+        /// Skill name as declared in `ai/skills.toml`.
+        name: String,
+
+        /// Skip confirmation prompts.
+        #[arg(long)]
+        yes: bool,
+    },
+}
+
+#[derive(Subcommand)]
 enum BrewAction {
     /// Install a formula and record it in a Brewfile in your dfiles repo.
     ///
@@ -310,6 +394,22 @@ enum Commands {
         action: BrewAction,
     },
 
+    /// Manage AI agent skills across platforms.
+    ///
+    /// Skills are declared in `ai/skills.toml` and deployed to platform skill
+    /// directories (e.g. `~/.claude/skills/`) by `dfiles apply`.
+    ///
+    /// Examples:
+    ///   dfiles ai discover
+    ///   dfiles ai add gh:anthropics/skills/pdf-processing
+    ///   dfiles ai fetch
+    ///   dfiles ai update
+    ///   dfiles ai remove my-skill
+    Ai {
+        #[command(subcommand)]
+        action: AiAction,
+    },
+
     /// Import dotfiles from another dotfile manager.
     ///
     /// Reads the source manager's directory, decodes its naming conventions,
@@ -542,6 +642,50 @@ fn run() -> Result<()> {
             }
             BrewAction::Uninstall { name, cask } => {
                 commands::brew::uninstall(&repo, name, *cask)?;
+            }
+        },
+
+        Commands::Ai { action } => match action {
+            AiAction::Discover => {
+                commands::ai::discover(&commands::ai::DiscoverOptions {
+                    repo_root: &repo,
+                })?;
+            }
+            AiAction::Add {
+                source,
+                name,
+                platforms,
+                deploy,
+            } => {
+                commands::ai::add(&commands::ai::AddOptions {
+                    repo_root: &repo,
+                    source,
+                    name: name.as_deref(),
+                    platforms,
+                    deploy,
+                })?;
+            }
+            AiAction::Fetch { name } => {
+                commands::ai::fetch(&commands::ai::FetchOptions {
+                    repo_root: &repo,
+                    state_dir: &state_dir,
+                    name: name.as_deref(),
+                })?;
+            }
+            AiAction::Update { name } => {
+                commands::ai::update(&commands::ai::UpdateOptions {
+                    repo_root: &repo,
+                    state_dir: &state_dir,
+                    name: name.as_deref(),
+                })?;
+            }
+            AiAction::Remove { name, yes } => {
+                commands::ai::remove(&commands::ai::RemoveOptions {
+                    repo_root: &repo,
+                    state_dir: &state_dir,
+                    name,
+                    yes: *yes,
+                })?;
             }
         },
 

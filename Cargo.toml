@@ -4,6 +4,10 @@ version = "0.1.0"
 edition = "2021"
 description = "AI-first dotfiles & environment manager"
 license = "MIT"
+repository = "https://github.com/johnstegeman/dfiles"
+homepage = "https://github.com/johnstegeman/dfiles"
+keywords = ["dotfiles", "cli", "ai", "devtools"]
+categories = ["command-line-utilities"]
 
 [[bin]]
 name = "dfiles"

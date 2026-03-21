@@ -4,19 +4,17 @@ use std::path::{Path, PathBuf};
 
 /// A module config file, e.g. `modules/shell.toml`.
 ///
-/// Modules scope **brew and AI only** — file tracking is handled by magic-name
-/// encoding in `source/` and always applies in full. External directories (git
-/// repos cloned on apply) are encoded as `extdir_<name>` marker files in `source/`.
+/// Modules scope **brew and mise only** — file tracking is handled by magic-name
+/// encoding in `source/` and always applies in full. AI skills and commands are
+/// managed in `ai/skills.toml` and `ai/platforms.toml`.
 ///
 /// ```toml
 /// # modules/shell.toml
 /// [homebrew]
 /// brewfile = "brew/Brewfile.shell"
 ///
-/// # modules/ai.toml
-/// [ai]
-/// skills   = ["gh:gstack/standard-skills@v1.2"]
-/// commands = ["gh:jstegeman/my-commands@main"]
+/// [mise]
+/// config = "source/mise.toml"
 /// ```
 #[derive(Debug, Deserialize, Serialize, Default)]
 
@@ -26,9 +24,6 @@ pub struct ModuleConfig {
 
     /// Mise tool version management.
     pub mise: Option<MiseConfig>,
-
-    /// Claude Code AI tooling — skills and commands to install from GitHub.
-    pub ai: Option<AiConfig>,
 
     /// If true, skip this module with a warning when 1Password CLI (`op`) is
     /// not installed or the user is not signed in.
@@ -63,31 +58,10 @@ pub struct MiseConfig {
     pub config: Option<String>,
 }
 
-/// Claude Code AI tooling configuration within a module.
-///
-/// ```toml
-/// [ai]
-/// skills   = ["gh:gstack/standard-skills@v1.2"]
-/// commands = ["gh:jstegeman/my-commands@main"]
-/// ```
-#[derive(Debug, Deserialize, Serialize, Default, Clone)]
-
-pub struct AiConfig {
-    /// Claude Code skills to install. Each entry is a `gh:owner/repo[@ref]` source.
-    #[serde(default)]
-    pub skills: Vec<String>,
-
-    /// Claude Code slash commands to install. Each entry is a `gh:owner/repo[@ref]` source.
-    #[serde(default)]
-    pub commands: Vec<String>,
-}
-
 impl ModuleConfig {
     /// Returns true if this module has nothing to apply.
     pub fn is_empty(&self) -> bool {
-        self.homebrew.is_none()
-            && self.mise.is_none()
-            && self.ai.as_ref().is_none_or(|ai| ai.skills.is_empty() && ai.commands.is_empty())
+        self.homebrew.is_none() && self.mise.is_none()
     }
 }
 
@@ -103,19 +77,6 @@ impl ModuleConfig {
             .with_context(|| format!("Cannot read {}", path.display()))?;
         let config: Self = toml::from_str(&text)
             .with_context(|| format!("Invalid TOML in {}", path.display()))?;
-
-        // Deprecation warning: [ai] in module configs is replaced by ai/skills.toml.
-        // Skills still deploy in this release (no breaking change). This section
-        // will be removed in the next major release.
-        if config.ai.is_some() {
-            eprintln!(
-                "warning: [ai] section in modules/{}.toml is deprecated.\n\
-                 Migrate your skills to ai/skills.toml. The [ai] module section\n\
-                 will be removed in the next major release of dfiles.",
-                module_name
-            );
-        }
-
         Ok(config)
     }
 

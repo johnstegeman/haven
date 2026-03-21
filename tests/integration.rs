@@ -1369,13 +1369,13 @@ fn interactive_dry_run_does_not_prompt_or_uninstall() {
 
 // ─── 1Password integration ───────────────────────────────────────────────────
 
-/// Write a secrets module TOML with `requires_op = true` and an AI skill entry.
-/// In the new design, requires_op guards brew/AI but not source file application.
+/// Write a secrets module TOML with `requires_op = true` and a homebrew section.
+/// In the new design, requires_op guards brew/mise but not source file application.
 /// Externals are now tracked as extdir_ files in source/, not in module TOMLs.
 fn write_secrets_module(repo: &TempDir) {
     let toml = "requires_op = true\n\n\
-                [ai]\n\
-                skills = [\"gh:example/gh-config\"]\n";
+                [homebrew]\n\
+                brewfile = \"brew/Brewfile.secrets\"\n";
     fs::write(
         repo.path().join("modules").join("secrets.toml"),
         toml,
@@ -1416,7 +1416,7 @@ fn apply_dry_run_shows_requires_op_module_plan() {
         .args(["apply", "--dry-run"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("gh-config"));
+        .stdout(predicate::str::contains("Brewfile.secrets"));
 }
 
 #[test]
@@ -1465,26 +1465,30 @@ fn apply_requires_op_module_skipped_without_op_not_a_hard_error() {
 
 // ─── AI module (Week 6) ───────────────────────────────────────────────────────
 
-/// Write an ai.toml with one skill and one command (both gh: sources).
+/// Write ai/skills.toml with two skill entries (both gh: sources).
 fn write_ai_module(repo: &TempDir) {
-    let toml = "[ai]\n\
-                skills   = [\"gh:alice/my-skills@v1.0\"]\n\
-                commands = [\"gh:alice/my-commands@main\"]\n";
-    fs::write(
-        repo.path().join("modules").join("ai.toml"),
-        toml,
-    )
-    .unwrap();
+    let ai_dir = repo.path().join("ai");
+    fs::create_dir_all(&ai_dir).unwrap();
+    let skills_toml = "[[skill]]\n\
+                       name = \"my-skills\"\n\
+                       source = \"gh:alice/my-skills@v1.0\"\n\
+                       platforms = \"all\"\n\
+                       \n\
+                       [[skill]]\n\
+                       name = \"my-commands\"\n\
+                       source = \"gh:alice/my-commands@main\"\n\
+                       platforms = \"all\"\n";
+    fs::write(ai_dir.join("skills.toml"), skills_toml).unwrap();
     fs::write(
         repo.path().join("dfiles.toml"),
-        "[profile.default]\nmodules = [\"ai\"]\n",
+        "[profile.default]\nmodules = []\n",
     )
     .unwrap();
 }
 
 #[test]
 fn ai_toml_parses_skills_and_commands() {
-    // Verify that [ai] with gh: sources parses without error (dry-run, no network).
+    // Verify that ai/skills.toml with gh: sources parses without error (dry-run, no network).
     let repo = TempDir::new().unwrap();
     cmd(&repo).arg("init").assert().success();
     write_ai_module(&repo);
@@ -1498,7 +1502,6 @@ fn ai_toml_parses_skills_and_commands() {
         .success()
         .stdout(predicate::str::contains("fetch skill"))
         .stdout(predicate::str::contains("gh:alice/my-skills@v1.0"))
-        .stdout(predicate::str::contains("fetch command"))
         .stdout(predicate::str::contains("gh:alice/my-commands@main"));
 }
 
@@ -1600,9 +1603,9 @@ fn status_reports_clean_when_ai_skill_installed() {
     write_ai_module(&repo);
 
     let claude = TempDir::new().unwrap();
-    // Create the skill and command directories to simulate installed state.
+    // Create skill directories to simulate installed state (all entries deploy to skills/).
     fs::create_dir_all(claude.path().join("skills").join("my-skills")).unwrap();
-    fs::create_dir_all(claude.path().join("commands").join("my-commands")).unwrap();
+    fs::create_dir_all(claude.path().join("skills").join("my-commands")).unwrap();
 
     let mut c = Command::cargo_bin("dfiles").unwrap();
     c.env_remove("DFILES_DIR");

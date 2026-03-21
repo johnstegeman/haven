@@ -141,33 +141,33 @@ pub fn run(opts: &StatusOptions<'_>) -> Result<()> {
             }
         }
 
-        // AI drift
-        if show_ai {
-            if let Some(ai) = &module.ai {
-                for source_str in &ai.skills {
-                    if let Ok(source) = crate::github::GhSource::parse(source_str) {
-                        let installed = opts.claude_dir.join("skills").join(source.name());
-                        if !installed.exists() {
-                            module_drift.push((source_str.clone(), DriftKind::Missing));
-                        }
-                    }
-                }
-                for source_str in &ai.commands {
-                    if let Ok(source) = crate::github::GhSource::parse(source_str) {
-                        let installed = opts.claude_dir.join("commands").join(source.name());
-                        if !installed.exists() {
-                            module_drift.push((source_str.clone(), DriftKind::Missing));
-                        }
-                    }
-                }
-            }
-        }
+        // AI drift is driven by ai/skills.toml, handled below.
 
         if !module_drift.is_empty() {
             any_drift = true;
             println!("[{}]", module_name);
             for (label, kind) in module_drift {
                 println!("  {} {}", drift_marker(kind), label);
+            }
+        }
+    }
+
+    // ── AI skill drift (ai/skills.toml) ──────────────────────────────────────
+    if show_ai {
+        if let Some(skills_config) = crate::ai_skill::SkillsConfig::load(opts.repo_root)? {
+            let mut ai_drift: Vec<(String, DriftKind)> = Vec::new();
+            for skill in &skills_config.skills {
+                let skill_dir = opts.claude_dir.join("skills").join(&skill.name);
+                if !skill_dir.exists() {
+                    ai_drift.push((skill.source.clone(), DriftKind::Missing));
+                }
+            }
+            if !ai_drift.is_empty() {
+                any_drift = true;
+                println!("[ai]");
+                for (label, kind) in ai_drift {
+                    println!("  {} {}", drift_marker(kind), label);
+                }
             }
         }
     }

@@ -300,55 +300,8 @@ pub fn run(opts: &DiffOptions<'_>) -> Result<bool> {
         }
     }
 
-    // ── AI ────────────────────────────────────────────────────────────────────
-    if opts.diff_ai {
-        let modules_to_check: Vec<String> = match opts.module_filter {
-            Some(m) => vec![m.to_string()],
-            None => DfilesConfig::load(opts.repo_root)?
-                .resolve_modules(opts.profile)
-                .unwrap_or_default(),
-        };
-        let sorted = sort_modules(&modules_to_check);
-
-        for module_name in &sorted {
-            let module = ModuleConfig::load(opts.repo_root, module_name)?;
-            let ai = match &module.ai {
-                Some(a) => a,
-                None => continue,
-            };
-
-            let mut module_lines: Vec<String> = Vec::new();
-
-            for source_str in &ai.skills {
-                if let Ok(source) = crate::github::GhSource::parse(source_str) {
-                    let installed = opts.claude_dir.join("skills").join(source.name());
-                    if !installed.exists() {
-                        module_lines.push(format!("  - fetch skill: {}", source_str));
-                    }
-                }
-            }
-            for source_str in &ai.commands {
-                if let Ok(source) = crate::github::GhSource::parse(source_str) {
-                    let installed = opts.claude_dir.join("commands").join(source.name());
-                    if !installed.exists() {
-                        module_lines.push(format!("  - fetch command: {}", source_str));
-                    }
-                }
-            }
-
-            if !module_lines.is_empty() {
-                if !any_drift {
-                    // Print the [ai] section header once.
-                }
-                any_drift = true;
-                println!("[ai: {}]", module_name);
-                for line in &module_lines {
-                    println!("{}", line);
-                }
-                println!();
-            }
-        }
-    }
+    // AI drift is driven by ai/skills.toml (handled in the ai/skills section above),
+    // not by module TOML. The [ai] module section has been removed.
 
     if !any_drift {
         println!("✓ Everything up to date (profile: {})", opts.profile);

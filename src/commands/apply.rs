@@ -168,52 +168,6 @@ pub fn run(opts: &ApplyOptions<'_>) -> Result<()> {
                 }
             }
 
-            // ── AI skills / commands ─────────────────────────────────────────
-            if let Some(ai) = &module.ai {
-                for source_str in &ai.skills {
-                    let source = crate::github::GhSource::parse(source_str)
-                        .with_context(|| format!("Invalid AI skill source: {}", source_str))?;
-                    let skills_dir = opts.claude_dir.join("skills");
-                    print!("  Installing skill {}… ", source.name());
-                    let _ = std::io::Write::flush(&mut std::io::stdout());
-                    match crate::github::fetch_to_dir(&source, &skills_dir) {
-                        Ok(sha) => {
-                            lock.pin(source_str, &sha);
-                            println!("✓");
-                            module_applied += 1;
-                        }
-                        Err(e) => {
-                            println!("✗");
-                            eprintln!(
-                                "  warning: [{}] skill {} — fetch failed: {}",
-                                module_name, source_str, e
-                            );
-                        }
-                    }
-                }
-                for source_str in &ai.commands {
-                    let source = crate::github::GhSource::parse(source_str)
-                        .with_context(|| format!("Invalid AI command source: {}", source_str))?;
-                    let commands_dir = opts.claude_dir.join("commands");
-                    print!("  Installing command {}… ", source.name());
-                    let _ = std::io::Write::flush(&mut std::io::stdout());
-                    match crate::github::fetch_to_dir(&source, &commands_dir) {
-                        Ok(sha) => {
-                            lock.pin(source_str, &sha);
-                            println!("✓");
-                            module_applied += 1;
-                        }
-                        Err(e) => {
-                            println!("✗");
-                            eprintln!(
-                                "  warning: [{}] command {} — fetch failed: {}",
-                                module_name, source_str, e
-                            );
-                        }
-                    }
-                }
-            }
-
             // ── Mise ─────────────────────────────────────────────────────────
             if let Some(mise_cfg) = &module.mise {
                 match crate::mise::mise_path() {
@@ -242,8 +196,20 @@ pub fn run(opts: &ApplyOptions<'_>) -> Result<()> {
     }
 
     // ── 3. AI skills (ai/skills.toml) ────────────────────────────────────────
-    if opts.apply_ai && !opts.dry_run {
-        apply_ai_skills(opts, &mut state, &mut lock)?;
+    if opts.apply_ai {
+        if opts.dry_run {
+            if let Some(skills_config) = SkillsConfig::load(opts.repo_root)? {
+                if !skills_config.skills.is_empty() {
+                    println!("[ai]");
+                    for skill in &skills_config.skills {
+                        println!("  fetch skill: {}", skill.source);
+                    }
+                    println!();
+                }
+            }
+        } else {
+            apply_ai_skills(opts, &mut state, &mut lock)?;
+        }
     }
 
     // ── 4. Run scripts from source/scripts/ ──────────────────────────────────
@@ -837,16 +803,6 @@ fn print_dry_run_module(module_name: &str, module: &ModuleConfig, _opts: &ApplyO
             .map(|c| format!(" --config-file {}", c))
             .unwrap_or_default();
         println!("  mise install{}", config_hint);
-    }
-    if let Some(ai) = &module.ai {
-        for s in &ai.skills {
-            if !has_output { println!("[{}]", module_name); has_output = true; }
-            println!("  fetch skill: {}", s);
-        }
-        for s in &ai.commands {
-            if !has_output { println!("[{}]", module_name); has_output = true; }
-            println!("  fetch command: {}", s);
-        }
     }
     if has_output { println!(); }
 }

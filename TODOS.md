@@ -155,93 +155,55 @@ to the home directory, and imports the target file if it exists. Falls back to
 
 ---
 
-## P1 (chezmoi importer): `run_once_` script migration
+## ~~P1 (chezmoi importer): `run_once_` script migration~~ DONE
 
-**What:** Parse `run_once_` scripts for known package manager invocations and attempt to generate `[homebrew]` or `[mise]` module sections.
-
-**Why:** Install scripts are the most common chezmoi pattern after dotfiles. Users who maintain a `run_once_0a-install-homebrew.sh` expect it to migrate to something useful.
-
-**Pros:** Covers the most common case (Homebrew bundle install). Skipped scripts are listed with a note pointing at the generated TOML.
-
-**Cons:** Script parsing is heuristic and fragile. Only `brew bundle --file=...` and `mise install` are reasonable to detect. Everything else stays as a skip.
-
-**Context:** Scan script content for `brew bundle --file=<path>` → emit `[homebrew]` block with that Brewfile path. Scan for `mise install` → emit `[mise]` block. Everything else: skip with reason "unrecognized script, manual migration required".
-
-**Effort:** M (human) → S (CC+gstack)
-**Priority:** P1 (within chezmoi importer)
-**Depends on:** chezmoi importer v1 shipped
+Implemented. `src/chezmoi.rs`: `detect_script_migration()` scans script content for
+`brew bundle --file=<path>` (→ `[homebrew]` TOML) and `mise install` (→ `[mise]` TOML).
+All readable scripts (including unrecognised ones) are copied to `source/scripts/` for
+execution via `dfiles apply --run-scripts`. `src/commands/import.rs`:
+`emit_script_migrations()` writes module TOML for detected patterns;
+`import_scripts()` copies scripts.
 
 ---
 
-## P1 (chezmoi importer): `create_` file attribute
+## ~~P1 (chezmoi importer): `create_` file attribute~~ DONE
 
-**What:** Import files with the `create_` prefix and emit `create_only = true` in the module TOML. During `dfiles apply`, skip writing the file if the destination already exists.
-
-**Why:** `create_` is chezmoi's way of saying "write this file only on first setup — don't overwrite if the user has customized it." Silently skipping it during import loses that intent.
-
-**Pros:** Faithfully preserves chezmoi semantics. Useful for files like `~/.config/app/prefs.json` that should be seeded but not overwritten.
-
-**Cons:** Requires a new `create_only: bool` field in `FileEntry` and a check in `apply.rs` (skip backup + skip write if dest exists).
-
-**Context:** Implementation: (1) `src/chezmoi.rs` — in `decode_entry`, after stripping `private_`/`executable_` prefixes, detect `create_` prefix on the first component; strip it, set `create_only = true`; use a `rewrite_first_component()` helper to rebuild the path. (2) `src/config/module.rs` — add `#[serde(default)] pub create_only: bool` to `FileEntry`. (3) `src/commands/apply.rs` — before backup+write, check `entry.create_only && dest.exists()`; if true, print a skip message and continue. (4) `src/commands/import.rs` — pass `create_only` through to `FileEntry`. Unit tests in `src/chezmoi.rs`; integration test in `tests/integration.rs`.
-
-**Effort:** S (human) → S (CC+gstack)
-**Priority:** P1 (within chezmoi importer)
-**Depends on:** chezmoi importer v1 shipped
+Implemented. `src/source.rs`: `FileFlags.create_only` set when `create_` prefix present.
+`src/commands/apply.rs`: `apply_entry()` skips write (and backup) when
+`entry.flags.create_only && dest.exists()`. Chezmoi import preserves the `create_`
+prefix in source/ — no transformation needed. Integration tests:
+`apply_create_only_skips_if_dest_exists` and `apply_create_only_writes_if_dest_absent`.
+Import tests: `import_create_prefix_preserved_in_source`.
 
 ---
 
-## P1 (chezmoi importer): `exact_` directory attribute
+## ~~P1 (chezmoi importer): `exact_` directory attribute~~ DONE
 
-**What:** Import directories with the `exact_` prefix and emit `exact = true` in the module TOML. During `dfiles apply`, delete any files in the destination directory that are not tracked in the module.
-
-**Why:** `exact_` is chezmoi's declarative directory mode — the destination directory should contain exactly the tracked files. Without it, stale files accumulate across machines.
-
-**Pros:** Declarative directories are a key chezmoi feature for things like `~/.ssh/` and `~/.config/app/`.
-
-**Cons:** Dangerous if applied to the wrong directory (e.g. `~/` itself). Apply needs to enumerate and delete untracked files — must be conservative (only delete regular files, never directories, never if dest_root is `/` and dest is in a sensitive path).
-
-**Context:** Implementation: (1) `src/chezmoi.rs` — detect `exact_` prefix on directory components in `decode_entry`; strip it; add a module-level `exact_dirs: Vec<String>` tracking which dest dirs are exact. The scanner needs to track dir-level attributes separately from file entries. (2) `src/config/module.rs` — add `exact_dirs: Vec<String>` to `ModuleConfig`. (3) `src/commands/apply.rs` — after applying all files for a module, for each `exact_dir`: read dest dir, collect applied file names, delete any file not in the applied set (with backup). `modify_` scripts are intentionally not supported (see separate entry).
-
-**Effort:** M (human) → S (CC+gstack)
-**Priority:** P1 (within chezmoi importer)
-**Depends on:** chezmoi importer v1 shipped; `create_` attribute (for completeness)
+Implemented. `src/source.rs`: `FileFlags.exact` set on `SourceDir` when `exact_` prefix
+present. `src/commands/apply.rs`: `collect_exact_dirs()` builds the map of exact dirs
+from the scanned entries; `purge_exact_dir()` backs up and removes untracked files
+(regular files only, never directories). Chezmoi import preserves the `exact_` prefix in
+source/. Integration tests: `apply_exact_dir_removes_untracked_files`,
+`apply_exact_dir_keeps_tracked_files`. Import test: `import_exact_prefix_preserved_in_source`.
 
 ---
 
-## P2 (chezmoi importer): `modify_` scripts — note only
+## ~~P2 (chezmoi importer): `modify_` scripts — note only~~ DONE
 
-**What:** Document that `modify_` scripts (chezmoi's stdin→stdout file transformation scripts) are intentionally not supported in dfiles, with a clear skip message pointing users to a workaround.
-
-**Why:** `modify_` scripts are fundamentally incompatible with a static dotfile manager. They require running a script during apply to transform an existing file — there's no static equivalent.
-
-**Pros:** Users get a clear explanation rather than a silent skip.
-
-**Cons:** Some chezmoi users rely heavily on `modify_` for things like appending to `/etc/hosts`. Those users must keep `modify_` scripts outside dfiles.
-
-**Context:** Current behavior: `modify_` files are skipped with `SkipReason::UnsupportedAttribute`. Improvement: add a new `SkipReason::ModifyScript` with a message explaining the limitation and suggesting the user run the script manually or replace it with a static file. No apply-side changes needed.
-
-**Effort:** XS (human) → XS (CC+gstack)
-**Priority:** P2 (within chezmoi importer)
-**Depends on:** chezmoi importer v1 shipped
+Implemented. `SkipReason::ModifyScript` in `src/chezmoi.rs` emits a clear message
+explaining that `modify_` scripts are unsupported (no stdin→stdout transform equivalent in
+dfiles) and directing users to run the script manually or replace with a static file.
 
 ---
 
-## P1 (chezmoi importer): Script execution during apply (`run_`, `run_once_`, `once_`)
+## ~~P1 (chezmoi importer): Script execution during apply (`run_`, `run_once_`, `once_`)~~ DONE
 
-**What:** Import `run_` and `run_once_` scripts into the dfiles repo and execute them during `dfiles apply`. `run_once_` scripts run only once per machine (tracked in `state.json`). `run_` scripts run on every apply.
-
-**Why:** This is the complementary apply-side feature to the import-side `run_once_` migration TODO (which converts known patterns to TOML). For scripts that can't be expressed as Brewfile or mise config, executing them directly is the correct fallback.
-
-**Pros:** Faithful chezmoi parity. Users can migrate complex bootstrap scripts without manual intervention.
-
-**Cons:** Executing arbitrary scripts is a security surface. Must require explicit confirmation on first run (or a `--run-scripts` flag). Scripts run with user's shell; must handle shebangs correctly.
-
-**Context:** Implementation plan: (1) `src/config/module.rs` — add `ScriptWhen { Always, Once }` enum and `ScriptEntry { source: String, when: ScriptWhen }`, add `scripts: Vec<ScriptEntry>` to `ModuleConfig`. (2) `src/state.rs` — add `#[serde(default)] pub scripts_run: HashMap<String, String>` (source_name → ISO timestamp). (3) `src/chezmoi.rs` — add `ChezmoiScriptEntry` struct and `ImportEntry::Script` variant; update `decode_entry` to produce `Script` entries for `run_once_`/`run_`/`once_`; update `scan()` to return a 4-tuple including scripts. (4) `src/commands/import.rs` — copy scripts to `source/`; write `ScriptEntry` to module TOML. (5) `src/commands/apply.rs` — after file entries, iterate `module.scripts`: for `Always` scripts, execute unconditionally; for `Once` scripts, check `state.scripts_run` and skip if already run; record timestamp on success. This should be blocked behind a `--run-scripts` flag or explicit confirmation prompt (safety). Note: the import-side `run_once_` migration TODO (parsing for `brew bundle`/`mise install`) is separate and complementary — that TODO converts patterns to TOML; this TODO runs the scripts as-is.
-
-**Effort:** L (human) → M (CC+gstack)
-**Priority:** P1 (within chezmoi importer)
-**Depends on:** chezmoi importer v1 shipped; `run_once_` import migration TODO
+Implemented. `src/source.rs`: `ScriptEntry` / `ScriptExecWhen` / `scan_scripts()`.
+`src/state.rs`: `scripts_run: HashMap<String, String>` tracks run timestamps.
+`src/commands/apply.rs`: `apply_scripts()` runs scripts from `source/scripts/`;
+`run_once_`/`once_` scripts are skipped if already in `state.scripts_run`; gated behind
+`--run-scripts` flag for safety. Integration tests: `apply_run_scripts_executes_script`,
+`apply_run_once_script_runs_only_once`, `apply_scripts_not_run_without_flag`.
 
 ---
 

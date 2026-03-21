@@ -2006,6 +2006,56 @@ fn import_executable_prefix_preserves_encoding() {
 }
 
 #[test]
+fn import_create_prefix_preserved_in_source() {
+    // create_dot_seedrc in chezmoi source should be imported as source/create_dot_seedrc
+    // so that dfiles apply honours the create_only (seed-only) semantics.
+    let repo = TempDir::new().unwrap();
+    let chezmoi_src = TempDir::new().unwrap();
+
+    fs::write(chezmoi_src.path().join("create_dot_seedrc"), "# seed\n").unwrap();
+
+    cmd(&repo).arg("init").assert().success();
+
+    cmd(&repo)
+        .args(["import", "--from", "chezmoi", "--source"])
+        .arg(chezmoi_src.path())
+        .assert()
+        .success();
+
+    // Prefix is preserved in the source path — apply uses it to set create_only.
+    assert!(
+        repo.path().join("source").join("create_dot_seedrc").exists(),
+        "source/create_dot_seedrc must be present (create_ prefix preserved)"
+    );
+}
+
+#[test]
+fn import_exact_prefix_preserved_in_source() {
+    // exact_dot_ssh/ in chezmoi source should be imported as source/exact_dot_ssh/
+    // so that dfiles apply enforces exact directory semantics on ~/.ssh/.
+    let repo = TempDir::new().unwrap();
+    let chezmoi_src = TempDir::new().unwrap();
+
+    let ssh_src = chezmoi_src.path().join("exact_dot_ssh");
+    fs::create_dir_all(&ssh_src).unwrap();
+    fs::write(ssh_src.join("config"), "Host *\n  ServerAliveInterval 60\n").unwrap();
+
+    cmd(&repo).arg("init").assert().success();
+
+    cmd(&repo)
+        .args(["import", "--from", "chezmoi", "--source"])
+        .arg(chezmoi_src.path())
+        .assert()
+        .success();
+
+    // Directory AND file are imported with the exact_ prefix on the dir.
+    assert!(
+        repo.path().join("source").join("exact_dot_ssh").join("config").exists(),
+        "source/exact_dot_ssh/config must be present (exact_ prefix preserved)"
+    );
+}
+
+#[test]
 fn import_dry_run_shows_private_annotation() {
     let repo = TempDir::new().unwrap();
     let chezmoi_src = TempDir::new().unwrap();

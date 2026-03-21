@@ -108,7 +108,7 @@ impl SkipReason {
                  equivalent. Run the script manually or replace it with a static file."
             ),
             SkipReason::Template => Some("Go template — could not read file (manual migration required)"),
-            SkipReason::Script => Some("unrecognised script — manual migration required (see TODOS.md)"),
+            SkipReason::Script => Some("script file could not be read — skipped (readable scripts are copied to source/scripts/ automatically)"),
             SkipReason::Internal => None, // silent
             SkipReason::Ignored => Some("ignored by .chezmoiignore (use --include-ignored-files to import anyway)"),
         }

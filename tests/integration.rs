@@ -937,6 +937,57 @@ fn status_reports_modified_when_template_dest_differs() {
 }
 
 #[test]
+fn status_files_flag_skips_brew_section() {
+    // --files should only show file drift, not brew drift.
+    let (repo, home) = setup_apply();
+    // dest matches source — no file drift.
+    let dest_path = home.path().join(".applyrc");
+    fs::write(&dest_path, "export APPLY=1\n").unwrap();
+
+    cmd_home(&repo, &home)
+        .args(["status", "--files"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("up to date"));
+}
+
+#[test]
+fn status_brews_flag_skips_files_section() {
+    // --brews should not show file drift even when files are modified.
+    let (repo, home) = setup_apply();
+    // Dest differs from source — would show M under --files.
+    let dest_path = home.path().join(".applyrc");
+    fs::write(&dest_path, "export APPLY=MODIFIED\n").unwrap();
+
+    cmd_home(&repo, &home)
+        .args(["status", "--brews"])
+        .assert()
+        .success()
+        // No [files] section emitted.
+        .stdout(predicate::str::contains("[files]").not());
+}
+
+#[test]
+fn status_ai_flag_shows_only_ai_section() {
+    // --ai with a missing skill should show drift; [files] section should be absent.
+    let repo = TempDir::new().unwrap();
+    cmd(&repo).arg("init").assert().success();
+    write_ai_module(&repo);
+
+    let claude = TempDir::new().unwrap();
+    // Skill is absent.
+
+    let mut c = Command::cargo_bin("dfiles").unwrap();
+    c.env_remove("DFILES_DIR");
+    c.env("DFILES_CLAUDE_DIR", claude.path());
+    c.args(["--dir", repo.path().to_str().unwrap(), "status", "--ai"]);
+    c.assert()
+        .success()
+        .stdout(predicate::str::contains("?"))
+        .stdout(predicate::str::contains("[files]").not());
+}
+
+#[test]
 fn apply_fails_on_malformed_template() {
     let repo = TempDir::new().unwrap();
     let home = TempDir::new().unwrap();

@@ -104,6 +104,19 @@ impl ModuleConfig {
             .with_context(|| format!("Cannot read {}", path.display()))?;
         let config: Self = toml::from_str(&text)
             .with_context(|| format!("Invalid TOML in {}", path.display()))?;
+
+        // Deprecation warning: [ai] in module configs is replaced by ai/skills.toml.
+        // Skills still deploy in this release (no breaking change). This section
+        // will be removed in the next major release.
+        if config.ai.is_some() {
+            eprintln!(
+                "warning: [ai] section in config/modules/{}.toml is deprecated.\n\
+                 Migrate your skills to ai/skills.toml. The [ai] module section\n\
+                 will be removed in the next major release of dfiles.",
+                module_name
+            );
+        }
+
         Ok(config)
     }
 

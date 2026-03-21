@@ -1,3 +1,5 @@
+mod ai_platform;
+mod ai_skill;
 mod chezmoi;
 mod chezmoi_template;
 mod claude_md;
@@ -13,6 +15,7 @@ mod lock;
 mod manifest;
 mod mise;
 mod onepassword;
+mod skill_cache;
 mod source;
 mod state;
 mod template;
@@ -82,10 +85,15 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Bootstrap this machine from a local or remote environment package.
+    /// Apply and verify your environment on this machine.
     ///
-    /// Without a source, applies the local repo (equivalent to `dfiles apply` + `dfiles status`).
+    /// Without a source, applies the local repo and reports status (equivalent to
+    /// `dfiles apply` followed by `dfiles status`). Use this for day-to-day
+    /// re-provisioning of an already-initialised machine.
+    ///
     /// With a `gh:` source, fetches the remote package first, then applies it.
+    /// Use `dfiles init` instead when setting up a machine for the first time —
+    /// init creates the local repo structure that bootstrap expects to already exist.
     ///
     /// Examples:
     ///   dfiles bootstrap
@@ -105,10 +113,13 @@ enum Commands {
         dry_run: bool,
     },
 
-    /// Initialize a new dfiles repository, optionally cloned from a remote.
+    /// Create a new dfiles repository (first-time setup).
     ///
     /// Without a source, creates a blank scaffold in the --dir directory.
-    /// With a source, clones the repository and optionally applies it.
+    /// With a source, clones the repository and optionally applies it immediately.
+    ///
+    /// Use this once when setting up a machine for the first time. For subsequent
+    /// re-provisioning of an already-initialised machine, use `dfiles bootstrap`.
     ///
     /// Examples:
     ///   dfiles init
@@ -160,7 +171,8 @@ enum Commands {
         #[arg(long)]
         profile: Option<String>,
 
-        /// Apply only a single module (e.g. --module shell).
+        /// Scope brew and AI operations to this module (e.g. --module shell).
+        /// Note: dotfiles in source/ are always applied globally regardless of this flag.
         #[arg(long)]
         module: Option<String>,
 
@@ -227,7 +239,8 @@ enum Commands {
         #[arg(long)]
         profile: Option<String>,
 
-        /// Scope brew/AI diff to a single module.
+        /// Scope brew and AI diff to a single module.
+        /// Note: dotfiles in source/ are always diffed globally regardless of this flag.
         #[arg(long)]
         module: Option<String>,
 
@@ -260,11 +273,26 @@ enum Commands {
     /// Show drift between tracked source files and live destinations.
     ///
     /// Drift markers: ✓ clean  M modified  ? missing  ! source missing
+    ///
+    /// By default all sections are shown. Use --files, --brews, and/or --ai
+    /// to inspect only specific sections.
     Status {
         /// Profile to check. Defaults to the last-used profile saved in state,
         /// or "default" if no prior apply has been recorded.
         #[arg(long)]
         profile: Option<String>,
+
+        /// Show dotfile drift only.
+        #[arg(long)]
+        files: bool,
+
+        /// Show Homebrew package drift only.
+        #[arg(long)]
+        brews: bool,
+
+        /// Show AI skill drift only.
+        #[arg(long)]
+        ai: bool,
     },
 
     /// Run `brew install`/`uninstall` and keep your dfiles Brewfiles in sync.
@@ -495,13 +523,16 @@ fn run() -> Result<()> {
             }
         }
 
-        Commands::Status { profile } => {
+        Commands::Status { profile, files, brews, ai } => {
             let resolved = resolve_profile(profile.as_deref(), &state_dir);
             commands::status::run(&commands::status::StatusOptions {
                 repo_root: &repo,
                 dest_root: std::path::Path::new("/"),
                 claude_dir: &claude_dir,
                 profile: &resolved,
+                show_files: *files,
+                show_brews: *brews,
+                show_ai: *ai,
             })?;
         }
 

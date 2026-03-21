@@ -18,12 +18,15 @@ use anyhow::{Context, Result};
 use chrono::Utc;
 use std::path::{Path, PathBuf};
 
+use crate::ai_platform::PlatformsConfig;
+use crate::ai_skill::{SkillSource, SkillsConfig};
 use crate::config::{sort_modules, DfilesConfig, ModuleConfig};
 use crate::config::module::expand_tilde;
 use crate::fs::{apply_permissions, backup_file, copy_to_dest, write_to_dest};
 use crate::ignore::IgnoreList;
+use crate::skill_cache::SkillCache;
 use crate::source::{scan, SourceEntry};
-use crate::state::{ModuleState, State};
+use crate::state::{AiDeployedEntry, ModuleState, State};
 use crate::template::TemplateContext;
 
 pub struct ApplyOptions<'a> {
@@ -41,7 +44,7 @@ pub struct ApplyOptions<'a> {
     pub apply_files: bool,
     /// Run brew bundle install (and optionally purge unreferenced packages).
     pub apply_brews: bool,
-    /// Apply AI skills, commands, mise, and externals. Placeholder — not yet implemented.
+    /// Apply AI skills (from ai/skills.toml) and legacy module [ai] sections.
     pub apply_ai: bool,
     /// When true, `git pull --ff-only` existing extdir_ clones in addition to cloning
     /// missing ones. By default existing clones are left as-is (idempotent).
@@ -225,8 +228,13 @@ pub fn run(opts: &ApplyOptions<'_>) -> Result<()> {
         }
     }
 
+    // ── 3. AI skills (ai/skills.toml) ────────────────────────────────────────
+    if opts.apply_ai && !opts.dry_run {
+        apply_ai_skills(opts, &mut state, &mut lock)?;
+    }
+
     if !opts.dry_run {
-        if !lock.sources.is_empty() {
+        if !lock.sources.is_empty() || !lock.skill.is_empty() {
             if let Err(e) = lock.save(opts.repo_root) {
                 eprintln!("warning: Could not write dfiles.lock: {}", e);
             }
@@ -426,6 +434,183 @@ fn print_dry_run_entry(entry: &SourceEntry, dest_root: &Path) {
     );
     // Print as the encoded relative path for clarity
     let _ = src_rel; // suppress warning
+}
+
+// ─── AI skills ────────────────────────────────────────────────────────────────
+
+/// Deploy AI skills from `ai/skills.toml` to the declared platform skill dirs.
+///
+/// Flow per skill:
+///   1. Resolve which active platforms are targeted.
+///   2. Fetch skill to cache (sparse checkout → tarball fallback).
+///      On failure: print error, continue with next skill.
+///   3. For each unique target path:
+///      - If path exists and not managed by dfiles: warn + skip.
+///      - Deploy (symlink or copy).
+///      - Record in AiState.
+///   4. AiState written to state.json once after all skills complete (atomic).
+fn apply_ai_skills(
+    opts: &ApplyOptions<'_>,
+    state: &mut State,
+    lock: &mut crate::lock::LockFile,
+) -> Result<()> {
+    let platforms_config = PlatformsConfig::load(opts.repo_root)?;
+    let skills_config = SkillsConfig::load(opts.repo_root)?;
+
+    let (platforms_config, skills_config) = match (platforms_config, skills_config) {
+        (Some(p), Some(s)) => (p, s),
+        _ => return Ok(()), // no ai/ config — skip silently
+    };
+
+    if platforms_config.active.is_empty() {
+        eprintln!("warning: ai/platforms.toml has no active platforms — skipping skill deployment");
+        return Ok(());
+    }
+    if skills_config.skills.is_empty() {
+        return Ok(());
+    }
+
+    let active_platforms = platforms_config.resolve_active_platforms()?;
+    let skill_cache = SkillCache::new(opts.state_dir);
+
+    // Collect existing deployed state so we can check ownership.
+    let mut ai_state = state.ai.clone().unwrap_or_default();
+
+    // Build the set of paths currently owned by dfiles (for collision check).
+    let owned_targets: std::collections::HashSet<PathBuf> = ai_state
+        .deployed_skills
+        .values()
+        .flat_map(|m| m.values())
+        .map(|e| e.target.clone())
+        .collect();
+
+    println!("\nDeploying AI skills…");
+
+    let mut skills_applied = 0usize;
+    let mut skills_failed = 0usize;
+
+    for skill in &skills_config.skills {
+        let source_str = &skill.source;
+
+        // Parse the source.
+        let skill_source = match SkillSource::parse(source_str) {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("  error: skill '{}' — invalid source: {:#}", skill.name, e);
+                skills_failed += 1;
+                continue;
+            }
+        };
+
+        let target_platforms = skill.resolve_platforms(&active_platforms);
+        if target_platforms.is_empty() {
+            continue; // no active platforms for this skill
+        }
+
+        // Fetch (or verify cache) for gh: sources.
+        let (skill_path, sha) = match &skill_source {
+            SkillSource::Gh(gh) => {
+                print!("  Fetching {}… ", skill.name);
+                let _ = std::io::Write::flush(&mut std::io::stdout());
+                match skill_cache.ensure(gh, lock) {
+                    Ok(sha) => {
+                        println!("✓");
+                        (skill_cache.cache_path(gh), Some(sha))
+                    }
+                    Err(e) => {
+                        println!("✗");
+                        eprintln!("  error: skill '{}' — fetch failed: {:#}", skill.name, e);
+                        skills_failed += 1;
+                        continue;
+                    }
+                }
+            }
+            SkillSource::Dir(path) => {
+                if !path.exists() {
+                    eprintln!(
+                        "  error: skill '{}' — dir: path not found: {}",
+                        skill.name,
+                        path.display()
+                    );
+                    skills_failed += 1;
+                    continue;
+                }
+                (path.clone(), None)
+            }
+        };
+
+        // Deploy to each platform, deduplicating by resolved target path.
+        let mut deployed_targets: std::collections::HashSet<PathBuf> =
+            std::collections::HashSet::new();
+
+        for platform in &target_platforms {
+            let target = platform.skills_dir.join(&skill.name);
+
+            // Deduplicate: github-copilot and cross-client both use ~/.agents/skills/.
+            if deployed_targets.contains(&target) {
+                continue;
+            }
+            deployed_targets.insert(target.clone());
+
+            match crate::ai_skill::deploy_skill(
+                &skill_path,
+                &target,
+                &skill.deploy,
+                &owned_targets,
+            ) {
+                Ok(true) => {
+                    // Record in state.
+                    let platform_map = ai_state
+                        .deployed_skills
+                        .entry(platform.id.clone())
+                        .or_default();
+                    platform_map.insert(
+                        skill.name.clone(),
+                        AiDeployedEntry {
+                            source: source_str.clone(),
+                            deploy: skill.deploy.as_str().to_string(),
+                            target: target.clone(),
+                            applied_at: chrono::Utc::now().to_rfc3339(),
+                            sha: sha.clone(),
+                        },
+                    );
+                    println!(
+                        "  ✓ {} → {}",
+                        skill.name,
+                        target.display()
+                    );
+                    skills_applied += 1;
+                }
+                Ok(false) => {
+                    // Warned + skipped inside deploy_skill.
+                }
+                Err(e) => {
+                    eprintln!(
+                        "  error: skill '{}' → {} — deploy failed: {:#}",
+                        skill.name,
+                        target.display(),
+                        e
+                    );
+                    skills_failed += 1;
+                }
+            }
+        }
+    }
+
+    // Write AI state back (once, after all skills complete — atomic).
+    state.ai = Some(ai_state);
+
+    if skills_failed > 0 {
+        eprintln!(
+            "  {} skill(s) failed — see errors above",
+            skills_failed
+        );
+    }
+    if skills_applied > 0 {
+        println!("  {} skill(s) deployed", skills_applied);
+    }
+
+    Ok(())
 }
 
 // ─── Brew ─────────────────────────────────────────────────────────────────────

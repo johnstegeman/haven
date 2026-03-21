@@ -5,23 +5,6 @@ Updated by /plan-ceo-review on 2026-03-21 (AI skills management)
 
 ---
 
-## P1: Confirm skills.sh API format for `dfiles ai search`
-
-**What:** Research and document the skills.sh / agentskills.io API endpoint, response schema, authentication requirements, and rate limits before implementing `dfiles ai search`.
-
-**Why:** `dfiles ai search` was accepted into v1 scope, but the API format is unconfirmed. Implementing without this leads to a brittle integration or a feature that ships non-functional.
-
-**Pros:** Unblocks real implementation of search. Ensures the search command is reliable, not a guess.
-
-**Cons:** External dependency — the API may be undocumented or not public. If unavailable, `dfiles ai search` ships graceful degradation only (print error + link to skills.sh).
-
-**Context:** The AI skills management design (2026-03-21 CEO plan) accepted `dfiles ai search` as M-effort scope. Ship the graceful degradation fallback first ("Error: skills registry unavailable — browse at https://skills.sh"); swap in the real API call when confirmed. API needs to support: keyword search, return name/description/source/install-count, ideally support filtering by platform.
-
-**Effort:** XS research (human) → XS (CC+gstack)
-**Priority:** P1 (blocker for real search implementation)
-**Depends on / blocked by:** AI skills management v1 shipping
-
----
 
 ## P2: Parallel skill fetches in `dfiles apply`
 

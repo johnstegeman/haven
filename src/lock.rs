@@ -1,27 +1,47 @@
 /// dfiles.lock — pins GitHub sources by commit SHA for reproducible installs.
 ///
-/// Example lock file (`dfiles.lock` in the repo root):
-///
 /// ```toml
+/// # Dotfile / command sources (existing section — SHA-256 of tarball).
 /// [sources."gh:alice/dotfiles@v1.0"]
 /// sha256     = "3a9f2..."
 /// fetched_at = "2026-03-20T12:00:00Z"
+///
+/// # AI skill sources (new section — git commit SHA or tarball SHA-256).
+/// [skill."gh:anthropics/skills/pdf-processing"]
+/// sha        = "abc123def456..."
+/// fetched_at = "2026-03-21T10:00:00Z"
 /// ```
 ///
-/// The lockfile is written after each successful fetch so subsequent runs can
-/// detect whether a source has changed. SHA verification (P1 TODO) will compare
-/// the stored SHA against re-downloaded content before overwriting.
+/// The lockfile is written after each successful fetch. SHA verification (P1 TODO)
+/// will compare the stored SHA against re-downloaded content before overwriting.
+///
+/// Skills use their full source key (e.g. `"gh:owner/repo/subpath"`) as the TOML
+/// table key, not the skill name, so renames don't invalidate the lock.
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-/// A single locked source entry.
+/// A locked dotfile/command source entry (existing behavior).
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct LockEntry {
     /// SHA-256 hex digest of the downloaded tarball.
     pub sha256: String,
     /// RFC-3339 timestamp when this source was last fetched.
+    pub fetched_at: String,
+}
+
+/// A locked AI skill entry.
+///
+/// `sha` holds either a git commit SHA (sparse checkout path) or a tarball
+/// SHA-256 (tarball fallback). It is an opaque string used only for cache
+/// validation — both forms are 40–64 hex chars and never compared across types.
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct SkillLockEntry {
+    /// Opaque SHA: git commit SHA when fetched via sparse checkout,
+    /// or tarball SHA-256 when fetched via tarball fallback.
+    pub sha: String,
+    /// RFC-3339 timestamp when this skill was last fetched.
     pub fetched_at: String,
 }
 
@@ -31,6 +51,12 @@ pub struct LockFile {
     /// Map from source key (e.g. `"gh:alice/dotfiles@v1.0"`) to its lock entry.
     #[serde(default)]
     pub sources: HashMap<String, LockEntry>,
+
+    /// Map from full skill source key (e.g. `"gh:anthropics/skills/pdf-processing"`)
+    /// to its lock entry.  Absent from old lock files — `#[serde(default)]` ensures
+    /// backward compatibility.
+    #[serde(default)]
+    pub skill: HashMap<String, SkillLockEntry>,
 }
 
 impl LockFile {
@@ -55,7 +81,7 @@ impl LockFile {
             .with_context(|| format!("Cannot write {}", path.display()))
     }
 
-    /// Record a newly fetched source with its SHA-256.
+    /// Record a newly fetched dotfile/command source with its SHA-256.
     pub fn pin(&mut self, key: &str, sha256: &str) {
         self.sources.insert(
             key.to_string(),
@@ -66,13 +92,26 @@ impl LockFile {
         );
     }
 
-    /// Return the pinned SHA for a source key, if present.
-    ///
-    /// Reserved for P1 SHA verification: compare the stored SHA against a
-    /// freshly-downloaded tarball before overwriting an installed source.
+    /// Return the pinned SHA for a dotfile/command source key, if present.
     #[allow(dead_code)]
     pub fn pinned_sha(&self, key: &str) -> Option<&str> {
         self.sources.get(key).map(|e| e.sha256.as_str())
+    }
+
+    /// Record a newly fetched AI skill with its SHA.
+    pub fn pin_skill(&mut self, key: &str, sha: &str) {
+        self.skill.insert(
+            key.to_string(),
+            SkillLockEntry {
+                sha: sha.to_string(),
+                fetched_at: chrono::Utc::now().to_rfc3339(),
+            },
+        );
+    }
+
+    /// Return the locked SHA for a skill source key, if present.
+    pub fn skill_sha(&self, key: &str) -> Option<&str> {
+        self.skill.get(key).map(|e| e.sha.as_str())
     }
 }
 
@@ -110,5 +149,51 @@ mod tests {
     fn pinned_sha_returns_none_for_unknown_key() {
         let lock = LockFile::default();
         assert_eq!(lock.pinned_sha("gh:nobody/missing"), None);
+    }
+
+    #[test]
+    fn pin_skill_and_retrieve() {
+        let mut lock = LockFile::default();
+        lock.pin_skill("gh:anthropics/skills/pdf-processing", "abc123git");
+        assert_eq!(
+            lock.skill_sha("gh:anthropics/skills/pdf-processing"),
+            Some("abc123git")
+        );
+        assert_eq!(lock.skill_sha("gh:nobody/missing"), None);
+    }
+
+    #[test]
+    fn skill_section_round_trips() {
+        let dir = TempDir::new().unwrap();
+        let mut lock = LockFile::load(dir.path()).unwrap();
+        lock.pin_skill("gh:anthropics/skills/pdf-processing", "deadbeef");
+        lock.save(dir.path()).unwrap();
+
+        let loaded = LockFile::load(dir.path()).unwrap();
+        assert_eq!(
+            loaded.skill_sha("gh:anthropics/skills/pdf-processing"),
+            Some("deadbeef")
+        );
+        // Existing sources section is untouched.
+        assert!(loaded.sources.is_empty());
+    }
+
+    #[test]
+    fn old_lock_without_skill_section_loads_cleanly() {
+        let dir = TempDir::new().unwrap();
+        // Write a lock file that has only the [sources] section (old format).
+        std::fs::write(
+            dir.path().join("dfiles.lock"),
+            r#"[sources."gh:alice/dotfiles@v1.0"]
+sha256 = "abc123"
+fetched_at = "2026-03-20T12:00:00Z"
+"#,
+        )
+        .unwrap();
+
+        let lock = LockFile::load(dir.path()).unwrap();
+        assert_eq!(lock.pinned_sha("gh:alice/dotfiles@v1.0"), Some("abc123"));
+        // skill section defaults to empty — no error.
+        assert!(lock.skill.is_empty());
     }
 }

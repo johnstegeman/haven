@@ -1,0 +1,52 @@
+# Built-in platform definitions shipped with dfiles.
+#
+# These are the default platform definitions. Users can override any field
+# (or add custom platforms) via `ai/platforms.toml` in their dfiles repo.
+#
+# Fields:
+#   id                    - unique identifier used in skills.toml and active lists
+#   name                  - human-readable display name
+#   config_dir            - platform's main config directory (optional)
+#   skills_dir            - where skill directories are deployed (required)
+#   config_file           - platform's main config file, e.g. CLAUDE.md (optional)
+#   binary                - executable name used by `dfiles ai discover` (optional)
+#   agentskills_compliant - true if this platform follows the agentskills.io standard
+#                           (skills deployed to ~/.agents/skills/)
+
+[[platform]]
+id = "claude-code"
+name = "Claude Code"
+config_dir = "~/.claude"
+skills_dir = "~/.claude/skills"
+config_file = "~/.claude/CLAUDE.md"
+binary = "claude"
+agentskills_compliant = false
+
+[[platform]]
+id = "codex"
+name = "Codex"
+config_dir = "~/.codex"
+skills_dir = "~/.codex/skills"
+binary = "codex"
+agentskills_compliant = false
+
+[[platform]]
+id = "cursor"
+name = "Cursor"
+config_dir = "~/.cursor"
+skills_dir = "~/.cursor/skills"
+binary = "cursor"
+agentskills_compliant = false
+
+[[platform]]
+id = "github-copilot"
+name = "GitHub Copilot"
+config_dir = "~/.github/copilot"
+skills_dir = "~/.agents/skills"
+agentskills_compliant = true
+
+[[platform]]
+id = "cross-client"
+name = "Cross-client (agentskills.io)"
+skills_dir = "~/.agents/skills"
+agentskills_compliant = true

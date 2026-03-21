@@ -95,6 +95,9 @@ pub fn run(opts: &BootstrapOptions<'_>) -> Result<()> {
             dest_root: opts.dest_root,
             claude_dir: opts.claude_dir,
             profile: opts.profile,
+            show_files: false,
+            show_brews: false,
+            show_ai: false, // show all sections
         })?;
     }
 

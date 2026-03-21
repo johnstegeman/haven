@@ -14,6 +14,7 @@
 /// | `private_`    | chmod 0600 (files) / 0700 (directories)      |
 /// | `executable_` | chmod 0755                                   |
 /// | `symlink_`    | create symlink at dest pointing into source/ |
+/// | `extdir_`     | clone a remote git repo into this directory  |
 ///
 /// **Suffix** (files only):
 ///
@@ -47,6 +48,10 @@ pub struct FileFlags {
     pub executable: bool,
     pub symlink: bool,
     pub template: bool,
+    /// When true, this entry is an external-directory marker: clone a remote git
+    /// repo into `dest_tilde` on apply. The marker file's TOML content holds the
+    /// `url` (required) and optional `ref` and `type` fields.
+    pub extdir: bool,
 }
 
 /// A decoded source file entry, ready to be applied.
@@ -164,6 +169,9 @@ pub fn decode_component(s: &str, is_file: bool) -> (String, FileFlags) {
         } else if let Some(rest) = remaining.strip_prefix("symlink_") {
             flags.symlink = true;
             remaining = rest;
+        } else if let Some(rest) = remaining.strip_prefix("extdir_") {
+            flags.extdir = true;
+            remaining = rest;
         } else {
             break;
         }
@@ -221,6 +229,36 @@ pub fn encode_filename(
 
     if template { out.push_str(".tmpl"); }
     out
+}
+
+// ─── Extdir path helper ───────────────────────────────────────────────────────
+
+/// Build the `source/` path for an `extdir_` marker file from a tilde dest path.
+///
+/// Examples:
+/// ```text
+/// "~/.tmux/plugins/tpm"  →  source/dot_tmux/plugins/extdir_tpm
+/// "~/.config/nvim"       →  source/dot_config/extdir_nvim
+/// "~/nvim"               →  source/extdir_nvim
+/// ```
+///
+/// Directory components are encoded with [`encode_filename`] (`dot_` prefix etc.).
+/// The final component gets the `extdir_` prefix instead of any other encoding.
+pub fn extdir_source_path(repo_source: &Path, dest_tilde: &str) -> PathBuf {
+    let rel = dest_tilde.strip_prefix("~/").unwrap_or(dest_tilde);
+    let parts: Vec<&str> = rel.split('/').filter(|s| !s.is_empty()).collect();
+    let n = parts.len();
+
+    let mut path = repo_source.to_path_buf();
+    for component in &parts[..n.saturating_sub(1)] {
+        path = path.join(encode_filename(component, false, false, false, false));
+    }
+    if n > 0 {
+        let last = parts[n - 1];
+        let encoded_last = format!("extdir_{}", encode_filename(last, false, false, false, false));
+        path = path.join(encoded_last);
+    }
+    path
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -336,6 +374,32 @@ mod tests {
         let e = decode("symlink_dot_vimrc");
         assert_eq!(e.dest_tilde, "~/.vimrc");
         assert!(e.flags.symlink);
+    }
+
+    #[test]
+    fn path_extdir_plain() {
+        let e = decode("dot_tmux/plugins/extdir_tpm");
+        assert_eq!(e.dest_tilde, "~/.tmux/plugins/tpm");
+        assert!(e.flags.extdir);
+        assert!(!e.flags.symlink);
+        assert_eq!(e.dirs.len(), 2);
+        assert_eq!(e.dirs[0].dest_tilde, "~/.tmux");
+        assert_eq!(e.dirs[1].dest_tilde, "~/.tmux/plugins");
+    }
+
+    #[test]
+    fn path_extdir_with_dot_inside() {
+        let e = decode("dot_tmux/extdir_dot_plugins");
+        assert_eq!(e.dest_tilde, "~/.tmux/.plugins");
+        assert!(e.flags.extdir);
+    }
+
+    #[test]
+    fn path_extdir_at_root() {
+        let e = decode("extdir_nvim");
+        assert_eq!(e.dest_tilde, "~/nvim");
+        assert!(e.flags.extdir);
+        assert!(e.dirs.is_empty());
     }
 
     // ── encode_filename ───────────────────────────────────────────────────────

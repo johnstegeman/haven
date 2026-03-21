@@ -61,22 +61,22 @@ The user specifies *intent*. dfiles figures out what that requires.
 
 ## Scope Decisions
 
-| # | Proposal | Effort | Decision | Reasoning |
-|---|----------|--------|----------|-----------|
-| 1 | Registry Protocol Standard | M | DEFERRED | Build the binary first; extract spec from real usage data |
-| 2 | `dfiles publish` command | M | ACCEPTED | Social feature that creates virality; without it, dfiles stays personal |
-| 3 | Auto-Generated CLAUDE.md | S | ACCEPTED | Low effort, high leverage — Claude Code becomes aware of its capabilities |
-| 4 | Homebrew tap + curl install | S | ACCEPTED | The install story IS the product; closes the bootstrap paradox |
-| 5 | Cross-machine diff | M | DEFERRED | Requires multiple machines; build after v1 is solid |
-| 6 | Frictionless sync safety net | S | ACCEPTED | File watcher without .dfilesignore + blocklist is a footgun |
+| # | Proposal | Effort | Decision | Status |
+|---|----------|--------|----------|--------|
+| 1 | Registry Protocol Standard | M | DEFERRED | In TODOS.md |
+| 2 | `dfiles publish` command | M | ACCEPTED | Not yet implemented |
+| 3 | Auto-Generated CLAUDE.md | S | ACCEPTED | ✅ DONE (`src/claude_md.rs`) |
+| 4 | Homebrew tap + curl install | S | ACCEPTED | Not yet implemented |
+| 5 | Cross-machine diff | M | DEFERRED | In TODOS.md |
+| 6 | Frictionless sync safety net | S | ACCEPTED | Not yet implemented |
 
 ---
 
 ## Accepted Scope (added to this plan)
 
-- `dfiles publish` — package config as versioned GitHub release (publishes to user's own repo, requires `gh auth`)
-- Auto-generated `~/.claude/CLAUDE.md` on every `dfiles apply` (reads SKILL.md YAML frontmatter; profile noted but not conditional)
-- Homebrew tap (`dfiles-sh/tap/dfiles`) + curl install script (`https://dfiles.sh/install`)
+- `dfiles publish` — package config as versioned GitHub release (publishes to user's own repo, requires `gh auth`) — **NOT YET IMPLEMENTED**
+- ✅ Auto-generated `~/.claude/CLAUDE.md` on every `dfiles apply` (reads SKILL.md YAML frontmatter; profile noted but not conditional) — **DONE (2026-03-20)** (`src/claude_md.rs`)
+- Homebrew tap (`dfiles-sh/tap/dfiles`) + curl install script (`https://dfiles.sh/install`) — **NOT YET IMPLEMENTED**
   - Requires: CI/CD pipeline (GitHub Actions) producing pre-built binaries for macOS x86_64/aarch64 + Linux x86_64/aarch64
 - Safe file watcher with sensitive-file detection: `.dfilesignore` + built-in sensitive-file blocklist
   - Blocklist: `*.env`, `*.pem`, `*_rsa`, `*_ed25519`, `.npmrc`, `.pypirc`, `*.pfx`, etc.
@@ -282,14 +282,17 @@ curl install | sh           OR    brew install dfiles-sh/tap/dfiles
 
 ## Open Questions (carry forward from design doc)
 
-1. File naming: plain names + TOML dest mapping (preferred over chezmoi prefixes)
-2. Lockfile format: `dfiles.lock` pins GitHub sources by commit SHA
-3. **Conflict resolution: DECIDED** — default is backup-and-overwrite for MVP:
+1. **DECIDED (2026-03-20):** File naming — **chezmoi-compatible magic-name encoding**
+   chosen over "plain names + TOML dest mapping". Source filenames like `dot_zshrc`,
+   `private_dot_ssh/id_rsa`, `executable_dot_local/bin/foo` encode all metadata with
+   no TOML registry. Enables zero-friction migration from chezmoi and compatible tooling.
+2. **DECIDED:** Lockfile format: `dfiles.lock` pins GitHub sources by commit SHA (implemented).
+3. **DECIDED:** Conflict resolution — default is backup-and-overwrite for MVP:
    `dfiles apply` backs up the live file to `~/.dfiles/backups/` before overwriting.
-   Show user: "Conflict: ~/.zshrc backed up to ~/.dfiles/backups/zshrc.2026-03-20T12:00:00Z"
    Three-way diff tool deferred to post-v1 (TODOS.md).
-4. Rust vs Go: language-agnostic design, Rust preferred
-5. **NEW:** `dfiles publish` bundle format — tar.gz vs directory — and whether secrets.toml is excluded by default or opt-in exclude
+4. **DECIDED:** Rust chosen for implementation.
+5. **OPEN:** `dfiles publish` bundle format — tar.gz vs directory — and whether secrets.toml
+   is excluded by default or opt-in exclude.
 
 ---
 

@@ -193,6 +193,194 @@ pub fn brew_uninstall(brew: &Path, name: &str, cask: bool) -> Result<()> {
     Ok(())
 }
 
+// ─── Brewfile entry collection ────────────────────────────────────────────────
+
+/// All `brew` and `cask` entries declared across one or more Brewfiles.
+#[derive(Debug, Default)]
+pub struct BrewfileEntries {
+    pub formulas: std::collections::HashSet<String>,
+    pub casks: std::collections::HashSet<String>,
+}
+
+/// Extract the quoted name from a Brewfile line like `brew "name"` or `cask 'name'`.
+/// Returns `None` for comments, blank lines, taps, and malformed entries.
+fn extract_entry_name(line: &str, kind: &str) -> Option<String> {
+    let prefix = format!("{} ", kind);
+    let rest = line.strip_prefix(&prefix)?;
+    let quote = rest.chars().next()?;
+    if quote != '"' && quote != '\'' {
+        return None;
+    }
+    let inner = &rest[1..];
+    let end = inner.find(quote)?;
+    Some(inner[..end].to_string())
+}
+
+/// Parse all `brew` and `cask` entries from a single Brewfile.
+/// Returns an empty set if the file does not exist.
+fn parse_brewfile(path: &Path) -> Result<BrewfileEntries> {
+    let mut entries = BrewfileEntries::default();
+    if !path.exists() {
+        return Ok(entries);
+    }
+    let text = std::fs::read_to_string(path)
+        .with_context(|| format!("Cannot read {}", path.display()))?;
+    for line in text.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        if let Some(name) = extract_entry_name(line, "brew") {
+            entries.formulas.insert(name);
+        } else if let Some(name) = extract_entry_name(line, "cask") {
+            entries.casks.insert(name);
+        }
+    }
+    Ok(entries)
+}
+
+/// Collect all `brew` and `cask` entries declared across a set of Brewfiles.
+/// Duplicate entries across files are unified (set semantics).
+pub fn collect_brewfile_entries(paths: &[&Path]) -> Result<BrewfileEntries> {
+    let mut all = BrewfileEntries::default();
+    for &path in paths {
+        let entries = parse_brewfile(path)?;
+        all.formulas.extend(entries.formulas);
+        all.casks.extend(entries.casks);
+    }
+    Ok(all)
+}
+
+/// The result of comparing Brewfile declarations against the live system.
+///
+/// Fields:
+///   missing_*  — declared in Brewfiles but not installed (apply would add them)
+///   extra_*    — installed but not declared   (--remove-unreferenced-brews would remove them)
+#[derive(Debug, Default)]
+pub struct BrewfileDiff {
+    pub missing_formulas: Vec<String>,
+    pub missing_casks: Vec<String>,
+    pub extra_formulas: Vec<String>,
+    pub extra_casks: Vec<String>,
+}
+
+impl BrewfileDiff {
+    pub fn is_clean(&self) -> bool {
+        self.missing_formulas.is_empty()
+            && self.missing_casks.is_empty()
+            && self.extra_formulas.is_empty()
+            && self.extra_casks.is_empty()
+    }
+}
+
+/// Compare the packages declared across `brewfile_paths` against what is installed.
+///
+/// Uses `brew list --formula` (all installed formulas, not just leaves) to detect
+/// packages that are declared but missing.  Uses `brew leaves` for the reverse
+/// direction (installed but unreferenced) so that auto-installed dependencies are
+/// not flagged as extra.
+pub fn brewfile_diff(brew: &Path, brewfile_paths: &[&Path]) -> Result<BrewfileDiff> {
+    let declared = collect_brewfile_entries(brewfile_paths)?;
+
+    let all_installed_formulas: std::collections::HashSet<String> =
+        brew_list_formula(brew)?.into_iter().collect();
+    let all_installed_casks: std::collections::HashSet<String> =
+        brew_list_casks(brew)?.into_iter().collect();
+
+    // Declared but not installed.
+    let mut missing_formulas: Vec<String> = declared
+        .formulas
+        .iter()
+        .filter(|f| !all_installed_formulas.contains(*f))
+        .cloned()
+        .collect();
+    let mut missing_casks: Vec<String> = declared
+        .casks
+        .iter()
+        .filter(|c| !all_installed_casks.contains(*c))
+        .cloned()
+        .collect();
+
+    // Installed but not declared (leaves only for formulas).
+    let leaves = brew_leaves(brew)?;
+    let mut extra_formulas: Vec<String> = leaves
+        .into_iter()
+        .filter(|f| !declared.formulas.contains(f))
+        .collect();
+    let mut extra_casks: Vec<String> = all_installed_casks
+        .into_iter()
+        .filter(|c| !declared.casks.contains(c))
+        .collect();
+
+    missing_formulas.sort();
+    missing_casks.sort();
+    extra_formulas.sort();
+    extra_casks.sort();
+
+    Ok(BrewfileDiff {
+        missing_formulas,
+        missing_casks,
+        extra_formulas,
+        extra_casks,
+    })
+}
+
+/// Run `brew list --formula` and return all installed formula names (including deps).
+pub fn brew_list_formula(brew: &Path) -> Result<Vec<String>> {
+    let out = std::process::Command::new(brew)
+        .args(["list", "--formula"])
+        .output()
+        .context("Failed to run `brew list --formula`")?;
+    if !out.status.success() {
+        anyhow::bail!("`brew list --formula` failed (exit {:?})", out.status.code());
+    }
+    Ok(String::from_utf8_lossy(&out.stdout)
+        .lines()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+        .collect())
+}
+
+/// Run `brew leaves` and return the list of leaf formula names.
+///
+/// Leaf formulas are installed but not required as a dependency by any other
+/// installed formula — i.e., packages the user explicitly requested.
+pub fn brew_leaves(brew: &Path) -> Result<Vec<String>> {
+    let out = std::process::Command::new(brew)
+        .arg("leaves")
+        .output()
+        .context("Failed to run `brew leaves`")?;
+    if !out.status.success() {
+        anyhow::bail!("`brew leaves` failed (exit {:?})", out.status.code());
+    }
+    Ok(String::from_utf8_lossy(&out.stdout)
+        .lines()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+        .collect())
+}
+
+/// Run `brew list --cask` and return all installed cask names.
+pub fn brew_list_casks(brew: &Path) -> Result<Vec<String>> {
+    let out = std::process::Command::new(brew)
+        .args(["list", "--cask"])
+        .output()
+        .context("Failed to run `brew list --cask`")?;
+    if !out.status.success() {
+        anyhow::bail!("`brew list --cask` failed (exit {:?})", out.status.code());
+    }
+    Ok(String::from_utf8_lossy(&out.stdout)
+        .lines()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+        .collect())
+}
+
+// ─── Brewfile line matching (used by add/remove helpers) ──────────────────────
+
 /// Check whether a single line in a Brewfile matches `kind "name"` (or single-quoted).
 fn brewfile_line_matches(line: &str, kind: &str, name: &str) -> bool {
     let line = line.trim();
@@ -282,4 +470,110 @@ pub fn remove_from_brewfile(path: &Path, kind: &str, name: &str) -> Result<usize
     }
 
     Ok(removed)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    fn write_brewfile(dir: &TempDir, name: &str, content: &str) -> std::path::PathBuf {
+        let path = dir.path().join(name);
+        std::fs::write(&path, content).unwrap();
+        path
+    }
+
+    #[test]
+    fn extract_double_quoted_formula() {
+        assert_eq!(
+            extract_entry_name(r#"brew "ripgrep""#, "brew"),
+            Some("ripgrep".into())
+        );
+    }
+
+    #[test]
+    fn extract_single_quoted_formula() {
+        assert_eq!(
+            extract_entry_name("brew 'ripgrep'", "brew"),
+            Some("ripgrep".into())
+        );
+    }
+
+    #[test]
+    fn extract_cask_name() {
+        assert_eq!(
+            extract_entry_name(r#"cask "iterm2""#, "cask"),
+            Some("iterm2".into())
+        );
+    }
+
+    #[test]
+    fn extract_wrong_kind_returns_none() {
+        assert_eq!(extract_entry_name(r#"cask "iterm2""#, "brew"), None);
+    }
+
+    #[test]
+    fn extract_tap_returns_none_for_brew_kind() {
+        assert_eq!(extract_entry_name(r#"tap "homebrew/core""#, "brew"), None);
+    }
+
+    #[test]
+    fn parse_brewfile_reads_formulas_and_casks() {
+        let dir = TempDir::new().unwrap();
+        let path = write_brewfile(
+            &dir,
+            "Brewfile",
+            "brew \"ripgrep\"\nbrew \"fd\"\ncask \"iterm2\"\ntap \"homebrew/core\"\n",
+        );
+        let entries = parse_brewfile(&path).unwrap();
+        assert!(entries.formulas.contains("ripgrep"));
+        assert!(entries.formulas.contains("fd"));
+        assert!(entries.casks.contains("iterm2"));
+        // tap should not be collected
+        assert!(!entries.formulas.contains("homebrew/core"));
+        assert!(!entries.casks.contains("homebrew/core"));
+    }
+
+    #[test]
+    fn parse_brewfile_skips_comments_and_blank_lines() {
+        let dir = TempDir::new().unwrap();
+        let path = write_brewfile(
+            &dir,
+            "Brewfile",
+            "# this is a comment\n\nbrew \"ripgrep\"\n",
+        );
+        let entries = parse_brewfile(&path).unwrap();
+        assert_eq!(entries.formulas.len(), 1);
+        assert!(entries.formulas.contains("ripgrep"));
+    }
+
+    #[test]
+    fn parse_brewfile_returns_empty_for_missing_file() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("Brewfile.nonexistent");
+        let entries = parse_brewfile(&path).unwrap();
+        assert!(entries.formulas.is_empty());
+        assert!(entries.casks.is_empty());
+    }
+
+    #[test]
+    fn collect_brewfile_entries_unions_multiple_files() {
+        let dir = TempDir::new().unwrap();
+        let a = write_brewfile(&dir, "Brewfile", "brew \"ripgrep\"\ncask \"iterm2\"\n");
+        let b = write_brewfile(&dir, "Brewfile.work", "brew \"gh\"\ncask \"slack\"\n");
+        let entries = collect_brewfile_entries(&[a.as_path(), b.as_path()]).unwrap();
+        assert!(entries.formulas.contains("ripgrep"));
+        assert!(entries.formulas.contains("gh"));
+        assert!(entries.casks.contains("iterm2"));
+        assert!(entries.casks.contains("slack"));
+    }
+
+    #[test]
+    fn collect_brewfile_entries_deduplicates_across_files() {
+        let dir = TempDir::new().unwrap();
+        let a = write_brewfile(&dir, "Brewfile", "brew \"ripgrep\"\n");
+        let b = write_brewfile(&dir, "Brewfile.extra", "brew \"ripgrep\"\nbrew \"fd\"\n");
+        let entries = collect_brewfile_entries(&[a.as_path(), b.as_path()]).unwrap();
+        assert_eq!(entries.formulas.len(), 2);
+    }
 }

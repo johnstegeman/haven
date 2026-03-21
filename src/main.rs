@@ -3,6 +3,8 @@ mod chezmoi_template;
 mod claude_md;
 mod commands;
 mod config;
+mod diff_util;
+mod drift;
 mod fs;
 mod github;
 mod homebrew;
@@ -102,8 +104,36 @@ enum Commands {
         dry_run: bool,
     },
 
-    /// Initialize a new dfiles repository in the current or --dir directory.
-    Init,
+    /// Initialize a new dfiles repository, optionally cloned from a remote.
+    ///
+    /// Without a source, creates a blank scaffold in the --dir directory.
+    /// With a source, clones the repository and optionally applies it.
+    ///
+    /// Examples:
+    ///   dfiles init
+    ///   dfiles init gh:alice/dotfiles
+    ///   dfiles init gh:alice/dotfiles --branch dev
+    ///   dfiles init https://github.com/alice/dotfiles --apply
+    ///   dfiles init gh:alice/dotfiles --apply --profile work
+    Init {
+        /// Git repository to clone as your dfiles repo.
+        /// Accepts `gh:owner/repo[@ref]` notation or any URL that `git clone` accepts
+        /// (HTTPS, SSH, local path, etc.). Omit to create a blank scaffold.
+        source: Option<String>,
+
+        /// Branch to clone. If omitted, the repo's default branch is used.
+        /// Overrides any `@ref` in the source if both are given.
+        #[arg(long)]
+        branch: Option<String>,
+
+        /// Apply the cloned repo immediately after cloning. Requires a source.
+        #[arg(long)]
+        apply: bool,
+
+        /// Profile to apply. Requires --apply.
+        #[arg(long)]
+        profile: Option<String>,
+    },
 
     /// Start tracking a dotfile by copying it into the repo's source/ directory.
     Add {
@@ -120,10 +150,14 @@ enum Commands {
     ///
     /// Copies source files to their destinations, installs Homebrew packages,
     /// runs mise, and fetches AI skills/commands. Backs up any existing files first.
+    ///
+    /// By default all sections are applied. Use --files, --brews, and/or --ai
+    /// to apply only specific sections.
     Apply {
-        /// Profile to apply.
-        #[arg(long, default_value = "default")]
-        profile: String,
+        /// Profile to apply. Defaults to the last-used profile saved in state,
+        /// or "default" if no prior apply has been recorded.
+        #[arg(long)]
+        profile: Option<String>,
 
         /// Apply only a single module (e.g. --module shell).
         #[arg(long)]
@@ -132,6 +166,36 @@ enum Commands {
         /// Print what would be applied without writing any files.
         #[arg(long)]
         dry_run: bool,
+
+        /// Apply dotfile copies/symlinks. If none of --files/--brews/--ai are
+        /// given, all sections are applied.
+        #[arg(long)]
+        files: bool,
+
+        /// Apply Homebrew packages. If none of --files/--brews/--ai are given,
+        /// all sections are applied.
+        #[arg(long)]
+        brews: bool,
+
+        /// Apply AI tools (mise, skills, commands). If none of --files/--brews/--ai
+        /// are given, all sections are applied.
+        #[arg(long)]
+        ai: bool,
+
+        /// After installing packages, uninstall any leaf formula or cask that is
+        /// not referenced by any Brewfile in the active profile.
+        #[arg(long)]
+        remove_unreferenced_brews: bool,
+
+        /// Show the list of unreferenced packages and prompt for confirmation
+        /// before removing. Implies --remove-unreferenced-brews.
+        #[arg(long)]
+        interactive: bool,
+
+        /// Pull (update) existing extdir_ clones in addition to cloning missing ones.
+        /// By default, extdir_ entries that are already cloned are left as-is.
+        #[arg(long)]
+        apply_externals: bool,
 
         /// (Debug builds only) Write files into this directory instead of `~`.
         ///
@@ -143,13 +207,63 @@ enum Commands {
         dest: Option<PathBuf>,
     },
 
+    /// Show the diff between tracked source files/packages and live state.
+    ///
+    /// Exits 0 when everything is up to date, 1 when drift is found.
+    ///
+    /// By default all sections are diffed. Use --files, --brews, and/or --ai
+    /// to inspect only specific sections.
+    ///
+    /// Examples:
+    ///   dfiles diff
+    ///   dfiles diff --files
+    ///   dfiles diff --brews
+    ///   dfiles diff --stat
+    ///   dfiles diff --profile work --color=always
+    Diff {
+        /// Profile to diff. Defaults to the last-used profile saved in state,
+        /// or "default" if no prior apply has been recorded.
+        #[arg(long)]
+        profile: Option<String>,
+
+        /// Scope brew/AI diff to a single module.
+        #[arg(long)]
+        module: Option<String>,
+
+        /// Diff source files only.
+        #[arg(long)]
+        files: bool,
+
+        /// Diff Homebrew packages only.
+        #[arg(long)]
+        brews: bool,
+
+        /// Diff AI tools (skills, commands) only.
+        #[arg(long)]
+        ai: bool,
+
+        /// Show a summary (file names + change counts) instead of full diff content.
+        #[arg(long)]
+        stat: bool,
+
+        /// Control color output: always, never, or auto (default).
+        #[arg(long, default_value = "auto", value_parser = parse_color_mode)]
+        color: commands::diff::ColorMode,
+
+        /// (Debug builds only) Treat this directory as the filesystem root.
+        #[cfg_attr(debug_assertions, arg(long, value_name = "DIR"))]
+        #[cfg_attr(not(debug_assertions), arg(skip))]
+        dest: Option<PathBuf>,
+    },
+
     /// Show drift between tracked source files and live destinations.
     ///
     /// Drift markers: ✓ clean  M modified  ? missing  ! source missing
     Status {
-        /// Profile to check.
-        #[arg(long, default_value = "default")]
-        profile: String,
+        /// Profile to check. Defaults to the last-used profile saved in state,
+        /// or "default" if no prior apply has been recorded.
+        #[arg(long)]
+        profile: Option<String>,
     },
 
     /// Run `brew install`/`uninstall` and keep your dfiles Brewfiles in sync.
@@ -207,6 +321,29 @@ enum Commands {
     },
 }
 
+/// Parse the `--color` argument into a `ColorMode`.
+fn parse_color_mode(s: &str) -> Result<commands::diff::ColorMode, String> {
+    match s {
+        "always" => Ok(commands::diff::ColorMode::Always),
+        "never"  => Ok(commands::diff::ColorMode::Never),
+        "auto"   => Ok(commands::diff::ColorMode::Auto),
+        other    => Err(format!("unknown color mode '{}'; use always, never, or auto", other)),
+    }
+}
+
+/// Resolve the profile to use for apply/status.
+///
+/// Priority: explicit --profile flag → last-used profile in state.json → "default"
+fn resolve_profile(explicit: Option<&str>, state_dir: &std::path::Path) -> String {
+    if let Some(p) = explicit {
+        return p.to_string();
+    }
+    crate::state::State::load(state_dir)
+        .ok()
+        .and_then(|s| s.profile)
+        .unwrap_or_else(|| "default".to_string())
+}
+
 fn main() {
     if let Err(e) = run() {
         eprintln!("error: {e:#}");
@@ -257,8 +394,23 @@ fn run() -> Result<()> {
             })?;
         }
 
-        Commands::Init => {
-            commands::init::run(&repo)?;
+        Commands::Init {
+            source,
+            branch,
+            apply,
+            profile,
+        } => {
+            commands::init::run(&commands::init::InitOptions {
+                repo_root: &repo,
+                source: source.as_deref(),
+                branch: branch.as_deref(),
+                apply: *apply,
+                profile: profile.as_deref(),
+                dest_root: std::path::Path::new("/"),
+                backup_dir: &backup_dir,
+                state_dir: &state_dir,
+                claude_dir: &claude_dir,
+            })?;
         }
 
         Commands::Add { file, link } => {
@@ -269,30 +421,78 @@ fn run() -> Result<()> {
             profile,
             module,
             dry_run,
+            files,
+            brews,
+            ai,
+            apply_externals,
+            remove_unreferenced_brews,
+            interactive,
             dest,
         } => {
+            let resolved = resolve_profile(profile.as_deref(), &state_dir);
             let dest_root_buf = dest
                 .as_deref()
                 .map(PathBuf::from)
                 .unwrap_or_else(|| PathBuf::from("/"));
+            let none_specified = !files && !brews && !ai;
             commands::apply::run(&commands::apply::ApplyOptions {
                 repo_root: &repo,
                 dest_root: &dest_root_buf,
                 backup_dir: &backup_dir,
                 state_dir: &state_dir,
                 claude_dir: &claude_dir,
-                profile,
+                profile: &resolved,
                 module_filter: module.as_deref(),
                 dry_run: *dry_run,
+                apply_files: *files || none_specified,
+                apply_brews: *brews || none_specified,
+                apply_ai: *ai || none_specified,
+                apply_externals: *apply_externals,
+                remove_unreferenced_brews: *remove_unreferenced_brews || *interactive,
+                interactive: *interactive,
             })?;
         }
 
+        Commands::Diff {
+            profile,
+            module,
+            files,
+            brews,
+            ai,
+            stat,
+            color,
+            dest,
+        } => {
+            let resolved = resolve_profile(profile.as_deref(), &state_dir);
+            let dest_root_buf = dest
+                .as_deref()
+                .map(PathBuf::from)
+                .unwrap_or_else(|| PathBuf::from("/"));
+            let none_specified = !files && !brews && !ai;
+            let has_drift = commands::diff::run(&commands::diff::DiffOptions {
+                repo_root: &repo,
+                dest_root: &dest_root_buf,
+                claude_dir: &claude_dir,
+                profile: &resolved,
+                module_filter: module.as_deref(),
+                diff_files: *files || none_specified,
+                diff_brews: *brews || none_specified,
+                diff_ai: *ai || none_specified,
+                stat_only: *stat,
+                color: *color,
+            })?;
+            if has_drift {
+                std::process::exit(1);
+            }
+        }
+
         Commands::Status { profile } => {
+            let resolved = resolve_profile(profile.as_deref(), &state_dir);
             commands::status::run(&commands::status::StatusOptions {
                 repo_root: &repo,
                 dest_root: std::path::Path::new("/"),
                 claude_dir: &claude_dir,
-                profile,
+                profile: &resolved,
             })?;
         }
 

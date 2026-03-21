@@ -20,8 +20,8 @@ use anyhow::{Context, Result};
 use std::path::Path;
 
 use crate::chezmoi::{self, ChezmoiEntry, ChezmoiExternalEntry, SkippedEntry};
-use crate::config::module::{ExternalEntry, ModuleConfig};
 use crate::fs::copy_to_dest;
+use crate::source::extdir_source_path;
 
 pub struct ImportOptions<'a> {
     pub repo_root: &'a Path,
@@ -200,34 +200,41 @@ fn execute(opts: &ImportOptions<'_>, keeps: &[ChezmoiEntry], externals: &[Chezmo
         }
     }
 
-    // ── Write external entries to module TOMLs ────────────────────────────────
+    // ── Write extdir_ marker files into source/ ───────────────────────────────
     for entry in externals {
-        let mut config = ModuleConfig::load(opts.repo_root, &entry.module)
-            .with_context(|| format!("Cannot load module config '{}'", entry.module))?;
+        let extdir_path = extdir_source_path(&repo_source, &entry.dest_tilde);
 
-        if config.contains_external(&entry.dest_tilde) {
+        if extdir_path.exists() {
             println!(
-                "  ~ [{}]  {}  (external already tracked — skipped)",
-                entry.module, entry.dest_tilde,
+                "  ~ {}  (extdir marker already exists — skipped)",
+                entry.dest_tilde,
             );
             continue;
         }
 
-        config.externals.push(ExternalEntry {
-            dest: entry.dest_tilde.clone(),
-            kind: entry.kind.clone(),
-            url: entry.url.clone(),
-            ref_name: entry.ref_name.clone(),
-        });
+        if let Some(parent) = extdir_path.parent() {
+            std::fs::create_dir_all(parent).with_context(|| {
+                format!("Cannot create parent dir {}", parent.display())
+            })?;
+        }
 
-        config
-            .save(opts.repo_root, &entry.module)
-            .with_context(|| format!("Cannot write config/modules/{}.toml", entry.module))?;
+        let mut content = format!("type = {:?}\nurl  = {:?}\n", entry.kind, entry.url);
+        if let Some(ref_name) = &entry.ref_name {
+            content.push_str(&format!("ref  = {:?}\n", ref_name));
+        }
+        std::fs::write(&extdir_path, &content)
+            .with_context(|| format!("Cannot write extdir marker {}", extdir_path.display()))?;
 
         let ref_label = entry.ref_name.as_deref().unwrap_or("default branch");
         println!(
-            "  ✓ [{}]  {}  →  {}  ({})",
-            entry.module, entry.dest_tilde, entry.url, ref_label,
+            "  ✓  {}  →  source/{}  ({}  {})",
+            entry.dest_tilde,
+            extdir_path
+                .strip_prefix(&repo_source)
+                .unwrap_or(&extdir_path)
+                .display(),
+            entry.url,
+            ref_label,
         );
     }
 
@@ -239,12 +246,6 @@ fn execute(opts: &ImportOptions<'_>, keeps: &[ChezmoiEntry], externals: &[Chezmo
         skips.iter().filter(|s| s.reason.display().is_some()).count(),
     );
     println!("Run `dfiles apply` to deploy.");
-
-    // Profile hint: warn if any new module (from externals) isn't in dfiles.toml.
-    let mut ext_modules: Vec<String> = externals.iter().map(|e| e.module.clone()).collect();
-    ext_modules.sort();
-    ext_modules.dedup();
-    print_profile_hint(opts.repo_root, &ext_modules);
 
     print_skip_table(skips);
 
@@ -277,18 +278,3 @@ fn print_skip_table(skips: &[SkippedEntry]) {
     println!();
 }
 
-fn print_profile_hint(repo_root: &Path, new_modules: &[String]) {
-    let dfiles_toml = repo_root.join("dfiles.toml");
-    let contents = match std::fs::read_to_string(&dfiles_toml) {
-        Ok(c) => c,
-        Err(_) => return,
-    };
-    for module in new_modules {
-        if !contents.contains(module.as_str()) {
-            println!(
-                "Hint: add '{}' to your default profile in dfiles.toml to deploy these externals.",
-                module
-            );
-        }
-    }
-}

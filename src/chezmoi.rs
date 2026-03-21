@@ -178,12 +178,54 @@ fn try_chezmoi_source_path() -> Option<PathBuf> {
 
 // ─── Scanner ──────────────────────────────────────────────────────────────────
 
+/// Ask chezmoi for the set of paths it actually manages on this machine.
+///
+/// Returns a set of tilde-prefixed paths like `~/.config/fish/fish_plugins`.
+/// Returns `None` if chezmoi is not on PATH or the command fails (caller falls
+/// back to importing everything without filtering).
+/// Returns the set of source-relative paths that chezmoi manages for `source_dir`.
+///
+/// Uses `--path-style source-relative` so the returned paths match `ChezmoiEntry::chezmoi_path`
+/// directly (e.g. `"dot_zshrc"`, `"private_dot_ssh/id_rsa"`).
+///
+/// Returns `None` if chezmoi is not on PATH, if it fails, or if the managed list
+/// is empty (empty = chezmoi has no state for this source, so filtering is meaningless).
+fn chezmoi_managed_paths(source_dir: &Path) -> Option<std::collections::HashSet<String>> {
+    let output = std::process::Command::new("chezmoi")
+        .args(["managed", "--include=files,symlinks", "--path-style", "source-relative", "-S"])
+        .arg(source_dir)
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let stdout = String::from_utf8(output.stdout).ok()?;
+    let paths: std::collections::HashSet<String> = stdout
+        .lines()
+        .filter(|l| !l.trim().is_empty())
+        .map(|l| l.trim().to_string())
+        .collect();
+    // If managed returns an empty list it likely means chezmoi has no applied files
+    // in this context (e.g. a custom --source dir). Skip filtering rather than
+    // treating everything as unmanaged.
+    if paths.is_empty() {
+        return None;
+    }
+    Some(paths)
+}
+
 /// Walk `source_dir` and decode every file into a Keep or Skip entry.
 /// Also parses `.chezmoiexternal.toml` (if present) into external entries.
+///
+/// Files that chezmoi ignores (via `.chezmoiignore`) are excluded by
+/// cross-referencing `chezmoi managed --include=files,symlinks`. If chezmoi is
+/// not on PATH the filter is skipped and everything is imported.
 ///
 /// Directories starting with `.` are skipped entirely (they are chezmoi-internal
 /// or system directories — legitimate dotfile dirs use the `dot_` prefix).
 pub fn scan(source_dir: &Path) -> Result<(Vec<ChezmoiEntry>, Vec<ChezmoiExternalEntry>, Vec<SkippedEntry>)> {
+    let managed = chezmoi_managed_paths(source_dir);
+
     let mut keeps: Vec<ChezmoiEntry> = Vec::new();
     let mut skips: Vec<SkippedEntry> = Vec::new();
 
@@ -256,6 +298,15 @@ pub fn scan(source_dir: &Path) -> Result<(Vec<ChezmoiEntry>, Vec<ChezmoiExternal
             }
             ImportEntry::Skip(e) => skips.push(e),
         }
+    }
+
+    // Filter keeps to only files that chezmoi actually manages on this system.
+    // This respects .chezmoiignore without needing to parse its Go template syntax.
+    // Paths from chezmoi managed --path-style source-relative match chezmoi_path directly.
+    if let Some(ref managed_paths) = managed {
+        keeps.retain(|e| {
+            managed_paths.contains(&e.chezmoi_path.to_string_lossy().into_owned())
+        });
     }
 
     let externals = parse_chezmoiexternal(source_dir)?;

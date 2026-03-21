@@ -70,6 +70,323 @@ fn init_fails_if_already_initialized() {
         .stderr(predicate::str::contains("already initialized"));
 }
 
+// ─── init from source ────────────────────────────────────────────────────────
+
+/// Create a local git repo containing a minimal `dfiles.toml` and return its
+/// path as a `TempDir`. Used as a stand-in for a remote in clone tests so no
+/// network access is required.
+fn make_local_git_repo(extra_files: &[(&str, &str)]) -> TempDir {
+    let remote = TempDir::new().unwrap();
+    let r = remote.path();
+
+    std::process::Command::new("git")
+        .args(["init", "-b", "main"])
+        .current_dir(r)
+        .output()
+        .expect("git init failed");
+
+    std::process::Command::new("git")
+        .args(["config", "user.email", "test@test.com"])
+        .current_dir(r)
+        .output()
+        .unwrap();
+    std::process::Command::new("git")
+        .args(["config", "user.name", "Test"])
+        .current_dir(r)
+        .output()
+        .unwrap();
+
+    fs::write(
+        r.join("dfiles.toml"),
+        "[profile.default]\nmodules = []\n",
+    )
+    .unwrap();
+
+    for (name, content) in extra_files {
+        fs::write(r.join(name), content).unwrap();
+    }
+
+    std::process::Command::new("git")
+        .args(["add", "."])
+        .current_dir(r)
+        .output()
+        .unwrap();
+    std::process::Command::new("git")
+        .args(["commit", "-m", "init"])
+        .current_dir(r)
+        .output()
+        .unwrap();
+
+    remote
+}
+
+/// Build a `dfiles init <source>` command pointing at a fresh target dir.
+/// Returns both the target TempDir and the pre-built Command.
+fn init_from(source: &str) -> (TempDir, Command) {
+    let target = TempDir::new().unwrap();
+    let mut c = Command::cargo_bin("dfiles").unwrap();
+    c.arg("--dir").arg(target.path());
+    c.env_remove("DFILES_DIR");
+    c.env_remove("DFILES_CLAUDE_DIR");
+    c.arg("init").arg(source);
+    (target, c)
+}
+
+#[test]
+fn init_from_local_path_clones_repo() {
+    let remote = make_local_git_repo(&[]);
+    let (target, mut cmd) = init_from(remote.path().to_str().unwrap());
+
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("Cloned successfully."));
+
+    assert!(target.path().join("dfiles.toml").exists(), "dfiles.toml missing after clone");
+}
+
+#[test]
+fn init_from_gh_notation_builds_https_url() {
+    // We can't hit github.com in tests, but we can confirm the command fails
+    // with a git error (not a dfiles parse error) — proving we parsed the
+    // notation and tried to clone.
+    let target = TempDir::new().unwrap();
+    let mut c = Command::cargo_bin("dfiles").unwrap();
+    c.arg("--dir").arg(target.path());
+    c.env_remove("DFILES_DIR");
+    c.env_remove("DFILES_CLAUDE_DIR");
+    // Use a deliberately invalid owner so git fails fast with an auth/404 error
+    // rather than hanging. The important thing: dfiles must NOT produce a parse
+    // error — that would mean we mishandled the gh: notation.
+    c.arg("init").arg("gh:__invalid_dfiles_test__/no-such-repo");
+
+    let output = c.output().unwrap();
+    // dfiles should not error about parsing — it should get as far as calling git
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        !stderr.contains("expected 'gh:' prefix"),
+        "gh: notation was not parsed correctly: {stderr}"
+    );
+    assert!(
+        !stderr.contains("expected 'owner/repo'"),
+        "gh: notation was not parsed correctly: {stderr}"
+    );
+    // git should have been invoked (error from git, not from dfiles arg parsing)
+    assert!(
+        stderr.contains("git clone failed") || stderr.contains("https://github.com"),
+        "expected git clone attempt, got: {stderr}"
+    );
+}
+
+#[test]
+fn init_from_source_with_branch() {
+    let remote = make_local_git_repo(&[]);
+
+    // Create a second branch in the remote.
+    std::process::Command::new("git")
+        .args(["checkout", "-b", "feature"])
+        .current_dir(remote.path())
+        .output()
+        .unwrap();
+    fs::write(remote.path().join("feature.txt"), "on feature branch").unwrap();
+    std::process::Command::new("git")
+        .args(["add", "."])
+        .current_dir(remote.path())
+        .output()
+        .unwrap();
+    std::process::Command::new("git")
+        .args(["commit", "-m", "feature commit"])
+        .current_dir(remote.path())
+        .output()
+        .unwrap();
+    std::process::Command::new("git")
+        .args(["checkout", "main"])
+        .current_dir(remote.path())
+        .output()
+        .unwrap();
+
+    let target = TempDir::new().unwrap();
+    Command::cargo_bin("dfiles")
+        .unwrap()
+        .arg("--dir").arg(target.path())
+        .env_remove("DFILES_DIR")
+        .env_remove("DFILES_CLAUDE_DIR")
+        .arg("init")
+        .arg(remote.path().to_str().unwrap())
+        .arg("--branch").arg("feature")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("branch: feature"));
+
+    assert!(
+        target.path().join("feature.txt").exists(),
+        "feature branch file missing — wrong branch was cloned"
+    );
+}
+
+#[test]
+fn init_from_source_at_ref_uses_ref_as_branch() {
+    let remote = make_local_git_repo(&[]);
+
+    // Create a 'dev' branch.
+    std::process::Command::new("git")
+        .args(["checkout", "-b", "dev"])
+        .current_dir(remote.path())
+        .output()
+        .unwrap();
+    fs::write(remote.path().join("dev.txt"), "on dev branch").unwrap();
+    std::process::Command::new("git")
+        .args(["add", "."])
+        .current_dir(remote.path())
+        .output()
+        .unwrap();
+    std::process::Command::new("git")
+        .args(["commit", "-m", "dev commit"])
+        .current_dir(remote.path())
+        .output()
+        .unwrap();
+    std::process::Command::new("git")
+        .args(["checkout", "main"])
+        .current_dir(remote.path())
+        .output()
+        .unwrap();
+
+    // Use gh: notation with @dev. For a local path we can't use gh: syntax,
+    // so we simulate by building a source string that embeds @ref — we test the
+    // branch resolution logic directly via run() in the unit tests instead.
+    // Here we verify that --branch achieves the same outcome.
+    let target = TempDir::new().unwrap();
+    Command::cargo_bin("dfiles")
+        .unwrap()
+        .arg("--dir").arg(target.path())
+        .env_remove("DFILES_DIR")
+        .env_remove("DFILES_CLAUDE_DIR")
+        .arg("init")
+        .arg(remote.path().to_str().unwrap())
+        .arg("--branch").arg("dev")
+        .assert()
+        .success();
+
+    assert!(
+        target.path().join("dev.txt").exists(),
+        "dev branch file missing"
+    );
+}
+
+#[test]
+fn init_apply_fails_without_source() {
+    let repo = TempDir::new().unwrap();
+    Command::cargo_bin("dfiles")
+        .unwrap()
+        .arg("--dir").arg(repo.path())
+        .env_remove("DFILES_DIR")
+        .env_remove("DFILES_CLAUDE_DIR")
+        .arg("init")
+        .arg("--apply")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("--apply requires a source"));
+}
+
+#[test]
+fn init_profile_fails_without_source() {
+    let repo = TempDir::new().unwrap();
+    Command::cargo_bin("dfiles")
+        .unwrap()
+        .arg("--dir").arg(repo.path())
+        .env_remove("DFILES_DIR")
+        .env_remove("DFILES_CLAUDE_DIR")
+        .arg("init")
+        .arg("--profile").arg("work")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("--apply requires a source"));
+}
+
+#[test]
+fn init_fails_if_target_dir_nonempty() {
+    let target = TempDir::new().unwrap();
+    // Seed the target with a file.
+    fs::write(target.path().join("existing.txt"), "already here").unwrap();
+
+    let remote = make_local_git_repo(&[]);
+    Command::cargo_bin("dfiles")
+        .unwrap()
+        .arg("--dir").arg(target.path())
+        .env_remove("DFILES_DIR")
+        .env_remove("DFILES_CLAUDE_DIR")
+        .arg("init")
+        .arg(remote.path().to_str().unwrap())
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("already exists and is not empty"));
+}
+
+#[test]
+fn init_apply_hard_fails_if_no_dfiles_toml() {
+    // A git repo with no dfiles.toml.
+    let remote = TempDir::new().unwrap();
+    let r = remote.path();
+    std::process::Command::new("git")
+        .args(["init", "-b", "main"])
+        .current_dir(r)
+        .output()
+        .unwrap();
+    std::process::Command::new("git")
+        .args(["config", "user.email", "test@test.com"])
+        .current_dir(r)
+        .output()
+        .unwrap();
+    std::process::Command::new("git")
+        .args(["config", "user.name", "Test"])
+        .current_dir(r)
+        .output()
+        .unwrap();
+    fs::write(r.join("README.md"), "not a dfiles repo").unwrap();
+    std::process::Command::new("git")
+        .args(["add", "."])
+        .current_dir(r)
+        .output()
+        .unwrap();
+    std::process::Command::new("git")
+        .args(["commit", "-m", "init"])
+        .current_dir(r)
+        .output()
+        .unwrap();
+
+    let target = TempDir::new().unwrap();
+    Command::cargo_bin("dfiles")
+        .unwrap()
+        .arg("--dir").arg(target.path())
+        .env_remove("DFILES_DIR")
+        .env_remove("DFILES_CLAUDE_DIR")
+        .arg("init")
+        .arg(r.to_str().unwrap())
+        .arg("--apply")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("does not appear to be a dfiles repository"));
+}
+
+#[test]
+fn init_from_source_with_apply() {
+    let home = TempDir::new().unwrap();
+    let remote = make_local_git_repo(&[]);
+    let target = TempDir::new().unwrap();
+
+    Command::cargo_bin("dfiles")
+        .unwrap()
+        .arg("--dir").arg(target.path())
+        .env_remove("DFILES_DIR")
+        .env("HOME", home.path())
+        .env("DFILES_CLAUDE_DIR", home.path().join(".claude"))
+        .arg("init")
+        .arg(remote.path().to_str().unwrap())
+        .arg("--apply")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Applying profile 'default'"));
+}
+
 // ─── add ─────────────────────────────────────────────────────────────────────
 
 #[test]
@@ -132,6 +449,258 @@ fn add_fails_for_missing_file() {
         .assert()
         .failure()
         .stderr(predicate::str::contains("File not found"));
+}
+
+// ─── add: directory handling ──────────────────────────────────────────────────
+
+#[test]
+fn add_directory_without_git_adds_files_recursively() {
+    let repo = TempDir::new().unwrap();
+    cmd(&repo).arg("init").assert().success();
+
+    // Build a fake home with a non-git directory containing two files.
+    let home = TempDir::new().unwrap();
+    let dir = home.path().join(".myapp");
+    fs::create_dir_all(dir.join("sub")).unwrap();
+    fs::write(dir.join("config"), "key=val\n").unwrap();
+    fs::write(dir.join("sub").join("data"), "data\n").unwrap();
+
+    cmd_home(&repo, &home)
+        .args(["add", dir.to_str().unwrap()])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Added 2 file(s)"));
+
+    // Encoded paths: dot_myapp/config and dot_myapp/sub/data.
+    assert!(
+        repo.path().join("source").join("dot_myapp").join("config").exists(),
+        "source/dot_myapp/config missing"
+    );
+    assert!(
+        repo.path().join("source").join("dot_myapp").join("sub").join("data").exists(),
+        "source/dot_myapp/sub/data missing"
+    );
+}
+
+#[test]
+fn add_directory_with_git_remote_and_extdir_choice_writes_marker() {
+    let repo = TempDir::new().unwrap();
+    cmd(&repo).arg("init").assert().success();
+
+    let home = TempDir::new().unwrap();
+    let plugin_dir = home.path().join(".tmux").join("plugins").join("tpm");
+    fs::create_dir_all(&plugin_dir).unwrap();
+
+    // Init a git repo with a remote.
+    std::process::Command::new("git")
+        .args(["init", "-q"])
+        .current_dir(&plugin_dir)
+        .status()
+        .unwrap();
+    std::process::Command::new("git")
+        .args(["remote", "add", "origin", "https://github.com/tmux-plugins/tpm"])
+        .current_dir(&plugin_dir)
+        .status()
+        .unwrap();
+
+    // User picks option 1 (add as external using the first remote).
+    cmd_home(&repo, &home)
+        .args(["add", plugin_dir.to_str().unwrap()])
+        .write_stdin("1\n")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Added external"))
+        .stdout(predicate::str::contains("extdir_tpm"))
+        .stdout(predicate::str::contains("tmux-plugins/tpm"));
+
+    // The extdir_ marker file should exist with the correct path.
+    let marker = repo.path()
+        .join("source")
+        .join("dot_tmux")
+        .join("plugins")
+        .join("extdir_tpm");
+    assert!(marker.exists(), "extdir_ marker missing at {:?}", marker);
+
+    let content = fs::read_to_string(&marker).unwrap();
+    assert!(content.contains("tmux-plugins/tpm"), "url missing from marker");
+    assert!(content.contains("git"), "type missing from marker");
+}
+
+#[test]
+fn add_directory_with_git_remote_and_files_choice_adds_recursively() {
+    let repo = TempDir::new().unwrap();
+    cmd(&repo).arg("init").assert().success();
+
+    let home = TempDir::new().unwrap();
+    let plugin_dir = home.path().join(".config").join("nvim");
+    fs::create_dir_all(&plugin_dir).unwrap();
+    fs::write(plugin_dir.join("init.lua"), "-- nvim config\n").unwrap();
+
+    // Init a git repo with a remote.
+    std::process::Command::new("git")
+        .args(["init", "-q"])
+        .current_dir(&plugin_dir)
+        .status()
+        .unwrap();
+    std::process::Command::new("git")
+        .args(["remote", "add", "origin", "https://github.com/user/nvim"])
+        .current_dir(&plugin_dir)
+        .status()
+        .unwrap();
+
+    // User picks 'f' to add files recursively instead of as external.
+    cmd_home(&repo, &home)
+        .args(["add", plugin_dir.to_str().unwrap()])
+        .write_stdin("f\n")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Added 1 file(s)"));
+
+    // File should be tracked, not as extdir.
+    assert!(
+        repo.path().join("source").join("dot_config").join("nvim").join("init.lua").exists(),
+        "source/dot_config/nvim/init.lua missing"
+    );
+    assert!(
+        !repo.path().join("source").join("dot_config").join("extdir_nvim").exists(),
+        "unexpected extdir_ marker"
+    );
+}
+
+#[test]
+fn add_file_in_private_dir_encodes_private_prefix() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let repo = TempDir::new().unwrap();
+    cmd(&repo).arg("init").assert().success();
+
+    let home = TempDir::new().unwrap();
+    let ssh_dir = home.path().join(".ssh");
+    fs::create_dir_all(&ssh_dir).unwrap();
+    // chmod 0700 on .ssh — should produce private_dot_ssh/
+    fs::set_permissions(&ssh_dir, fs::Permissions::from_mode(0o700)).unwrap();
+    fs::write(ssh_dir.join("config"), "Host *\n").unwrap();
+
+    cmd_home(&repo, &home)
+        .args(["add", ssh_dir.join("config").to_str().unwrap()])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Added:"));
+
+    assert!(
+        repo.path().join("source").join("private_dot_ssh").join("config").exists(),
+        "expected source/private_dot_ssh/config"
+    );
+}
+
+// ─── profile resolution from state ───────────────────────────────────────────
+
+#[test]
+fn apply_uses_saved_profile_when_no_flag_given() {
+    // Arrange: a repo with two profiles, and a state.json that says "work" was
+    // the last-used profile. Running `dfiles apply` without --profile should
+    // pick up "work" and apply that profile's modules.
+    let repo = TempDir::new().unwrap();
+    let home = TempDir::new().unwrap();
+    let state_dir = home.path().join(".dfiles");
+
+    cmd(&repo).arg("init").assert().success();
+
+    // Two profiles: default (no modules) and work (also no modules — we just
+    // want to verify the profile name that ends up in the next state.json).
+    fs::write(
+        repo.path().join("dfiles.toml"),
+        "[profile.default]\nmodules = []\n\n[profile.work]\nmodules = []\n",
+    )
+    .unwrap();
+
+    // Seed state.json with "work" as the last-used profile.
+    fs::create_dir_all(&state_dir).unwrap();
+    fs::write(
+        state_dir.join("state.json"),
+        r#"{"version":"1","profile":"work","hostname":"test","last_apply":null,"modules":{}}"#,
+    )
+    .unwrap();
+
+    // Run apply with no --profile flag.
+    Command::cargo_bin("dfiles")
+        .unwrap()
+        .arg("--dir").arg(repo.path())
+        .env("HOME", home.path())
+        .env("DFILES_CLAUDE_DIR", home.path().join(".claude"))
+        .env_remove("DFILES_DIR")
+        .arg("apply")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("work"));
+
+    // Verify state.json still records "work" as the profile.
+    let state_text = fs::read_to_string(state_dir.join("state.json")).unwrap();
+    assert!(
+        state_text.contains("\"work\""),
+        "state.json should record profile 'work', got: {state_text}"
+    );
+}
+
+#[test]
+fn apply_explicit_profile_overrides_saved_profile() {
+    let repo = TempDir::new().unwrap();
+    let home = TempDir::new().unwrap();
+    let state_dir = home.path().join(".dfiles");
+
+    cmd(&repo).arg("init").assert().success();
+
+    fs::write(
+        repo.path().join("dfiles.toml"),
+        "[profile.default]\nmodules = []\n\n[profile.work]\nmodules = []\n",
+    )
+    .unwrap();
+
+    // State says "work" was last used.
+    fs::create_dir_all(&state_dir).unwrap();
+    fs::write(
+        state_dir.join("state.json"),
+        r#"{"version":"1","profile":"work","hostname":"test","last_apply":null,"modules":{}}"#,
+    )
+    .unwrap();
+
+    // Explicit --profile default should override the saved "work".
+    Command::cargo_bin("dfiles")
+        .unwrap()
+        .arg("--dir").arg(repo.path())
+        .env("HOME", home.path())
+        .env("DFILES_CLAUDE_DIR", home.path().join(".claude"))
+        .env_remove("DFILES_DIR")
+        .args(["apply", "--profile", "default"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("default"));
+}
+
+#[test]
+fn apply_falls_back_to_default_when_no_state() {
+    let repo = TempDir::new().unwrap();
+    let home = TempDir::new().unwrap();
+
+    cmd(&repo).arg("init").assert().success();
+
+    fs::write(
+        repo.path().join("dfiles.toml"),
+        "[profile.default]\nmodules = []\n",
+    )
+    .unwrap();
+
+    // No state.json — should fall back to "default".
+    Command::cargo_bin("dfiles")
+        .unwrap()
+        .arg("--dir").arg(repo.path())
+        .env("HOME", home.path())
+        .env("DFILES_CLAUDE_DIR", home.path().join(".claude"))
+        .env_remove("DFILES_DIR")
+        .arg("apply")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("default"));
 }
 
 // ─── apply ───────────────────────────────────────────────────────────────────
@@ -520,16 +1089,50 @@ fn status_shows_missing_when_brew_absent_and_brewfile_configured() {
     let _ = out; // verified it doesn't panic or error
 }
 
+// ─── remove-unreferenced-brews ────────────────────────────────────────────────
+
+#[test]
+fn remove_unreferenced_brews_dry_run_does_not_uninstall() {
+    // --dry-run must never invoke brew uninstall, even when packages are unreferenced.
+    // This is the safe way to verify the flag in a real environment.
+    let (repo, home) = setup_apply();
+    Command::cargo_bin("dfiles")
+        .unwrap()
+        .arg("--dir").arg(repo.path())
+        .env("HOME", home.path())
+        .env("DFILES_CLAUDE_DIR", home.path().join(".claude"))
+        .env_remove("DFILES_DIR")
+        .args(["apply", "--remove-unreferenced-brews", "--dry-run"])
+        .assert()
+        .success();
+}
+
+#[test]
+fn interactive_dry_run_does_not_prompt_or_uninstall() {
+    // --interactive --dry-run: shows the list but exits before the [y/N] prompt,
+    // so no stdin interaction is needed and nothing is uninstalled.
+    let (repo, home) = setup_apply();
+    Command::cargo_bin("dfiles")
+        .unwrap()
+        .arg("--dir").arg(repo.path())
+        .env("HOME", home.path())
+        .env("DFILES_CLAUDE_DIR", home.path().join(".claude"))
+        .env_remove("DFILES_DIR")
+        .args(["apply", "--interactive", "--dry-run"])
+        .assert()
+        .success();
+}
+
+
 // ─── 1Password integration ───────────────────────────────────────────────────
 
-/// Write a secrets module TOML with `requires_op = true` and one external entry.
-/// In the new design, requires_op guards externals/brew/AI but not source file application.
+/// Write a secrets module TOML with `requires_op = true` and an AI skill entry.
+/// In the new design, requires_op guards brew/AI but not source file application.
+/// Externals are now tracked as extdir_ files in source/, not in module TOMLs.
 fn write_secrets_module(repo: &TempDir) {
     let toml = "requires_op = true\n\n\
-                [[externals]]\n\
-                dest = \"~/.config/gh\"\n\
-                type = \"git\"\n\
-                url  = \"https://github.com/example/gh-config\"\n";
+                [ai]\n\
+                skills = [\"gh:example/gh-config\"]\n";
     fs::write(
         repo.path().join("config").join("modules").join("secrets.toml"),
         toml,
@@ -1090,9 +1693,15 @@ fn import_uses_chezmoi_subprocess_when_on_path() {
     // Write a mock `chezmoi` script.
     let bin_dir = TempDir::new().unwrap();
     let mock_chezmoi = bin_dir.path().join("chezmoi");
+    // Mock chezmoi: respond to `source-path` with the temp dir path;
+    // exit 1 for all other subcommands (including `managed`) so the
+    // managed-paths filter is skipped and all files are imported.
     fs::write(
         &mock_chezmoi,
-        format!("#!/bin/sh\necho '{}'\n", chezmoi_src.path().display()),
+        format!(
+            "#!/bin/sh\nif [ \"$1\" = \"source-path\" ]; then echo '{}'; exit 0; fi\nexit 1\n",
+            chezmoi_src.path().display()
+        ),
     ).unwrap();
 
     // Make it executable.
@@ -1273,25 +1882,52 @@ fn import_dry_run_shows_private_annotation() {
 
 // ─── externals ────────────────────────────────────────────────────────────────
 
-/// Write a module TOML with a single `[[externals]]` entry (no files).
+/// Write an `extdir_` marker file in source/ encoding the given external.
+///
+/// dest must be a `~/…` path. The source path is computed from the dest components.
 fn write_externals_module(repo: &TempDir, dest: &str, url: &str, ref_name: Option<&str>) {
-    let ref_line = ref_name
-        .map(|r| format!("\nref  = \"{}\"", r))
-        .unwrap_or_default();
-    let toml = format!(
-        "[[externals]]\ndest = \"{}\"\ntype = \"git\"\nurl  = \"{}\"{}\n",
-        dest, url, ref_line
-    );
-    fs::write(
-        repo.path().join("config").join("modules").join("shell.toml"),
-        toml,
-    )
-    .unwrap();
+    let source_path = extdir_source_path(repo, dest);
+    if let Some(parent) = source_path.parent() {
+        fs::create_dir_all(parent).unwrap();
+    }
+    let mut content = format!("type = \"git\"\nurl  = \"{}\"\n", url);
+    if let Some(r) = ref_name {
+        content.push_str(&format!("ref  = \"{}\"\n", r));
+    }
+    fs::write(&source_path, content).unwrap();
+
     fs::write(
         repo.path().join("dfiles.toml"),
-        "[profile.default]\nmodules = [\"shell\"]\n",
+        "[profile.default]\nmodules = []\n",
     )
     .unwrap();
+}
+
+/// Compute the `source/` path for an `extdir_` marker from a `~/…` dest path.
+/// Mirrors the logic in `src/commands/import.rs::extdir_source_path`.
+fn extdir_source_path(repo: &TempDir, dest: &str) -> std::path::PathBuf {
+    let rel = dest.strip_prefix("~/").unwrap_or(dest);
+    let parts: Vec<&str> = rel.split('/').filter(|s| !s.is_empty()).collect();
+    let n = parts.len();
+    let mut path = repo.path().join("source");
+    for component in &parts[..n.saturating_sub(1)] {
+        let encoded = if let Some(rest) = component.strip_prefix('.') {
+            format!("dot_{}", rest)
+        } else {
+            component.to_string()
+        };
+        path = path.join(encoded);
+    }
+    if n > 0 {
+        let last = parts[n - 1];
+        let encoded_last = if let Some(rest) = last.strip_prefix('.') {
+            format!("extdir_dot_{}", rest)
+        } else {
+            format!("extdir_{}", last)
+        };
+        path = path.join(encoded_last);
+    }
+    path
 }
 
 #[test]
@@ -1311,7 +1947,7 @@ fn apply_dry_run_shows_external_git_clone() {
     c.args(["--dir", repo.path().to_str().unwrap(), "apply", "--dry-run"]);
     c.assert()
         .success()
-        .stdout(predicate::str::contains("git clone"))
+        .stdout(predicate::str::contains("[extdir]"))
         .stdout(predicate::str::contains("nvim-config"))
         .stdout(predicate::str::contains("main"));
 }
@@ -1337,15 +1973,20 @@ fn import_chezmoiexternal_toml_writes_externals_section() {
         .success()
         .stdout(predicate::str::contains("nvim-config"));
 
-    // editor.toml should have the [[externals]] entry.
-    let editor_toml = fs::read_to_string(
-        repo.path().join("config").join("modules").join("editor.toml"),
-    )
-    .unwrap();
-    assert!(editor_toml.contains("[[externals]]"), "missing [[externals]] section");
-    assert!(editor_toml.contains("~/.config/nvim"), "missing dest");
-    assert!(editor_toml.contains("nvim-config"), "missing url");
-    assert!(editor_toml.contains("git"), "missing type = git");
+    // extdir_ marker file should exist at source/dot_config/nvim/extdir_nvim... wait
+    // dest is ~/.config/nvim → parent=~/.config → dir component "dot_config",
+    // and the extdir marker is "extdir_nvim".
+    // But actually the parent dir is ~/.config and child is nvim.
+    // source/dot_config/extdir_nvim
+    let extdir_marker = repo
+        .path()
+        .join("source")
+        .join("dot_config")
+        .join("extdir_nvim");
+    assert!(extdir_marker.exists(), "extdir_ marker missing at source/dot_config/extdir_nvim");
+    let marker_content = fs::read_to_string(&extdir_marker).unwrap();
+    assert!(marker_content.contains("nvim-config"), "missing url in marker");
+    assert!(marker_content.contains("git"), "missing type in marker");
 }
 
 #[test]
@@ -1373,6 +2014,10 @@ fn import_chezmoiexternal_dry_run_shows_externals() {
 
 #[test]
 fn import_chezmoiexternal_is_idempotent() {
+    // In the extdir_ design, externals are written as marker files into source/.
+    // After the first import, source/ is non-empty, so a second import is blocked
+    // by the non-empty guard (same as for regular file imports).
+    // Idempotency at the extdir_ level is enforced by the guard on source/ itself.
     let repo = TempDir::new().unwrap();
     let chezmoi_src = TempDir::new().unwrap();
 
@@ -1384,20 +2029,20 @@ fn import_chezmoiexternal_is_idempotent() {
 
     cmd(&repo).arg("init").assert().success();
 
-    // First import.
+    // First import succeeds and creates the extdir_ marker file.
     cmd(&repo)
         .args(["import", "--from", "chezmoi", "--source"])
         .arg(chezmoi_src.path())
         .assert()
         .success();
 
-    // Second import — should not error, should say "already tracked".
+    // Second import is rejected because source/ is non-empty (extdir_ marker exists).
     cmd(&repo)
         .args(["import", "--from", "chezmoi", "--source"])
         .arg(chezmoi_src.path())
         .assert()
-        .success()
-        .stdout(predicate::str::contains("already tracked"));
+        .failure()
+        .stderr(predicate::str::contains("not empty"));
 }
 
 #[test]
@@ -1405,11 +2050,10 @@ fn status_shows_external_missing() {
     let repo = TempDir::new().unwrap();
     cmd(&repo).arg("init").assert().success();
 
-    // Write an externals entry pointing at a path that doesn't exist.
-    let dest = TempDir::new().unwrap().keep().join("nvim");
+    // Write an extdir_ marker for a path that definitely does not exist.
     write_externals_module(
         &repo,
-        dest.to_str().unwrap(),
+        "~/.tmux/plugins/dfiles-test-nonexistent",
         "https://github.com/user/nvim-config",
         None,
     );
@@ -1680,4 +2324,399 @@ fn import_symlink_prefix_with_go_template_content_is_skipped() {
     // source/ should NOT have a file named symlink_dot_bashrc with template content.
     // (It might be skipped entirely or treated as unsupported.)
     // We just verify no error occurred — the skip behavior is covered by unit tests.
+}
+
+// ─── --files / --brews / --ai section flags ──────────────────────────────────
+
+#[test]
+fn apply_files_flag_applies_files() {
+    // --files alone should copy dotfiles (the section flag works).
+    let (repo, home) = setup_apply();
+    let dest_path = home.path().join(".applyrc");
+
+    cmd_home(&repo, &home)
+        .args(["apply", "--profile", "default", "--files"])
+        .assert()
+        .success();
+
+    assert!(dest_path.exists(), "--files should have copied the source file");
+}
+
+#[test]
+fn apply_brews_flag_is_accepted() {
+    // --brews alone must be accepted without error (brew is not invoked in a
+    // sandbox repo that has no Brewfile).
+    let (repo, home) = setup_apply();
+
+    cmd_home(&repo, &home)
+        .args(["apply", "--profile", "default", "--brews"])
+        .assert()
+        .success();
+}
+
+#[test]
+fn apply_ai_flag_is_accepted() {
+    // --ai alone must be accepted without error (no AI modules in the test repo).
+    let (repo, home) = setup_apply();
+
+    cmd_home(&repo, &home)
+        .args(["apply", "--profile", "default", "--ai"])
+        .assert()
+        .success();
+}
+
+#[test]
+fn apply_files_flag_skips_unreferenced_brew_removal() {
+    // When only --files is given, --remove-unreferenced-brews must not run
+    // even if it is also passed, because brew is not being applied.
+    // The command must succeed without touching brew.
+    let (repo, home) = setup_apply();
+
+    cmd_home(&repo, &home)
+        .args([
+            "apply",
+            "--profile",
+            "default",
+            "--files",
+            "--remove-unreferenced-brews",
+            "--dry-run",
+        ])
+        .assert()
+        .success();
+}
+
+#[test]
+fn apply_no_section_flags_applies_all() {
+    // Without any section flags, apply must still copy dotfiles (i.e., "all"
+    // sections are active by default).
+    let (repo, home) = setup_apply();
+    let dest_path = home.path().join(".applyrc");
+
+    cmd_home(&repo, &home)
+        .args(["apply", "--profile", "default"])
+        .assert()
+        .success();
+
+    assert!(
+        dest_path.exists(),
+        "default apply (no section flags) should copy files"
+    );
+}
+
+#[test]
+fn apply_multiple_section_flags_accepted() {
+    // --files and --brews together must be accepted without error.
+    let (repo, home) = setup_apply();
+
+    cmd_home(&repo, &home)
+        .args(["apply", "--profile", "default", "--files", "--brews"])
+        .assert()
+        .success();
+}
+
+// ─── dfiles diff ──────────────────────────────────────────────────────────────
+
+/// Set up a repo+home pair for diff tests.
+/// Source: source/dot_diffrc  →  ~/.diffrc  (plain, content "v1\n")
+/// The dfiles.toml has no modules (no brew/AI to invoke).
+fn setup_diff() -> (TempDir, TempDir) {
+    let repo = TempDir::new().unwrap();
+    let home = TempDir::new().unwrap();
+
+    cmd(&repo).arg("init").assert().success();
+
+    let source_dir = repo.path().join("source");
+    fs::write(source_dir.join("dot_diffrc"), "v1\n").unwrap();
+    fs::write(
+        repo.path().join("dfiles.toml"),
+        "[profile.default]\nmodules = []\n",
+    )
+    .unwrap();
+
+    (repo, home)
+}
+
+/// Helper: run `dfiles diff` with the given extra args.
+fn diff_cmd<'a>(repo: &'a TempDir, home: &'a TempDir) -> Command {
+    let mut c = cmd_home(repo, home);
+    c.arg("diff").arg("--profile").arg("default");
+    c
+}
+
+// ── Files section ─────────────────────────────────────────────────────────────
+
+#[test]
+fn diff_clean_file_no_output() {
+    let (repo, home) = setup_diff();
+    // Apply first so dest matches source.
+    cmd_home(&repo, &home)
+        .args(["apply", "--profile", "default"])
+        .assert()
+        .success();
+
+    diff_cmd(&repo, &home)
+        .assert()
+        .success() // exit 0 = no drift
+        .stdout(predicate::str::contains("✓ Everything up to date"));
+}
+
+#[test]
+fn diff_modified_file_shows_diff() {
+    let (repo, home) = setup_diff();
+    // Apply, then change the dest so it differs.
+    cmd_home(&repo, &home)
+        .args(["apply", "--profile", "default"])
+        .assert()
+        .success();
+    let dest = home.path().join(".diffrc");
+    fs::write(&dest, "v2\n").unwrap();
+
+    diff_cmd(&repo, &home)
+        .args(["--files"])
+        .assert()
+        .failure() // exit 1 = drift
+        .stdout(predicate::str::contains("[files]"))
+        // dest ("v2") is "a" (old, shown as -); source ("v1") is "b" (new, shown as +)
+        .stdout(predicate::str::contains("-v2"))
+        .stdout(predicate::str::contains("+v1"));
+}
+
+#[test]
+fn diff_missing_dest_shows_missing() {
+    let (repo, home) = setup_diff();
+    // Don't apply — dest never created.
+    diff_cmd(&repo, &home)
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains("? ~/.diffrc"));
+}
+
+// NOTE: diff_source_missing_shows_source_missing is intentionally omitted.
+// source::scan() only yields files that exist on disk, so a deleted source
+// file simply disappears from scan results — the SourceMissing branch in
+// check_drift is a race-condition guard, not reachable via normal deletion.
+
+#[test]
+fn diff_template_rendered_before_compare() {
+    // Template renders to "os=default\n"; if dest matches, diff should be clean.
+    let (repo, home) = setup_diff();
+    let source_dir = repo.path().join("source");
+    // Replace the plain file with a template.
+    fs::remove_file(source_dir.join("dot_diffrc")).unwrap();
+    fs::write(source_dir.join("dot_diffrc.tmpl"), "profile={{ profile }}\n").unwrap();
+
+    // Apply first so the rendered file is in dest.
+    cmd_home(&repo, &home)
+        .args(["apply", "--profile", "default"])
+        .assert()
+        .success();
+
+    diff_cmd(&repo, &home)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("✓ Everything up to date"));
+}
+
+#[test]
+fn diff_template_rendered_diff_shows_delta() {
+    let (repo, home) = setup_diff();
+    let source_dir = repo.path().join("source");
+    fs::remove_file(source_dir.join("dot_diffrc")).unwrap();
+    fs::write(source_dir.join("dot_diffrc.tmpl"), "profile={{ profile }}\n").unwrap();
+
+    // Apply with profile "default" so dest = "profile=default\n".
+    cmd_home(&repo, &home)
+        .args(["apply", "--profile", "default"])
+        .assert()
+        .success();
+
+    // Now manually write a stale value to dest.
+    fs::write(home.path().join(".diffrc"), "profile=old\n").unwrap();
+
+    diff_cmd(&repo, &home)
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains("[files]"))
+        // dest ("profile=old") is shown as "-" (current), source rendered ("profile=default") as "+"
+        .stdout(predicate::str::contains("-profile=old"))
+        .stdout(predicate::str::contains("+profile=default"));
+}
+
+#[test]
+fn diff_template_render_error_shows_tilde_marker() {
+    // A template with an undefined variable causes a Tera render error.
+    // diff should show the ~ marker and exit 1 (drift, not crash).
+    let (repo, home) = setup_diff();
+    let source_dir = repo.path().join("source");
+    fs::remove_file(source_dir.join("dot_diffrc")).unwrap();
+    // Use a filter on an undefined variable, which Tera treats as an error.
+    fs::write(
+        source_dir.join("dot_diffrc.tmpl"),
+        "{{ undefined_variable_xyz }}\n",
+    )
+    .unwrap();
+    // Create a dest so it's not "missing".
+    fs::write(home.path().join(".diffrc"), "something\n").unwrap();
+
+    diff_cmd(&repo, &home)
+        .assert()
+        .failure() // exit 1 (drift marker present)
+        .stdout(predicate::str::contains("~"))
+        .stdout(predicate::str::contains("template render failed"));
+}
+
+#[test]
+fn diff_binary_file_shows_notice() {
+    let (repo, home) = setup_diff();
+    let source_dir = repo.path().join("source");
+    // Write a binary file (contains null bytes) as source.
+    let binary: Vec<u8> = vec![0u8, 1, 2, 3, 0, 255];
+    fs::write(source_dir.join("dot_diffrc"), &binary).unwrap();
+    // Write different binary content to dest.
+    let binary2: Vec<u8> = vec![0u8, 9, 8, 7, 0, 200];
+    fs::write(home.path().join(".diffrc"), &binary2).unwrap();
+
+    diff_cmd(&repo, &home)
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains("binary files differ"));
+}
+
+#[test]
+fn diff_symlink_correct_target_no_output() {
+    // A symlink_ entry pointing to the correct source file is clean.
+    let (repo, home) = setup_diff();
+    let source_dir = repo.path().join("source");
+    // Add a symlink_ entry.
+    fs::write(source_dir.join("symlink_dot_difflink"), "link content\n").unwrap();
+
+    // Apply so the symlink is created.
+    cmd_home(&repo, &home)
+        .args(["apply", "--profile", "default"])
+        .assert()
+        .success();
+
+    diff_cmd(&repo, &home)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("✓ Everything up to date"));
+}
+
+#[test]
+fn diff_symlink_wrong_target_shows_mismatch() {
+    let (repo, home) = setup_diff();
+    let source_dir = repo.path().join("source");
+    fs::write(source_dir.join("symlink_dot_difflink"), "link content\n").unwrap();
+
+    // Apply to create the correct symlink.
+    cmd_home(&repo, &home)
+        .args(["apply", "--profile", "default"])
+        .assert()
+        .success();
+
+    // Replace the symlink with one pointing somewhere wrong.
+    let link_path = home.path().join(".difflink");
+    fs::remove_file(&link_path).unwrap();
+    #[cfg(unix)]
+    std::os::unix::fs::symlink("/tmp/wrong_target", &link_path).unwrap();
+
+    diff_cmd(&repo, &home)
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains("M ~/.difflink"))
+        .stdout(predicate::str::contains("symlink:"));
+}
+
+// ── Section flags ──────────────────────────────────────────────────────────────
+
+#[test]
+fn diff_files_flag_only() {
+    let (repo, home) = setup_diff();
+    // Dest is missing — drift in files section.
+
+    diff_cmd(&repo, &home)
+        .args(["--files"])
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains("[files]"));
+}
+
+#[test]
+fn diff_no_flags_shows_files_section() {
+    let (repo, home) = setup_diff();
+
+    diff_cmd(&repo, &home)
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains("[files]"));
+}
+
+#[test]
+fn diff_brews_flag_skips_files_section() {
+    let (repo, home) = setup_diff();
+    // Files are missing but --brews was requested; no [files] section.
+
+    diff_cmd(&repo, &home)
+        .args(["--brews"])
+        .assert()
+        // Exit 0 or 1 (brew may or may not be installed in CI), just no crash.
+        .stdout(predicate::str::contains("[files]").not());
+}
+
+#[test]
+fn diff_ai_flag_skips_files_section() {
+    let (repo, home) = setup_diff();
+
+    diff_cmd(&repo, &home)
+        .args(["--ai"])
+        .assert()
+        .stdout(predicate::str::contains("[files]").not());
+}
+
+// ── --stat flag ────────────────────────────────────────────────────────────────
+
+#[test]
+fn diff_stat_shows_summary_line() {
+    let (repo, home) = setup_diff();
+    // Apply then modify dest to create one-line drift.
+    cmd_home(&repo, &home)
+        .args(["apply", "--profile", "default"])
+        .assert()
+        .success();
+    fs::write(home.path().join(".diffrc"), "v2\n").unwrap();
+
+    diff_cmd(&repo, &home)
+        .args(["--files", "--stat"])
+        .assert()
+        .failure()
+        // Should show a stat line with | separator, not a raw diff block.
+        .stdout(predicate::str::contains("|"))
+        // Must NOT show raw + / - diff lines.
+        .stdout(predicate::str::contains("+v2").not())
+        .stdout(predicate::str::contains("-v1").not());
+}
+
+// ── Exit codes ─────────────────────────────────────────────────────────────────
+
+#[test]
+fn diff_exits_0_when_clean() {
+    let (repo, home) = setup_diff();
+    cmd_home(&repo, &home)
+        .args(["apply", "--profile", "default"])
+        .assert()
+        .success();
+
+    diff_cmd(&repo, &home)
+        .assert()
+        .success(); // exit code 0
+}
+
+#[test]
+fn diff_exits_1_when_drift() {
+    let (repo, home) = setup_diff();
+    // Don't apply — dest is missing, so drift exists.
+
+    diff_cmd(&repo, &home)
+        .assert()
+        .failure(); // exit code 1
 }

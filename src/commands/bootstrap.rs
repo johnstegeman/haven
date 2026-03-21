@@ -79,6 +79,12 @@ pub fn run(opts: &BootstrapOptions<'_>) -> Result<()> {
         profile: opts.profile,
         module_filter: None,
         dry_run: opts.dry_run,
+        apply_files: true,
+        apply_brews: true,
+        apply_ai: true,
+        apply_externals: false,
+        remove_unreferenced_brews: false,
+        interactive: false,
     })?;
 
     // ── Status summary (non-dry-run only) ─────────────────────────────────────

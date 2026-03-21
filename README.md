@@ -61,7 +61,7 @@ in one place.
 
 | Thing | How |
 |-------|-----|
-| Dotfiles | Copied (or symlinked) to their destinations; template rendering via Tera |
+| Dotfiles | Copied (or symlinked) to their destinations; flags encoded in the source filename |
 | Homebrew packages | Brewfile-driven; `dfiles brew install` keeps Brewfiles in sync |
 | Language runtimes | Via [mise](https://mise.jdx.dev/) config files |
 | Claude Code skills | Fetched from `gh:owner/repo[@ref]`, pinned in `dfiles.lock` |
@@ -78,7 +78,7 @@ in one place.
 ```sh
 dfiles init
 dfiles add ~/.zshrc
-dfiles add ~/.gitconfig --module git
+dfiles add ~/.gitconfig
 dfiles apply
 ```
 
@@ -111,9 +111,12 @@ for what's imported and what's skipped.
 ```sh
 dfiles init                    # initialize a new dfiles repo
 dfiles add ~/.zshrc            # start tracking a file
+dfiles add ~/.config/nvim      # track a directory (prompts: extdir or files)
 dfiles apply                   # deploy tracked files to this machine
 dfiles apply --dry-run         # preview without writing anything
+dfiles apply --dest ~/staging  # apply to a staging directory (for testing)
 dfiles status                  # show drift between source and live files
+dfiles diff                    # show file-level diff between source and live files
 dfiles brew install <formula>  # brew install + update Brewfile
 dfiles brew uninstall <formula># brew uninstall + remove from Brewfile
 dfiles import --from chezmoi   # migrate from chezmoi
@@ -122,21 +125,41 @@ dfiles bootstrap               # apply + status (+ optional remote fetch)
 
 ---
 
+## How files are tracked
+
+dfiles uses **magic-name encoding** — all file metadata lives in the source filename
+itself, with no separate TOML registry. The same encoding chezmoi uses.
+
+```
+source/dot_zshrc                       →  ~/.zshrc
+source/dot_config/git/config           →  ~/.config/git/config
+source/private_dot_ssh/id_rsa          →  ~/.ssh/id_rsa          (chmod 0600)
+source/executable_dot_local/bin/foo    →  ~/.local/bin/foo        (chmod 0755)
+source/symlink_vscode_settings.json    →  ~/vscode_settings.json  (symlink)
+source/dot_gitconfig.tmpl              →  ~/.gitconfig            (Tera template)
+```
+
+| Prefix/suffix | Meaning |
+|---------------|---------|
+| `dot_` | Replace with `.` |
+| `private_` | chmod 0600 for files, 0700 for directories |
+| `executable_` | chmod 0755 (or 0700 combined with private) |
+| `symlink_` | Create a symlink instead of copying |
+| `extdir_` | Clone a remote git repo into this directory on apply |
+| `.tmpl` suffix | Render through the Tera template engine |
+
+---
+
 ## Module config example
+
+Modules control **packages and AI tools** — not files. Files (including external
+git repos) are tracked entirely through their encoded filenames in `source/`.
 
 ```toml
 # config/modules/shell.toml
-[[files]]
-source = "zshrc"
-dest   = "~/.zshrc"
-
-[[files]]
-source = "gitconfig.tmpl"
-dest   = "~/.gitconfig"
-template = true
 
 [homebrew]
-brewfiles = ["source/Brewfile"]
+brewfile = "brew/Brewfile.shell"
 
 [mise]
 config = "source/mise.toml"
@@ -146,14 +169,17 @@ skills   = ["gh:gstack/standard-skills@v2"]
 commands = ["gh:me/my-commands@main"]
 ```
 
----
+External git repos are tracked as `extdir_` marker files in `source/`:
 
-## Documentation
+```toml
+# source/dot_config/extdir_nvim  — clones https://github.com/me/nvim-config into ~/.config/nvim
+type = "git"
+url  = "https://github.com/me/nvim-config"
+ref  = "main"   # optional
+```
 
-- **[User guide](docs/guide.md)** — full reference: modules, profiles, templates,
-  1Password, Brewfiles, externals, bootstrapping, importing
-- **[Roadmap](TODOS.md)** — what's coming: SHA verification, `dfiles publish`,
-  cross-machine diff, additional import formats
+Add them with `dfiles add ~/.config/nvim` (dfiles detects the git remote and prompts
+you to add it as an external) or write the marker file by hand.
 
 ---
 
@@ -164,10 +190,19 @@ commands = ["gh:me/my-commands@main"]
 ├── dfiles.toml          # profiles: which modules each profile activates
 ├── dfiles.lock          # pinned SHA-256 for every fetched GitHub source
 │
-├── source/              # your dotfiles, stored verbatim
-│   ├── zshrc
-│   ├── gitconfig.tmpl   # .tmpl → rendered by Tera before writing
-│   └── Brewfile
+├── source/              # dotfiles with magic-name encoded filenames
+│   ├── dot_zshrc
+│   ├── dot_gitconfig.tmpl          # .tmpl → rendered by Tera before writing
+│   ├── private_dot_ssh/
+│   │   └── id_rsa                  # private_ → chmod 0600
+│   └── dot_config/
+│       ├── git/
+│       │   └── config
+│       └── extdir_nvim             # extdir_ → git clone into ~/.config/nvim
+│
+├── brew/                # Homebrew Brewfiles
+│   ├── Brewfile                    # master (no --module)
+│   └── Brewfile.shell              # module-specific
 │
 └── config/
     └── modules/
@@ -175,6 +210,15 @@ commands = ["gh:me/my-commands@main"]
         ├── git.toml
         └── packages.toml
 ```
+
+---
+
+## Documentation
+
+- **[User guide](docs/guide.md)** — full reference: modules, profiles, templates,
+  1Password, Brewfiles, externals, bootstrapping, importing
+- **[Roadmap](TODOS.md)** — what's coming: SHA verification, `dfiles publish`,
+  cross-machine diff, additional import formats
 
 ---
 

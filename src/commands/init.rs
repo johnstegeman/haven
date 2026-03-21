@@ -1,9 +1,155 @@
 use anyhow::{bail, Context, Result};
 use std::path::Path;
 
+use crate::commands::apply;
 use crate::config::DfilesConfig;
+use crate::github::GhSource;
 
-pub fn run(repo_root: &Path) -> Result<()> {
+pub struct InitOptions<'a> {
+    pub repo_root: &'a Path,
+    /// Remote git URL or `gh:owner/repo[@ref]` to clone. `None` = blank scaffold.
+    pub source: Option<&'a str>,
+    /// Branch to clone. Overrides any `@ref` in the source string.
+    pub branch: Option<&'a str>,
+    /// Apply the cloned repo after cloning.
+    pub apply: bool,
+    /// Profile to apply. `None` means not explicitly given (defaults to "default" when applying).
+    pub profile: Option<&'a str>,
+    // Fields required for the optional apply step.
+    pub dest_root: &'a Path,
+    pub backup_dir: &'a Path,
+    pub state_dir: &'a Path,
+    pub claude_dir: &'a Path,
+}
+
+pub fn run(opts: &InitOptions<'_>) -> Result<()> {
+    // Guard: --apply and --profile both require a source.
+    if (opts.apply || opts.profile.is_some()) && opts.source.is_none() {
+        bail!(
+            "--apply requires a source.\n\
+             Use: dfiles init <source> --apply\n\
+             To apply an existing local repo, run: dfiles apply"
+        );
+    }
+
+    match opts.source {
+        Some(source_str) => run_from_source(opts, source_str),
+        None => run_scaffold(opts.repo_root),
+    }
+}
+
+/// Clone a git repository (or `gh:owner/repo`) into the repo root, then
+/// optionally apply it.
+fn run_from_source(opts: &InitOptions<'_>, source_str: &str) -> Result<()> {
+    let repo_root = opts.repo_root;
+
+    // Validate: target must be absent or empty.
+    if repo_root.exists() {
+        let is_empty = repo_root
+            .read_dir()
+            .map(|mut d| d.next().is_none())
+            .unwrap_or(false);
+        if !is_empty {
+            bail!(
+                "{} already exists and is not empty.\n\
+                 Use --dir to specify a different location.",
+                repo_root.display()
+            );
+        }
+    }
+
+    // Resolve the clone URL and any ref embedded in the source string.
+    let (clone_url, source_ref) = if let Ok(gh) = GhSource::parse(source_str) {
+        let url = format!("https://github.com/{}/{}", gh.owner, gh.repo);
+        (url, gh.git_ref)
+    } else {
+        // Raw git URL — pass through as-is (SSH, HTTPS, local path, etc.).
+        (source_str.to_string(), None)
+    };
+
+    // --branch overrides @ref in the source string.
+    let branch: Option<&str> = match opts.branch {
+        Some(b) => {
+            if source_ref.is_some() {
+                eprintln!("note: --branch '{}' overrides @ref in source", b);
+            }
+            Some(b)
+        }
+        None => source_ref.as_deref(),
+    };
+
+    match branch {
+        Some(b) => println!(
+            "Cloning {} (branch: {}) into {} …",
+            clone_url,
+            b,
+            repo_root.display()
+        ),
+        None => println!("Cloning {} into {} …", clone_url, repo_root.display()),
+    }
+
+    // Run git clone. Output streams directly to the terminal.
+    let mut cmd = std::process::Command::new("git");
+    cmd.arg("clone");
+    if let Some(b) = branch {
+        cmd.args(["--branch", b]);
+    }
+    cmd.arg(&clone_url);
+    cmd.arg(repo_root);
+
+    let status = cmd
+        .status()
+        .context("Failed to run `git clone`. Is git installed and in your PATH?")?;
+    if !status.success() {
+        bail!("git clone failed (exit code {:?})", status.code());
+    }
+
+    println!("Cloned successfully.");
+
+    // Optionally apply.
+    if opts.apply {
+        if !repo_root.join("dfiles.toml").exists() {
+            bail!(
+                "Cloned repo does not contain a dfiles.toml — this does not appear to be a \
+                 dfiles repository.\n\
+                 Cannot apply. Run `dfiles init` in that directory to scaffold one, or \
+                 choose a different source."
+            );
+        }
+
+        let profile = opts.profile.unwrap_or("default");
+        println!("\nApplying profile '{}' …", profile);
+        apply::run(&apply::ApplyOptions {
+            repo_root,
+            dest_root: opts.dest_root,
+            backup_dir: opts.backup_dir,
+            state_dir: opts.state_dir,
+            claude_dir: opts.claude_dir,
+            profile,
+            module_filter: None,
+            dry_run: false,
+            apply_files: true,
+            apply_brews: true,
+            apply_ai: true,
+            apply_externals: false,
+            remove_unreferenced_brews: false,
+            interactive: false,
+        })?;
+
+        println!("\nNext steps:");
+        println!("  dfiles status          # verify what was applied");
+        println!("  dfiles add ~/.zshrc    # start tracking more files");
+    } else {
+        println!("\nNext steps:");
+        println!("  dfiles apply           # apply config to this machine");
+        println!("  dfiles add ~/.zshrc    # start tracking a new dotfile");
+    }
+
+    Ok(())
+}
+
+/// Create a blank dfiles scaffold at `repo_root`. Refuses if already initialized.
+fn run_scaffold(repo_root: &Path) -> Result<()> {
     // Refuse to re-initialize an existing repo.
     if repo_root.join("dfiles.toml").exists() {
         bail!(

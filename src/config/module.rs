@@ -5,19 +5,13 @@ use std::path::{Path, PathBuf};
 /// A module config file, e.g. `config/modules/shell.toml`.
 ///
 /// Modules scope **brew and AI only** — file tracking is handled by magic-name
-/// encoding in `source/` and always applies in full.
+/// encoding in `source/` and always applies in full. External directories (git
+/// repos cloned on apply) are encoded as `extdir_<name>` marker files in `source/`.
 ///
 /// ```toml
 /// # config/modules/shell.toml
 /// [homebrew]
 /// brewfile = "brew/Brewfile.shell"
-///
-/// # config/modules/editor.toml
-/// [[externals]]
-/// dest = "~/.config/nvim"
-/// type = "git"
-/// url  = "https://github.com/user/nvim-config"
-/// ref  = "main"
 ///
 /// # config/modules/ai.toml
 /// [ai]
@@ -27,10 +21,6 @@ use std::path::{Path, PathBuf};
 #[derive(Debug, Deserialize, Serialize, Default)]
 #[serde(deny_unknown_fields)]
 pub struct ModuleConfig {
-    /// Externally-sourced directories (e.g. separate git repos cloned on apply).
-    #[serde(default)]
-    pub externals: Vec<ExternalEntry>,
-
     /// Homebrew Brewfile for this module.
     pub homebrew: Option<HomebrewConfig>,
 
@@ -95,46 +85,9 @@ pub struct AiConfig {
 impl ModuleConfig {
     /// Returns true if this module has nothing to apply.
     pub fn is_empty(&self) -> bool {
-        self.externals.is_empty()
-            && self.homebrew.is_none()
+        self.homebrew.is_none()
             && self.mise.is_none()
             && self.ai.as_ref().is_none_or(|ai| ai.skills.is_empty() && ai.commands.is_empty())
-    }
-}
-
-/// An externally-sourced directory entry within a module.
-///
-/// On apply, dfiles clones (or pulls) the external source into `dest`.
-///
-/// ```toml
-/// [[externals]]
-/// dest = "~/.config/nvim"
-/// type = "git"
-/// url  = "https://github.com/user/nvim-config"
-/// ref  = "main"   # optional — branch, tag, or commit SHA
-/// ```
-#[derive(Debug, Deserialize, Serialize, Clone)]
-#[serde(deny_unknown_fields)]
-pub struct ExternalEntry {
-    /// Absolute destination path (supports `~` expansion).
-    pub dest: String,
-
-    /// Source type. Currently only `"git"` is supported.
-    #[serde(rename = "type")]
-    pub kind: String,
-
-    /// Remote URL to clone from.
-    pub url: String,
-
-    /// Branch, tag, or commit SHA to check out. Optional.
-    #[serde(rename = "ref")]
-    pub ref_name: Option<String>,
-}
-
-impl ExternalEntry {
-    /// Expand `~` in dest to the actual home directory.
-    pub fn dest_expanded(&self) -> Result<PathBuf> {
-        expand_tilde(&self.dest)
     }
 }
 
@@ -164,9 +117,6 @@ impl ModuleConfig {
         Ok(())
     }
 
-    pub fn contains_external(&self, dest: &str) -> bool {
-        self.externals.iter().any(|e| e.dest == dest)
-    }
 }
 
 /// Canonical dependency order for modules.

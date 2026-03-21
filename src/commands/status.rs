@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 
 use crate::config::{sort_modules, DfilesConfig, ModuleConfig};
 use crate::config::module::expand_tilde;
+use crate::drift::{check_drift, check_drift_link, check_drift_link_template, check_drift_template, drift_marker, DriftKind};
 use crate::source;
 use crate::template::TemplateContext;
 
@@ -31,8 +32,20 @@ pub fn run(opts: &StatusOptions<'_>) -> Result<()> {
         let dest_expanded = expand_tilde(&entry.dest_tilde)?;
         let dest = resolve_dest(dest_expanded, opts.dest_root);
 
-        let drift = if entry.flags.symlink {
-            check_drift_link(&entry.src, &dest)
+        let drift = if entry.flags.extdir {
+            if !dest.exists() {
+                DriftKind::Missing
+            } else if !dest.join(".git").exists() {
+                DriftKind::Modified
+            } else {
+                DriftKind::Clean
+            }
+        } else if entry.flags.symlink {
+            if entry.flags.template {
+                check_drift_link_template(&entry.src, &template_ctx, &dest)?
+            } else {
+                check_drift_link(&entry.src, &dest)
+            }
         } else if entry.flags.template {
             check_drift_template(&entry.src, &template_ctx, &dest)?
         } else {
@@ -72,23 +85,6 @@ pub fn run(opts: &StatusOptions<'_>) -> Result<()> {
         }
 
         let mut module_drift: Vec<(String, DriftKind)> = vec![];
-
-        // Externals drift
-        for ext in &module.externals {
-            let dest_expanded = expand_tilde(&ext.dest)?;
-            let dest = resolve_dest(dest_expanded, opts.dest_root);
-            let drift = if !dest.exists() {
-                DriftKind::Missing
-            } else if !dest.join(".git").exists() {
-                // Exists but not a git repo — user needs to resolve manually.
-                DriftKind::Modified
-            } else {
-                DriftKind::Clean
-            };
-            if drift != DriftKind::Clean {
-                module_drift.push((ext.dest.clone(), drift));
-            }
-        }
 
         // Module Brewfile drift
         if let Some(hb) = &module.homebrew {
@@ -157,80 +153,6 @@ pub fn run(opts: &StatusOptions<'_>) -> Result<()> {
     }
 
     Ok(())
-}
-
-fn drift_marker(kind: DriftKind) -> &'static str {
-    match kind {
-        DriftKind::Modified => "M",
-        DriftKind::Missing => "?",
-        DriftKind::SourceMissing => "!",
-        DriftKind::Clean => unreachable!(),
-    }
-}
-
-#[derive(Debug, PartialEq)]
-enum DriftKind {
-    Clean,
-    /// Dest exists but differs from source.
-    Modified,
-    /// Dest does not exist (never applied or deleted).
-    Missing,
-    /// Source file is missing from the repo.
-    SourceMissing,
-}
-
-/// Compare a template source against the live dest by rendering first.
-fn check_drift_template(src: &Path, ctx: &TemplateContext, dest: &Path) -> Result<DriftKind> {
-    if !src.exists() {
-        return Ok(DriftKind::SourceMissing);
-    }
-    if !dest.exists() {
-        return Ok(DriftKind::Missing);
-    }
-    let source_text = std::fs::read_to_string(src)?;
-    let rendered = crate::template::render(&source_text, ctx)?;
-    let dest_bytes = std::fs::read(dest)?;
-    if rendered.as_bytes() == dest_bytes.as_slice() {
-        Ok(DriftKind::Clean)
-    } else {
-        Ok(DriftKind::Modified)
-    }
-}
-
-/// Check drift for a linked (symlink) file entry.
-///
-/// Clean only when dest is a symlink whose target exactly matches source_abs.
-/// Modified when dest exists but is not the correct symlink (wrong target or regular file).
-fn check_drift_link(source_abs: &Path, dest: &Path) -> DriftKind {
-    if !source_abs.exists() {
-        return DriftKind::SourceMissing;
-    }
-    if dest.is_symlink() {
-        if let Ok(target) = std::fs::read_link(dest) {
-            if target == source_abs {
-                return DriftKind::Clean;
-            }
-        }
-        DriftKind::Modified // wrong target or dangling symlink
-    } else if dest.exists() {
-        DriftKind::Modified // regular file where symlink expected
-    } else {
-        DriftKind::Missing
-    }
-}
-
-fn check_drift(src: &Path, dest: &Path) -> DriftKind {
-    if !src.exists() {
-        return DriftKind::SourceMissing;
-    }
-    if !dest.exists() {
-        return DriftKind::Missing;
-    }
-    // Compare content by reading both files.
-    match (std::fs::read(src), std::fs::read(dest)) {
-        (Ok(s), Ok(d)) if s == d => DriftKind::Clean,
-        _ => DriftKind::Modified,
-    }
 }
 
 fn resolve_dest(dest: PathBuf, dest_root: &Path) -> PathBuf {

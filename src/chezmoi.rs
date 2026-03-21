@@ -17,7 +17,7 @@
 ///        │       ├─ symlink_*               → read content, resolve target
 ///        │       │     target resolves      → Keep with link=true, copy_from=target
 ///        │       │     target unresolvable  → Skip(Symlink)
-///        │       ├─ modify_*                       → Skip(Unsupported)
+///        │       ├─ modify_*                       → Skip(ModifyScript)
 ///        │       ├─ exact_* (dir prefix)           → Keep (prefix preserved; apply purges untracked entries)
 ///        │       ├─ create_*                       → Keep (prefix preserved; apply skips if dest exists)
 ///        │       ├─ run_once_* / run_* / once_*   → Skip(Script)
@@ -81,8 +81,11 @@ pub struct SkippedEntry {
 pub enum SkipReason {
     /// `symlink_` prefix — symlink targets (P1 follow-on).
     Symlink,
-    /// `exact_` / `create_` / `modify_` prefix — unsupported chezmoi attributes (P1).
-    UnsupportedAttribute,
+    /// `modify_` prefix — intentionally unsupported. chezmoi `modify_` scripts
+    /// transform an existing file via stdin→stdout at apply time; there is no static
+    /// equivalent in dfiles. The script must be run manually or replaced with a
+    /// static file.
+    ModifyScript,
     /// `.tmpl` suffix — Go templates (P1 follow-on).
     Template,
     /// `run_once_` / `run_` / `once_` prefix — install/run scripts (P1 follow-on).
@@ -100,7 +103,10 @@ impl SkipReason {
     pub fn display(&self) -> Option<&'static str> {
         match self {
             SkipReason::Symlink => Some("symlink — target could not be resolved (manual migration required)"),
-            SkipReason::UnsupportedAttribute => Some("unsupported chezmoi attribute (P1)"),
+            SkipReason::ModifyScript => Some(
+                "modify_ scripts are not supported — dfiles has no stdin→stdout transform \
+                 equivalent. Run the script manually or replace it with a static file."
+            ),
             SkipReason::Template => Some("Go template — could not read file (manual migration required)"),
             SkipReason::Script => Some("unrecognised script — manual migration required (see TODOS.md)"),
             SkipReason::Internal => None, // silent
@@ -570,7 +576,7 @@ pub fn decode_entry(rel_path: &Path) -> ImportEntry {
         return skip(rel_path, SkipReason::Symlink);
     }
     if first_stripped.starts_with("modify_") {
-        return skip(rel_path, SkipReason::UnsupportedAttribute);
+        return skip(rel_path, SkipReason::ModifyScript);
     }
     // exact_: supported — the prefix is kept in source/ so that source.rs sets
     // exact on the SourceDir at apply time. apply.rs then purges untracked entries.

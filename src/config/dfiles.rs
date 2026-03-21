@@ -4,11 +4,29 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 /// Root config: `dfiles.toml` in the repo root.
-#[derive(Debug, Deserialize, Serialize)]
-
+#[derive(Debug, Deserialize, Serialize, Default)]
 pub struct DfilesConfig {
     #[serde(default)]
     pub profile: HashMap<String, ProfileConfig>,
+
+    /// Opt-in local telemetry.
+    #[serde(default)]
+    pub telemetry: TelemetryConfig,
+}
+
+/// Telemetry settings in `dfiles.toml`.
+///
+/// ```toml
+/// [telemetry]
+/// enabled = true
+/// ```
+#[derive(Debug, Deserialize, Serialize, Default)]
+pub struct TelemetryConfig {
+    /// Enable local telemetry. Defaults to false.
+    /// Can also be enabled via the `DFILES_TELEMETRY=1` environment variable,
+    /// or at compile time with the `telemetry-default-on` Cargo feature.
+    #[serde(default)]
+    pub enabled: bool,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -65,7 +83,7 @@ impl DfilesConfig {
             "default".to_string(),
             ProfileConfig { modules, extends: None },
         );
-        Ok(Self { profile })
+        Ok(Self { profile, ..Self::default() })
     }
 
     /// Returns the resolved module list for a profile, flattening `extends`.

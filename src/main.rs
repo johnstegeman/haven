@@ -18,6 +18,7 @@ mod onepassword;
 mod skill_cache;
 mod source;
 mod state;
+mod telemetry;
 mod template;
 
 use anyhow::Result;
@@ -145,7 +146,7 @@ enum BrewAction {
     },
 }
 
-use config::dfiles::repo_root;
+use config::dfiles::{DfilesConfig, repo_root};
 
 #[derive(Parser)]
 #[command(
@@ -516,10 +517,64 @@ fn resolve_profile(explicit: Option<&str>, state_dir: &std::path::Path) -> Strin
 }
 
 fn main() {
-    if let Err(e) = run() {
+    // Collect raw args before clap consumes them.
+    let raw_args: Vec<String> = std::env::args().skip(1).collect();
+    let cmd_name = cmd_name_from_args(&raw_args);
+    let flags = flags_from_args(&raw_args);
+
+    let config_enabled = try_load_telemetry_config();
+    let recorder = telemetry::Recorder::new(
+        telemetry::is_enabled(config_enabled),
+        cmd_name,
+        flags,
+        None, // profile resolved after full parse; fine to omit for now
+    );
+
+    let result = run();
+    recorder.finish(&result);
+
+    if let Err(e) = result {
         eprintln!("error: {e:#}");
         std::process::exit(1);
     }
+}
+
+/// Extract the subcommand name from raw CLI args (first non-flag arg).
+fn cmd_name_from_args(args: &[String]) -> String {
+    // Skip global flags like --dir /path (flag + value pairs) to find the subcommand.
+    let mut skip_next = false;
+    for arg in args {
+        if skip_next {
+            skip_next = false;
+            continue;
+        }
+        if arg == "--dir" || arg == "--profile" {
+            skip_next = true;
+            continue;
+        }
+        if !arg.starts_with('-') {
+            return arg.clone();
+        }
+    }
+    "unknown".to_string()
+}
+
+/// Collect flag names (args starting with `-`) from raw CLI args.
+fn flags_from_args(args: &[String]) -> Vec<String> {
+    args.iter()
+        .filter(|a| a.starts_with('-'))
+        .cloned()
+        .collect()
+}
+
+/// Load the telemetry.enabled setting from dfiles.toml (best-effort, never panics).
+fn try_load_telemetry_config() -> bool {
+    (|| -> Option<bool> {
+        let repo = repo_root().ok()?;
+        let cfg = DfilesConfig::load(&repo).ok()?;
+        Some(cfg.telemetry.enabled)
+    })()
+    .unwrap_or(false)
 }
 
 fn run() -> Result<()> {

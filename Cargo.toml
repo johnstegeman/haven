@@ -13,6 +13,12 @@ categories = ["command-line-utilities"]
 name = "dfiles"
 path = "src/main.rs"
 
+[features]
+# Enable telemetry by default in special distribution builds.
+# Normal builds have telemetry off by default; users opt in via dfiles.toml or
+# the DFILES_TELEMETRY environment variable.
+telemetry-default-on = []
+
 [dependencies]
 clap = { version = "4", features = ["derive", "env"] }
 clap_complete = "4"

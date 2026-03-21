@@ -156,10 +156,10 @@ fn resolve_module_brewfile(repo_root: &Path, module_name: &str) -> Result<PathBu
         config.homebrew = Some(HomebrewConfig { brewfile: rel.clone() });
         config
             .save(repo_root, module_name)
-            .with_context(|| format!("Cannot update config/modules/{}.toml", module_name))?;
+            .with_context(|| format!("Cannot update modules/{}.toml", module_name))?;
         if !brewfile.exists() {
             println!(
-                "Created {} and registered it in config/modules/{}.toml",
+                "Created {} and registered it in modules/{}.toml",
                 rel, module_name
             );
         }

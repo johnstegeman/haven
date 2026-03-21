@@ -176,8 +176,8 @@ fn run_scaffold(repo_root: &Path) -> Result<()> {
     }
 
     // Scaffold directory structure.
-    std::fs::create_dir_all(repo_root.join("config").join("modules"))
-        .context("Cannot create config/modules/")?;
+    std::fs::create_dir_all(repo_root.join("modules"))
+        .context("Cannot create modules/")?;
     std::fs::create_dir_all(repo_root.join("source"))
         .context("Cannot create source/")?;
     std::fs::create_dir_all(repo_root.join("brew"))
@@ -201,10 +201,10 @@ fn run_scaffold(repo_root: &Path) -> Result<()> {
 # brewfile = "brew/Brewfile.shell"
 "#;
     std::fs::write(
-        repo_root.join("config").join("modules").join("shell.toml"),
+        repo_root.join("modules").join("shell.toml"),
         shell_toml,
     )
-    .context("Cannot write config/modules/shell.toml")?;
+    .context("Cannot write modules/shell.toml")?;
 
     // Write .gitignore (never commit state files).
     let gitignore = "# dfiles runtime files — do not commit\n.dfiles/\n";

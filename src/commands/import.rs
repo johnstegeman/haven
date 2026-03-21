@@ -20,6 +20,7 @@ use anyhow::{Context, Result};
 use std::path::Path;
 
 use crate::chezmoi::{self, ChezmoiBrewfileEntry, ChezmoiEntry, ChezmoiExternalEntry, ChezmoiScriptEntry, ScriptMigration, ScriptWhen, SkippedEntry};
+use crate::config::dfiles::DfilesConfig;
 use crate::config::module::{expand_tilde, HomebrewConfig, MiseConfig, ModuleConfig};
 use crate::fs::copy_to_dest;
 use crate::source::extdir_source_path;
@@ -324,6 +325,13 @@ fn execute(opts: &ImportOptions<'_>, source_dir: &std::path::Path, keeps: &[Chez
         eprintln!("    warning (ignore): {}", w);
     }
 
+    // ── Write dfiles.toml if not already present ──────────────────────────────
+    let dfiles_toml = opts.repo_root.join("dfiles.toml");
+    if !dfiles_toml.exists() {
+        DfilesConfig::write_scaffold(opts.repo_root)?;
+        println!("  ✓  wrote dfiles.toml  (edit profiles to customise)");
+    }
+
     println!();
     println!(
         "Imported {} file(s), {} external(s), {} Brewfile(s), {} script migration(s). Skipped {} item(s).",
@@ -365,7 +373,7 @@ fn emit_script_migrations(repo_root: &Path, scripts: &[ChezmoiScriptEntry]) -> R
         if module.mise.is_none() {
             module.mise = Some(MiseConfig { config: None });
             println!(
-                "  ✓  {} → config/modules/{}.toml  ([mise])",
+                "  ✓  {} → modules/{}.toml  ([mise])",
                 script.chezmoi_path.display(), module_name,
             );
             changed = true;
@@ -548,7 +556,7 @@ fn import_brewfiles(
                     fname = brew_filename.to_string_lossy(),
                 );
                 eprintln!(
-                    "    Then add to config/modules/{}.toml:\n      [homebrew]\n      brewfile = {:?}",
+                    "    Then add to modules/{}.toml:\n      [homebrew]\n      brewfile = {:?}",
                     module_name, brew_dest,
                 );
             }
@@ -565,12 +573,12 @@ fn emit_brewfile_module_toml(repo_root: &Path, brew_dest: &str, module_name: &st
         module.homebrew = Some(HomebrewConfig { brewfile: brew_dest.to_string() });
         module.save(repo_root, module_name)?;
         println!(
-            "  ✓  → config/modules/{}.toml  ([homebrew] brewfile = {:?})",
+            "  ✓  → modules/{}.toml  ([homebrew] brewfile = {:?})",
             module_name, brew_dest,
         );
     } else {
         println!(
-            "  ~ [homebrew] already set in config/modules/{}.toml — skipped",
+            "  ~ [homebrew] already set in modules/{}.toml — skipped",
             module_name,
         );
     }

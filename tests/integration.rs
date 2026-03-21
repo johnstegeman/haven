@@ -59,11 +59,11 @@ fn init_creates_scaffold() {
     assert!(repo.path().join("source").is_dir(), "source/ missing");
     assert!(repo.path().join("brew").is_dir(), "brew/ missing");
     assert!(
-        repo.path().join("config").join("modules").is_dir(),
-        "config/modules/ missing"
+        repo.path().join("modules").is_dir(),
+        "modules/ missing"
     );
     assert!(
-        repo.path().join("config").join("modules").join("shell.toml").exists(),
+        repo.path().join("modules").join("shell.toml").exists(),
         "shell.toml missing"
     );
 }
@@ -1209,7 +1209,7 @@ fn apply_fails_on_malformed_template() {
 fn write_packages_module(repo: &TempDir, brewfile: &str) {
     let toml = format!("[homebrew]\nbrewfile = \"{}\"\n", brewfile);
     fs::write(
-        repo.path().join("config").join("modules").join("packages.toml"),
+        repo.path().join("modules").join("packages.toml"),
         toml,
     )
     .unwrap();
@@ -1248,7 +1248,7 @@ fn packages_toml_with_mise_section_parses() {
 
     let toml = "[mise]\nconfig = \"source/mise.toml\"\n";
     fs::write(
-        repo.path().join("config").join("modules").join("packages.toml"),
+        repo.path().join("modules").join("packages.toml"),
         toml,
     )
     .unwrap();
@@ -1280,7 +1280,7 @@ fn apply_shows_files_and_brew_in_dry_run() {
     fs::create_dir_all(repo.path().join("brew")).unwrap();
     fs::write(repo.path().join("brew").join("Brewfile.packages"), "brew \"git\"\n").unwrap();
     fs::write(
-        repo.path().join("config").join("modules").join("packages.toml"),
+        repo.path().join("modules").join("packages.toml"),
         "[homebrew]\nbrewfile = \"brew/Brewfile.packages\"\n",
     )
     .unwrap();
@@ -1377,7 +1377,7 @@ fn write_secrets_module(repo: &TempDir) {
                 [ai]\n\
                 skills = [\"gh:example/gh-config\"]\n";
     fs::write(
-        repo.path().join("config").join("modules").join("secrets.toml"),
+        repo.path().join("modules").join("secrets.toml"),
         toml,
     )
     .unwrap();
@@ -1471,7 +1471,7 @@ fn write_ai_module(repo: &TempDir) {
                 skills   = [\"gh:alice/my-skills@v1.0\"]\n\
                 commands = [\"gh:alice/my-commands@main\"]\n";
     fs::write(
-        repo.path().join("config").join("modules").join("ai.toml"),
+        repo.path().join("modules").join("ai.toml"),
         toml,
     )
     .unwrap();
@@ -1843,7 +1843,7 @@ fn import_copies_files_with_encoded_paths() {
     );
 
     // No [[files]] TOML entries — encoding is in the filename.
-    let shell_toml_path = repo.path().join("config").join("modules").join("shell.toml");
+    let shell_toml_path = repo.path().join("modules").join("shell.toml");
     if shell_toml_path.exists() {
         let contents = fs::read_to_string(&shell_toml_path).unwrap();
         assert!(
@@ -3312,7 +3312,7 @@ fn import_run_once_brew_bundle_emits_homebrew_module_toml() {
     );
 
     // A module TOML for "packages" should have [homebrew] pointing to brew/Brewfile.packages.
-    let toml_path = repo.path().join("config").join("modules").join("packages.toml");
+    let toml_path = repo.path().join("modules").join("packages.toml");
     assert!(toml_path.exists(), "packages.toml should be written");
     let toml_content = fs::read_to_string(&toml_path).unwrap();
     assert!(toml_content.contains("[homebrew]"), "should contain [homebrew]");
@@ -3349,7 +3349,7 @@ fn import_brewfile_in_chezmoi_source_copied_to_brew_dir() {
     assert_eq!(fs::read_to_string(&brewfile_dest).unwrap(), "brew \"git\"\n");
 
     // Module TOML should reference brew/Brewfile.packages.
-    let toml_path = repo.path().join("config").join("modules").join("packages.toml");
+    let toml_path = repo.path().join("modules").join("packages.toml");
     assert!(toml_path.exists(), "packages.toml should be created");
     let toml = fs::read_to_string(&toml_path).unwrap();
     assert!(toml.contains("[homebrew]"), "packages.toml should have [homebrew]");
@@ -3379,7 +3379,7 @@ fn import_brewfile_with_suffix_preserves_module_name() {
     let brewfile_dest = repo.path().join("brew").join("Brewfile.work");
     assert!(brewfile_dest.exists(), "brew/Brewfile.work should exist");
 
-    let toml_path = repo.path().join("config").join("modules").join("work.toml");
+    let toml_path = repo.path().join("modules").join("work.toml");
     assert!(toml_path.exists(), "work.toml should be created");
     let toml = fs::read_to_string(&toml_path).unwrap();
     assert!(toml.contains("brew/Brewfile.work"), "work.toml should reference brew/Brewfile.work");
@@ -3463,7 +3463,7 @@ fn import_run_once_mise_install_emits_mise_module_toml() {
         .success()
         .stdout(predicate::str::contains("[mise]"));
 
-    let toml_path = repo.path().join("config").join("modules").join("packages.toml");
+    let toml_path = repo.path().join("modules").join("packages.toml");
     assert!(toml_path.exists(), "packages.toml should be written");
     let toml_content = fs::read_to_string(&toml_path).unwrap();
     assert!(toml_content.contains("[mise]"), "should contain [mise]");
@@ -3497,7 +3497,7 @@ fn import_unrecognised_script_is_copied_to_source_scripts() {
     );
     // No packages.toml should be written (no recognised pattern).
     assert!(
-        !repo.path().join("config").join("modules").join("packages.toml").exists(),
+        !repo.path().join("modules").join("packages.toml").exists(),
         "no TOML should be written for unrecognised script"
     );
 }

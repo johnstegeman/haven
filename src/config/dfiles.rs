@@ -26,7 +26,7 @@ impl DfilesConfig {
     pub fn load(repo_root: &Path) -> Result<Self> {
         let path = repo_root.join("dfiles.toml");
         if !path.exists() {
-            // No dfiles.toml yet — auto-discover modules from config/modules/*.toml
+            // No dfiles.toml yet — auto-discover modules from modules/*.toml
             // so that `dfiles apply` works on a freshly-imported repo.
             return Self::discover(repo_root);
         }
@@ -37,10 +37,10 @@ impl DfilesConfig {
         Ok(config)
     }
 
-    /// Build a config from whatever module TOML files exist in `config/modules/`.
+    /// Build a config from whatever module TOML files exist in `modules/`.
     /// Used as a fallback when `dfiles.toml` hasn't been created yet.
     fn discover(repo_root: &Path) -> Result<Self> {
-        let modules_dir = repo_root.join("config").join("modules");
+        let modules_dir = repo_root.join("modules");
         let mut modules: Vec<String> = Vec::new();
         if modules_dir.exists() {
             for entry in std::fs::read_dir(&modules_dir)

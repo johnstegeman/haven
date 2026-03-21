@@ -2,18 +2,18 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-/// A module config file, e.g. `config/modules/shell.toml`.
+/// A module config file, e.g. `modules/shell.toml`.
 ///
 /// Modules scope **brew and AI only** — file tracking is handled by magic-name
 /// encoding in `source/` and always applies in full. External directories (git
 /// repos cloned on apply) are encoded as `extdir_<name>` marker files in `source/`.
 ///
 /// ```toml
-/// # config/modules/shell.toml
+/// # modules/shell.toml
 /// [homebrew]
 /// brewfile = "brew/Brewfile.shell"
 ///
-/// # config/modules/ai.toml
+/// # modules/ai.toml
 /// [ai]
 /// skills   = ["gh:gstack/standard-skills@v1.2"]
 /// commands = ["gh:jstegeman/my-commands@main"]
@@ -94,7 +94,6 @@ impl ModuleConfig {
 impl ModuleConfig {
     pub fn load(repo_root: &Path, module_name: &str) -> Result<Self> {
         let path = repo_root
-            .join("config")
             .join("modules")
             .join(format!("{}.toml", module_name));
         if !path.exists() {
@@ -110,7 +109,7 @@ impl ModuleConfig {
         // will be removed in the next major release.
         if config.ai.is_some() {
             eprintln!(
-                "warning: [ai] section in config/modules/{}.toml is deprecated.\n\
+                "warning: [ai] section in modules/{}.toml is deprecated.\n\
                  Migrate your skills to ai/skills.toml. The [ai] module section\n\
                  will be removed in the next major release of dfiles.",
                 module_name
@@ -121,7 +120,7 @@ impl ModuleConfig {
     }
 
     pub fn save(&self, repo_root: &Path, module_name: &str) -> Result<()> {
-        let dir = repo_root.join("config").join("modules");
+        let dir = repo_root.join("modules");
         std::fs::create_dir_all(&dir)?;
         let path = dir.join(format!("{}.toml", module_name));
         let text = toml::to_string_pretty(self)?;

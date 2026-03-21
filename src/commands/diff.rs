@@ -94,9 +94,24 @@ pub fn run(opts: &DiffOptions<'_>) -> Result<bool> {
             let label = &entry.dest_tilde;
 
             if entry.flags.extdir {
-                // Phase 1: existence check only.
                 if !dest.exists() {
                     section_lines.push(format!("  ? {}  (extdir: not cloned)", label));
+                } else if let Ok(marker) = parse_extdir_marker(&entry.src) {
+                    // Check ref drift: if a ref is pinned, compare against installed HEAD.
+                    if let Some(ref pinned_ref) = marker.ref_name {
+                        if let Some(head) = extdir_head_sha(&dest) {
+                            let expected_sha = git_rev_parse_ref(&dest, pinned_ref);
+                            let at_ref = expected_sha.map_or(false, |s| s == head);
+                            if !at_ref {
+                                let short = &head[..head.len().min(8)];
+                                section_lines.push(format!(
+                                    "  M {}  (extdir: at {}, expected {})",
+                                    label, short, pinned_ref
+                                ));
+                            }
+                        }
+                        // If git is unavailable or dest isn't a git repo — skip silently.
+                    }
                 }
                 continue;
             }
@@ -365,6 +380,48 @@ fn read_text_or_notice(
         }
         Ok(bytes) => Some(String::from_utf8_lossy(&bytes).into_owned()),
     }
+}
+
+// ─── extdir_ helpers ──────────────────────────────────────────────────────────
+
+/// Minimal read of an `extdir_` marker file — only the `ref` field is needed.
+#[derive(serde::Deserialize)]
+struct ExtdirMarker {
+    #[serde(rename = "ref")]
+    ref_name: Option<String>,
+}
+
+fn parse_extdir_marker(src: &Path) -> Result<ExtdirMarker> {
+    let text = std::fs::read_to_string(src)
+        .with_context(|| format!("Cannot read extdir marker {}", src.display()))?;
+    toml::from_str(&text)
+        .with_context(|| format!("Invalid TOML in extdir marker {}", src.display()))
+}
+
+/// Return the full HEAD commit SHA of a git repo at `dest`, or `None` if git
+/// is unavailable or `dest` is not a git repository.
+fn extdir_head_sha(dest: &Path) -> Option<String> {
+    let out = std::process::Command::new("git")
+        .args(["-C", &dest.to_string_lossy(), "rev-parse", "HEAD"])
+        .output()
+        .ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    String::from_utf8(out.stdout).ok().map(|s| s.trim().to_string())
+}
+
+/// Resolve a ref name (branch, tag, commit SHA) to its full SHA inside `dest`.
+/// Returns `None` if git is unavailable or the ref cannot be resolved.
+fn git_rev_parse_ref(dest: &Path, ref_name: &str) -> Option<String> {
+    let out = std::process::Command::new("git")
+        .args(["-C", &dest.to_string_lossy(), "rev-parse", ref_name])
+        .output()
+        .ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    String::from_utf8(out.stdout).ok().map(|s| s.trim().to_string())
 }
 
 /// Generate and push diff or stat output into `lines`.

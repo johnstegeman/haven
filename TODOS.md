@@ -58,19 +58,12 @@ Updated by /plan-ceo-review on 2026-03-21 (AI skills management)
 
 ---
 
-## P2: extdir_ pinned-ref drift in `dfiles diff`
+## ~~P2: extdir_ pinned-ref drift in `dfiles diff`~~ DONE
 
-**What:** When an `extdir_` entry has a `ref` field and the cloned repo HEAD differs from that ref, show an `M` marker in `dfiles diff`: `M ~/.tmux/plugins/tpm  (extdir: at abc1234, expected v3.0.0)`.
-
-**Why:** Makes `dfiles diff` useful for ongoing maintenance of externals, not just initial setup detection.
-
-**Pros:** Pairs naturally with AI version drift TODO. Completes the diff story for externals.
-
-**Cons:** Requires reading installed repo's git HEAD — adds a subprocess per extdir_ entry in diff.
-
-**Context:** Phase 1 (`extdir_` shipped 2026-03-20) checks present/absent only. Phase 2 needs: `git -C <dest> rev-parse HEAD`, compare against `ref` field. If mismatch, `DriftKind::Modified`. Pairs with AI version drift TODO.
-
-**Depends on / blocked by:** ~~`extdir_` feature shipping~~ — unblocked.
+Implemented 2026-03-21. `src/commands/diff.rs`: extdir_ block now reads the marker
+file's `ref` field; if present, runs `git -C <dest> rev-parse HEAD` and compares
+against `git rev-parse <ref>`. Mismatch shows `M path  (extdir: at abc12345, expected v3.0.0)`.
+Non-git destinations or unavailable git are silently skipped.
 
 ---
 

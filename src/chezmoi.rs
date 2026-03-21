@@ -17,7 +17,8 @@
 ///        │       ├─ symlink_*               → read content, resolve target
 ///        │       │     target resolves      → Keep with link=true, copy_from=target
 ///        │       │     target unresolvable  → Skip(Symlink)
-///        │       ├─ exact_* / create_* / modify_* → Skip(Unsupported)
+///        │       ├─ exact_* / modify_*             → Skip(Unsupported)
+///        │       ├─ create_*                       → Keep (prefix preserved; apply skips if dest exists)
 ///        │       ├─ run_once_* / run_* / once_*   → Skip(Script)
 ///        │       ├─ *.tmpl                         → Skip(Template)
 ///        │       ├─ .chezmoi* | chezmoistate*      → Skip(Internal)
@@ -484,12 +485,11 @@ pub fn decode_entry(rel_path: &Path) -> ImportEntry {
     if first_stripped.starts_with("symlink_") {
         return skip(rel_path, SkipReason::Symlink);
     }
-    if first_stripped.starts_with("exact_")
-        || first_stripped.starts_with("create_")
-        || first_stripped.starts_with("modify_")
-    {
+    if first_stripped.starts_with("exact_") || first_stripped.starts_with("modify_") {
         return skip(rel_path, SkipReason::UnsupportedAttribute);
     }
+    // create_: supported — the prefix is kept in source/ so that source.rs sets
+    // create_only on apply. No special handling needed here beyond not skipping it.
     if first_stripped.starts_with("run_once_")
         || first_stripped.starts_with("run_")
         || first_stripped.starts_with("once_")
@@ -545,6 +545,8 @@ fn decode_dest(rel_path: &Path) -> PathBuf {
     // Strip permission prefixes then dot_ from the first component only.
     if let Some(first) = components.first_mut() {
         let (stripped, _, _) = strip_permission_prefixes(first);
+        // Also strip create_ for dest calculation — the prefix stays in source_name.
+        let stripped = stripped.strip_prefix("create_").unwrap_or(stripped);
         if let Some(rest) = stripped.strip_prefix("dot_") {
             *first = format!(".{}", rest);
         } else {
@@ -1016,5 +1018,32 @@ mod tests {
     #[test]
     fn source_name_template_keeps_tmpl_suffix() {
         assert_eq!(source_name(Path::new("dot_gitconfig.tmpl")), "dot_gitconfig.tmpl");
+    }
+
+    // ── create_: decoded as Keep, dest strips create_ prefix ──────────────────
+
+    #[test]
+    fn create_dot_zshrc_decodes_to_zshrc() {
+        let e = keep("create_dot_zshrc");
+        assert!(e.dest_tilde.ends_with("/.zshrc"), "dest={}", e.dest_tilde);
+        // source_name preserves the create_ prefix so apply.rs knows to create_only.
+        assert_eq!(e.source_name, "create_dot_zshrc");
+    }
+
+    #[test]
+    fn private_create_dot_ssh_config_decodes_correctly() {
+        // private_ comes before create_ — both should be stripped for dest calculation.
+        let e = keep("private_create_dot_ssh/config");
+        assert!(e.dest_tilde.ends_with("/.ssh/config"), "dest={}", e.dest_tilde);
+        assert!(e.private, "expected private=true");
+        // source_name preserves the full encoding (create_ and private_ stay in source/).
+        assert_eq!(e.source_name, "private_create_dot_ssh/config");
+    }
+
+    #[test]
+    fn create_dot_config_fish_config_decodes_correctly() {
+        let e = keep("create_dot_config/fish/config.fish");
+        assert!(e.dest_tilde.ends_with("/.config/fish/config.fish"), "dest={}", e.dest_tilde);
+        assert_eq!(e.source_name, "create_dot_config/fish/config.fish");
     }
 }

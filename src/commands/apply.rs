@@ -358,6 +358,12 @@ fn apply_entry(
         return Ok(());
     }
 
+    // create_only: seed-only file — don't overwrite if destination already exists.
+    if entry.flags.create_only && dest.exists() {
+        println!("  ~ {} (create_only — already exists, not overwritten)", dest.display());
+        return Ok(());
+    }
+
     // Back up existing file before overwriting.
     if dest.exists() {
         let backup = backup_file(&dest, opts.backup_dir)
@@ -412,10 +418,11 @@ fn print_dry_run_entry(entry: &SourceEntry, dest_root: &Path) {
     }
 
     let mut tags: Vec<&str> = Vec::new();
-    if entry.flags.template  { tags.push("template"); }
-    if entry.flags.private   { tags.push("private"); }
-    if entry.flags.executable { tags.push("executable"); }
-    if entry.flags.symlink   { tags.push("symlink"); }
+    if entry.flags.template    { tags.push("template"); }
+    if entry.flags.private     { tags.push("private"); }
+    if entry.flags.executable  { tags.push("executable"); }
+    if entry.flags.symlink     { tags.push("symlink"); }
+    if entry.flags.create_only { tags.push("create_only"); }
     let annotation = if tags.is_empty() {
         String::new()
     } else {

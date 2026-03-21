@@ -54,6 +54,10 @@ pub struct FileFlags {
     /// repo into `dest_tilde` on apply. The marker file's TOML content holds the
     /// `url` (required) and optional `ref` and `type` fields.
     pub extdir: bool,
+    /// When true, skip writing the file if the destination already exists.
+    /// Corresponds to chezmoi's `create_` prefix — seed-only files that should
+    /// not overwrite user customisations after initial setup.
+    pub create_only: bool,
 }
 
 /// A decoded source file entry, ready to be applied.
@@ -179,6 +183,9 @@ pub fn decode_component(s: &str, is_file: bool) -> (String, FileFlags) {
             remaining = rest;
         } else if let Some(rest) = remaining.strip_prefix("extdir_") {
             flags.extdir = true;
+            remaining = rest;
+        } else if let Some(rest) = remaining.strip_prefix("create_") {
+            flags.create_only = true;
             remaining = rest;
         } else {
             break;
@@ -461,5 +468,31 @@ mod tests {
         let (decoded, flags) = decode_component(&encoded, true);
         assert_eq!(decoded, ".gitconfig");
         assert!(flags.template);
+    }
+
+    #[test]
+    fn component_create_only() {
+        let (name, flags) = decode_component("create_dot_zshrc", true);
+        assert_eq!(name, ".zshrc");
+        assert!(flags.create_only, "expected create_only=true");
+        assert!(!flags.private);
+        assert!(!flags.executable);
+    }
+
+    #[test]
+    fn path_create_only_file() {
+        let e = decode("create_dot_zshrc");
+        assert_eq!(e.dest_tilde, "~/.zshrc");
+        assert!(e.flags.create_only, "expected create_only=true");
+    }
+
+    #[test]
+    fn path_create_only_nested_file() {
+        // create_ on a directory component is recorded on the SourceDir, not the file.
+        // The file itself has no create_only — the directory level carries the flag.
+        let e = decode("create_dot_config/fish/config.fish");
+        assert_eq!(e.dest_tilde, "~/.config/fish/config.fish");
+        // Dir at index 0 is create_dot_config → decoded to .config with create_only.
+        assert!(e.dirs[0].flags.create_only, "expected dir create_only=true");
     }
 }

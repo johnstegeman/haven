@@ -770,6 +770,54 @@ fn apply_dry_run_prints_plan_without_writing() {
 }
 
 #[test]
+fn apply_create_only_skips_if_dest_exists() {
+    let repo = TempDir::new().unwrap();
+    let home = TempDir::new().unwrap();
+
+    // Source file with create_ prefix — should only be written if dest is absent.
+    let source_dir = repo.path().join("source");
+    fs::create_dir_all(&source_dir).unwrap();
+    fs::write(source_dir.join("create_dot_seedrc"), "seed content\n").unwrap();
+
+    // Destination already exists with different content.
+    let dest = home.path().join(".seedrc");
+    fs::write(&dest, "user content\n").unwrap();
+
+    cmd_home(&repo, &home)
+        .arg("apply")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("create_only"));
+
+    // Destination must NOT be overwritten.
+    let result = fs::read_to_string(&dest).unwrap();
+    assert_eq!(result, "user content\n", "create_only must not overwrite existing dest");
+}
+
+#[test]
+fn apply_create_only_writes_if_dest_absent() {
+    let repo = TempDir::new().unwrap();
+    let home = TempDir::new().unwrap();
+
+    let source_dir = repo.path().join("source");
+    fs::create_dir_all(&source_dir).unwrap();
+    fs::write(source_dir.join("create_dot_seedrc"), "seed content\n").unwrap();
+
+    // Destination does not exist.
+    let dest = home.path().join(".seedrc");
+    assert!(!dest.exists());
+
+    cmd_home(&repo, &home)
+        .arg("apply")
+        .assert()
+        .success();
+
+    // File should be written on first apply.
+    let result = fs::read_to_string(&dest).unwrap();
+    assert_eq!(result, "seed content\n", "create_only must write file when dest is absent");
+}
+
+#[test]
 fn apply_backs_up_existing_file() {
     let (repo, home) = setup_apply();
     let dest_path = home.path().join(".applyrc");

@@ -16,12 +16,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # macOS — native runners
+          # macOS — both targets built on arm64 runner (cross-compile for Intel)
           - target: aarch64-apple-darwin
             os: macos-latest
             use_cross: false
           - target: x86_64-apple-darwin
-            os: macos-13
+            os: macos-latest
             use_cross: false
           # Linux — musl static binaries
           - target: x86_64-unknown-linux-musl

@@ -3,7 +3,6 @@
 ## Quick Reference
 
 ```
-dfiles bootstrap [source] [--profile <p>] [--dry-run]
 dfiles init [source] [--branch <b>] [--apply] [--profile <p>]
 dfiles add <file> [--link] [--apply] [--update]
 dfiles remove <file> [--dry-run]
@@ -36,32 +35,10 @@ dfiles ai remove <name> [--yes]
 
 ---
 
-## `dfiles bootstrap`
-
-Apply and verify your environment on this machine. The workhorse for day-to-day provisioning.
-
-Without a source, equivalent to `dfiles apply` + `dfiles status` on the local repo.
-With a `gh:` source, fetches the remote package first, then applies it.
-
-Use `dfiles init` instead when setting up a machine for the first time — `init` creates
-the local repo structure that `bootstrap` expects to already exist.
-
-```
-dfiles bootstrap [source] [--profile <p>] [--dry-run]
-```
-
-| Argument/Option | Description |
-|-----------------|-------------|
-| `source` | Optional. `gh:owner/repo` or `gh:owner/repo@ref`. Omit to use local repo. |
-| `--profile <p>` | Profile to apply. Default: `default`. |
-| `--dry-run` | Print what would be applied without writing any files or fetching packages. |
-
----
-
 ## `dfiles init`
 
 Create or clone a dfiles repository. **Use this once, on first-time setup.**
-For subsequent re-provisioning of an already-initialised machine, use `dfiles bootstrap`.
+For subsequent re-provisioning of an already-initialised machine, use `dfiles apply`.
 
 Without a source, creates a blank scaffold at `--dir`. With a source, clones the
 repository and optionally applies it immediately.
@@ -393,5 +370,4 @@ hard error — run `dfiles ai update <name>` to explicitly accept the changed co
 |----------|---------|---------|
 | `DFILES_DIR` | `~/dfiles` | Repo root directory |
 | `DFILES_CLAUDE_DIR` | `~/.claude` | Claude Code directory (skills, CLAUDE.md) |
-| `DFILES_ENVS_DIR` | `~/.dfiles/envs` | Where remote bootstrap packages are extracted |
 | `DFILES_TELEMETRY` | unset | `1` to enable local telemetry, `0` to force-disable |

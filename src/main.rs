@@ -12,7 +12,6 @@ mod github;
 mod homebrew;
 mod ignore;
 mod lock;
-mod manifest;
 mod mise;
 mod onepassword;
 mod skill_cache;
@@ -170,41 +169,13 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Apply and verify your environment on this machine.
-    ///
-    /// Without a source, applies the local repo and reports status (equivalent to
-    /// `dfiles apply` followed by `dfiles status`). Use this for day-to-day
-    /// re-provisioning of an already-initialised machine.
-    ///
-    /// With a `gh:` source, fetches the remote package first, then applies it.
-    /// Use `dfiles init` instead when setting up a machine for the first time —
-    /// init creates the local repo structure that bootstrap expects to already exist.
-    ///
-    /// Examples:
-    ///   dfiles bootstrap
-    ///   dfiles bootstrap gh:alice/my-env
-    ///   dfiles bootstrap gh:alice/my-env@v1.2 --profile work --dry-run
-    Bootstrap {
-        /// Remote environment package: `gh:owner/repo` or `gh:owner/repo@ref`.
-        /// Omit to bootstrap from the local repo.
-        source: Option<String>,
-
-        /// Profile to apply.
-        #[arg(long, default_value = "default")]
-        profile: String,
-
-        /// Print what would be applied without writing any files or fetching packages.
-        #[arg(long)]
-        dry_run: bool,
-    },
-
     /// Create a new dfiles repository (first-time setup).
     ///
     /// Without a source, creates a blank scaffold in the --dir directory.
     /// With a source, clones the repository and optionally applies it immediately.
     ///
     /// Use this once when setting up a machine for the first time. For subsequent
-    /// re-provisioning of an already-initialised machine, use `dfiles bootstrap`.
+    /// re-provisioning of an already-initialised machine, use `dfiles apply`.
     ///
     /// Examples:
     ///   dfiles init
@@ -597,29 +568,7 @@ fn run() -> Result<()> {
                 .unwrap_or_else(|| PathBuf::from("."))
                 .join(".claude")
         });
-    let envs_dir = std::env::var("DFILES_ENVS_DIR")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| state_dir.join("envs"));
-
     match &cli.command {
-        Commands::Bootstrap {
-            source,
-            profile,
-            dry_run,
-        } => {
-            commands::bootstrap::run(&commands::bootstrap::BootstrapOptions {
-                source: source.as_deref(),
-                repo_root: &repo,
-                dest_root: std::path::Path::new("/"),
-                backup_dir: &backup_dir,
-                state_dir: &state_dir,
-                claude_dir: &claude_dir,
-                envs_dir: &envs_dir,
-                profile,
-                dry_run: *dry_run,
-            })?;
-        }
-
         Commands::Init {
             source,
             branch,

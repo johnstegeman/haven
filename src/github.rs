@@ -12,7 +12,6 @@
 /// For subpath sources (`gh:owner/repo/subpath`) the same repo tarball is
 /// downloaded and only the subtree under `subpath/` is extracted.
 use anyhow::{Context, Result};
-use sha2::{Digest, Sha256};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
@@ -182,24 +181,6 @@ pub fn extract_tarball(bytes: &[u8], subpath: Option<&str>, dest: &Path) -> Resu
     Ok(())
 }
 
-/// Download a `gh:` source and extract it to `dest_dir/{source.name()}/`.
-///
-/// Returns the SHA-256 hex digest of the downloaded tarball (for lockfile pinning).
-/// Uses the `GITHUB_TOKEN` environment variable as a Bearer token when set.
-pub fn fetch_to_dir(source: &GhSource, dest_dir: &Path) -> Result<String> {
-    let bytes = download_bytes(&source.archive_url())?;
-
-    // Compute SHA-256 of the raw tarball before extracting.
-    let sha = format!("{:x}", Sha256::digest(&bytes));
-
-    let target = dest_dir.join(source.name());
-    std::fs::create_dir_all(&target)
-        .with_context(|| format!("Cannot create {}", target.display()))?;
-
-    extract_tarball(&bytes, None, &target)?;
-
-    Ok(sha)
-}
 
 #[cfg(test)]
 mod tests {

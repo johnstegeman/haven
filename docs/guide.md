@@ -34,7 +34,6 @@ or contexts (work, personal, minimal) activate different subsets of modules.
 ~/dfiles/
 ├── dfiles.toml                 # profiles and which modules each profile activates
 ├── dfiles.lock                 # pinned SHA for every fetched GitHub source
-├── dfiles-manifest.json        # (optional) package manifest for bootstrap
 │
 ├── source/                     # dotfiles with magic-name encoded filenames
 │   ├── dot_zshrc               # → ~/.zshrc
@@ -475,55 +474,7 @@ a warning instead of failing with an error. All other modules are applied normal
 
 ---
 
-## Bootstrap
-
-`dfiles bootstrap` sets up a machine from scratch. It combines apply + status into
-a single command, and can optionally fetch a remote environment package first.
-
-### Bootstrap from the local repo
-
-```
-dfiles bootstrap
-dfiles bootstrap --profile work
-dfiles bootstrap --dry-run
-```
-
-Equivalent to `dfiles apply` followed by `dfiles status`. If a `dfiles-manifest.json`
-is present in the repo root, a banner is printed showing the package name and version.
-
-### Bootstrap from a remote package
-
-```
-dfiles bootstrap gh:alice/my-env
-dfiles bootstrap gh:alice/my-env@v1.2
-dfiles bootstrap gh:alice/my-env@v1.2 --profile work --dry-run
-```
-
-Downloads the GitHub repository archive, extracts it to `~/.dfiles/envs/`, then
-applies and reports status. The `@ref` suffix pins a specific tag, branch, or
-commit SHA.
-
-In dry-run mode the fetch is skipped entirely — no network requests are made.
-
-### The package manifest
-
-If the repo contains a `dfiles-manifest.json`, it is displayed as a banner during
-bootstrap:
-
-```json
-{
-  "name": "my-ai-env",
-  "version": "v1.2",
-  "author": "alice",
-  "profiles": ["default", "work"],
-  "modules": ["shell", "git", "packages"],
-  "created": "2026-03-20"
-}
-```
-
-All fields except `name` and `version` are optional.
-
-### The lock file
+## The lock file
 
 `dfiles.lock` pins the SHA of every fetched GitHub source for reproducible installs.
 Commit it alongside your config:
@@ -640,5 +591,4 @@ Re-running import is safe — it is idempotent and never overwrites existing sou
 |----------|---------|---------|
 | `DFILES_DIR` | `~/dfiles` | Repo root directory |
 | `DFILES_CLAUDE_DIR` | `~/.claude` | Claude Code directory (skills, CLAUDE.md) |
-| `DFILES_ENVS_DIR` | `~/.dfiles/envs` | Where remote bootstrap packages are extracted |
 | `DFILES_TELEMETRY` | unset | Set to `1` to enable telemetry, `0` to force-disable |

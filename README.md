@@ -14,9 +14,9 @@ git repository, and reproduces your complete development environment on any mach
 from a single command.
 
 ```sh
-dfiles bootstrap gh:you/my-env   # new machine: full environment in minutes
-dfiles apply                      # sync changes to this machine
-dfiles status                     # see what's drifted
+dfiles init gh:you/my-env --apply  # new machine: full environment in minutes
+dfiles apply                        # sync changes to this machine
+dfiles status                       # see what's drifted
 ```
 
 ---
@@ -37,7 +37,7 @@ running half a dozen tools and still doing a bunch of manual steps after.
 There's a bootstrap paradox baked into every dotfile manager: to be productive on a
 new machine you need your tools, but to get your tools you need to already be
 somewhat set up. The ideal is one command that takes you from fresh OS to fully
-working environment — `dfiles bootstrap gh:me/my-env`. That's the bar I set for this.
+working environment — `dfiles init gh:me/my-env --apply`. That's the bar I set for this.
 
 The other thing that bothered me: when I run `brew install` or install a new Claude
 skill, my dotfiles repo doesn't know. It drifts. I have to manually update my
@@ -86,8 +86,8 @@ dfiles apply
 # Install dfiles:
 curl -fsSL https://raw.githubusercontent.com/johnstegeman/dfiles/main/install.sh | sh
 
-# Bootstrap your environment:
-dfiles bootstrap gh:you/my-env
+# Clone and apply your environment:
+dfiles init gh:you/my-env --apply
 ```
 
 ### Importing from chezmoi
@@ -117,8 +117,7 @@ dfiles diff                    # show file-level diff between source and live
 dfiles brew install <formula>  # brew install + update Brewfile
 dfiles brew uninstall <formula># brew uninstall + remove from Brewfile
 dfiles import --from chezmoi   # migrate from chezmoi
-dfiles bootstrap               # full apply + status in one command
-dfiles bootstrap gh:you/env    # fetch remote env, then apply + status
+dfiles init gh:you/env --apply # new machine: clone and apply in one command
 ```
 
 See [`docs/COMMANDS.md`](docs/COMMANDS.md) for the full command reference.

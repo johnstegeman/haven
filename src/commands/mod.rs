@@ -1,7 +1,6 @@
 pub mod add;
 pub mod ai;
 pub mod apply;
-pub mod bootstrap;
 pub mod brew;
 pub mod diff;
 pub mod import;

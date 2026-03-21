@@ -16,10 +16,9 @@ files. You commit and push it like any other repo.
 destination path and flags encoded directly in the filename. dfiles copies (or
 renders) it to its decoded destination on apply.
 
-**Module** — a named group of packages and external repos defined in
-`config/modules/<name>.toml`. Modules control Homebrew, mise, AI tools, and
-externals. Files are **not** listed in modules — their encoded filenames in
-`source/` are the sole source of truth.
+**Module** — a named group of packages defined in `modules/<name>.toml`. Modules
+control Homebrew and mise. Files are **not** listed in modules — their encoded
+filenames in `source/` are the sole source of truth.
 
 **Profile** — a named set of modules defined in `dfiles.toml`. Different machines
 or contexts (work, personal, minimal) activate different subsets of modules.
@@ -34,7 +33,7 @@ or contexts (work, personal, minimal) activate different subsets of modules.
 ```
 ~/dfiles/
 ├── dfiles.toml                 # profiles and which modules each profile activates
-├── dfiles.lock                 # pinned SHA-256 for every fetched GitHub source
+├── dfiles.lock                 # pinned SHA for every fetched GitHub source
 ├── dfiles-manifest.json        # (optional) package manifest for bootstrap
 │
 ├── source/                     # dotfiles with magic-name encoded filenames
@@ -43,23 +42,25 @@ or contexts (work, personal, minimal) activate different subsets of modules.
 │   ├── private_dot_ssh/
 │   │   └── id_rsa              # → ~/.ssh/id_rsa  (chmod 0600)
 │   └── dot_config/
-│       ├── git/
-│       │   └── config          # → ~/.config/git/config
+│       ├── git/config          # → ~/.config/git/config
 │       └── extdir_nvim         # → git clone ... ~/.config/nvim
+│
+├── ai/                         # AI skill declarations
+│   ├── skills.toml             # [[skill]] entries
+│   └── platforms.toml          # which AI platforms are active on this repo
 │
 ├── brew/                       # Homebrew Brewfiles
 │   ├── Brewfile                # master (used when no --module)
 │   └── Brewfile.<module>       # per-module Brewfile
 │
-└── config/
-    └── modules/
-        ├── shell.toml
-        ├── git.toml
-        └── packages.toml
+└── modules/                    # per-module package config
+    ├── shell.toml
+    ├── git.toml
+    └── packages.toml
 ```
 
-Everything under `source/`, `brew/`, and `config/` is committed to git.
-`~/.dfiles/` (state, backups) is not committed — `dfiles init` adds it to `.gitignore`.
+Everything under `source/`, `brew/`, `ai/`, and `modules/` is committed to git.
+`~/.dfiles/` (state, backups, skill cache) is not committed — `dfiles init` adds it to `.gitignore`.
 
 ---
 
@@ -71,9 +72,8 @@ Everything under `source/`, `brew/`, and `config/` is committed to git.
 dfiles init
 ```
 
-Creates the directory structure and a starter `dfiles.toml` with default profiles.
-If the directory is not already a git repo, dfiles prints a reminder to run
-`git init` or `jj init`.
+Creates `dfiles.toml`, `source/`, `brew/`, `modules/shell.toml`, and `.gitignore`.
+Fails if already initialized.
 
 By default the repo lives at `~/dfiles`. Override with:
 
@@ -104,12 +104,22 @@ Hidden subdirectories (`.git`, etc.) are skipped when adding recursively.
 No TOML entry is needed — the encoded filename (or extdir_ marker) is the
 complete record.
 
+### Stop tracking a file
+
+```
+dfiles remove ~/.zshrc
+dfiles remove ~/.config/git/config --dry-run
+```
+
+Deletes the source file from `source/`. The live file on disk is **not** touched.
+Use `--dry-run` to see what would be removed before committing.
+
 ### Apply your config
 
 ```
 dfiles apply
 dfiles apply --profile work
-dfiles apply --module shell      # apply one module only
+dfiles apply --module shell      # apply one module only (brew/mise)
 dfiles apply --dry-run           # print the plan without writing anything
 dfiles apply --dest ~/staging    # apply to a staging dir (chroot-style, for testing)
 ```
@@ -134,6 +144,7 @@ drifted, which are missing. `dfiles diff` shows you the exact lines that differ.
 | `✓`    | File is in sync |
 | `M`    | Destination exists but differs from source |
 | `?`    | Destination does not exist (never applied) |
+| `!`    | Source file is missing from the repo |
 
 ---
 
@@ -147,7 +158,7 @@ All file metadata is encoded in the source filename. No separate TOML file regis
 | `private_` prefix on file | chmod 0600 (owner read/write only) |
 | `private_` prefix on directory | chmod 0700 (owner rwx only) |
 | `executable_` prefix | chmod 0755 (or 0700 if combined with `private_`) |
-| `symlink_` prefix | Create a symlink pointing into `source/` |
+| `symlink_` prefix | Create a symlink pointing back into `source/` |
 | `extdir_` prefix on file | Marker file — clone a remote git repo into this directory on apply |
 | `.tmpl` suffix on file | Render through the Tera template engine |
 
@@ -171,11 +182,10 @@ Prefixes can be stacked in any order: `private_executable_` and
 
 ## Modules
 
-A module is a TOML file at `config/modules/<name>.toml`. Every section is optional.
-Sections: `[homebrew]`, `[mise]`, `[ai]`, `requires_op`.
+A module is a TOML file at `modules/<name>.toml`. Every section is optional.
+Modules control Homebrew and mise **only** — they do not list source files.
 
-Modules do **not** list source files — including external git repos. All tracked
-files and externals live under `source/` using magic-name encoding.
+All tracked files and externals live under `source/` using magic-name encoding.
 
 ### External git repos (extdir_)
 
@@ -199,11 +209,8 @@ ref  = "main"   # optional — branch, tag, or commit SHA
 This marker file tells dfiles: clone `https://github.com/user/nvim-config` into
 `~/.config/nvim` when applying.
 
-**Adding externals:**
-
-The easiest way is `dfiles add <directory>`. If the directory is a git repo,
-dfiles detects the remotes and asks whether to add it as an external or copy
-all its files recursively:
+**Adding externals:** Run `dfiles add <directory>`. If the directory is a git repo,
+dfiles detects the remotes and prompts you to choose:
 
 ```
 ~/.config/nvim is a git repository with 1 remote:
@@ -217,17 +224,6 @@ How to add?
 [1/f/q]:
 ```
 
-You can also write the marker file by hand under `source/` — the path follows
-the same `dot_` encoding as all other source entries.
-
-**Examples:**
-
-| `source/` marker path | Live destination | URL |
-|------------------------|-----------------|-----|
-| `dot_tmux/plugins/extdir_tpm` | `~/.tmux/plugins/tpm` | (from marker content) |
-| `dot_config/extdir_nvim` | `~/.config/nvim` | (from marker content) |
-| `dot_oh-my-zsh/custom/extdir_plugins` | `~/.oh-my-zsh/custom/plugins` | (from marker content) |
-
 **Apply behavior:**
 
 - **Dest absent** — runs `git clone [--branch ref] url dest`
@@ -237,24 +233,16 @@ the same `dot_` encoding as all other source entries.
 `dfiles status` reports `?` if the dest is absent and `M` if it exists but is
 not a git repo.
 
-**`--apply-externals` flag:**
-
-By default, `dfiles apply` skips externals that are already present as git repos
-(leaving them at their current state). Pass `--apply-externals` to pull updates:
-
-```
-dfiles apply --apply-externals
-```
-
 ### Homebrew
 
 ```toml
+# modules/shell.toml
 [homebrew]
 brewfile = "brew/Brewfile.shell"
 ```
 
-The `brewfile` field is a single path relative to the repo root pointing to a
-Homebrew Brewfile. On apply, dfiles runs `brew bundle install --file=<path>`.
+The `brewfile` field points to a Homebrew Brewfile relative to the repo root.
+On apply, dfiles runs `brew bundle install --file=<path>`.
 If Homebrew is not installed, this section is skipped with a warning.
 
 Use `dfiles brew install` and `dfiles brew uninstall` instead of bare `brew`
@@ -277,6 +265,7 @@ dfiles brew uninstall ripgrep                 # removes from ALL Brewfiles
 ### Mise
 
 ```toml
+# modules/shell.toml
 [mise]
 config = "source/mise.toml"   # path relative to repo root; omit to use global config
 ```
@@ -284,33 +273,17 @@ config = "source/mise.toml"   # path relative to repo root; omit to use global c
 On apply, dfiles runs `mise install`. If mise is not installed, the section is
 skipped with a hint to install it.
 
-### AI tools (Claude Code)
-
-```toml
-[ai]
-skills   = ["gh:owner/skills-repo@v1.2"]
-commands = ["gh:owner/commands-repo@main"]
-```
-
-Skills are installed to `~/.claude/skills/<repo>/`.
-Commands are installed to `~/.claude/commands/<repo>/`.
-
-After every successful apply, dfiles regenerates `~/.claude/CLAUDE.md` so Claude
-Code can see which skills and commands are available.
-
-Source references use the format `gh:owner/repo` or `gh:owner/repo@ref` where
-`ref` is a tag, branch, or commit SHA. Fetched sources are pinned in `dfiles.lock`.
-
 ### 1Password guard
 
 ```toml
+# modules/secrets.toml
 requires_op = true
 ```
 
 Adding `requires_op = true` to any module causes dfiles to skip that module's
-externals, brew, mise, and AI steps with a warning if the `op` CLI is not
-installed or the user is not signed in. Source files in `source/` are always
-applied regardless of this flag.
+brew and mise steps with a warning if the `op` CLI is not installed or the user
+is not signed in. Source files in `source/` are always applied regardless of
+this flag.
 
 ---
 
@@ -344,6 +317,74 @@ The default profile name is `default`.
 
 ---
 
+## AI skills
+
+Skills are declared in `ai/skills.toml` and deployed to platform directories
+(e.g. `~/.claude/skills/`) by `dfiles apply`.
+
+```toml
+# ai/skills.toml
+
+[[skill]]
+name      = "pdf-processing"
+source    = "gh:anthropics/skills/pdf-processing@v1.0"
+platforms = "all"
+
+[[skill]]
+name      = "my-commands"
+source    = "gh:me/my-commands@main"
+platforms = ["claude-code"]
+
+[[skill]]
+name      = "local-skill"
+source    = "dir:~/projects/my-skill"
+platforms = "all"
+```
+
+### Source formats
+
+| Format | Example | Description |
+|--------|---------|-------------|
+| `gh:owner/repo` | `gh:anthropics/skills/pdf` | GitHub repo or subdirectory. Optional `@ref` for a branch/tag. |
+| `dir:~/path` | `dir:~/projects/my-skill` | Local directory. Not cached; read directly on each apply. |
+
+### Platforms
+
+| Value | Meaning |
+|-------|---------|
+| `"all"` | All active platforms in `ai/platforms.toml`, excluding `cross-client` |
+| `"cross-client"` | Only the cross-client platform (`~/.agents/skills/`) |
+| `["claude-code"]` | Explicit list, filtered to active platforms |
+
+### Lock and supply chain protection
+
+Every `gh:` skill source is fetched once and its SHA pinned in `dfiles.lock`.
+On subsequent applies:
+
+- **Cache hit, SHA matches** — uses cached copy, no network.
+- **Cache miss, lock has SHA** — fetches and verifies the SHA matches the lock entry.
+  A mismatch is an error (supply chain protection).
+- **Lock has no entry** — fetches and records the SHA.
+
+Use `dfiles ai update [name]` to intentionally pull a new version and update the lock.
+
+### Managing skills
+
+```
+dfiles ai discover          # detect installed AI platforms, update ai/platforms.toml
+dfiles ai add <source>      # add a [[skill]] entry to ai/skills.toml
+dfiles ai fetch [name]      # download to cache without deploying
+dfiles ai update [name]     # re-fetch + update lock SHAs
+dfiles ai remove <name>     # remove from ai/skills.toml
+```
+
+After adding or updating skills, run `dfiles apply --ai` to deploy them.
+
+dfiles regenerates `~/.claude/CLAUDE.md` after every successful apply so Claude
+Code always has an accurate inventory of installed skills.
+
+---
+
 ## Templates
 
 Source files with a `.tmpl` suffix are rendered through the
@@ -365,7 +406,7 @@ the destination filename.
 ### Example: OS-conditional config
 
 ```
-# source/dot_gitconfig.tmpl — stored in the repo
+# source/dot_gitconfig.tmpl
 [core]
 {% if os == "macos" %}
   editor = /opt/homebrew/bin/nvim
@@ -390,13 +431,6 @@ source ~/.work-aliases
 # source/dot_config/tool/config.tmpl
 api_base = {{ get_env(name="API_BASE", default="https://api.example.com") }}
 ```
-
-### Tera features
-
-Full Jinja2-style control flow is available: `{% if %}`, `{% for %}`, filters,
-macros, and `{# comments #}`. See the
-[Tera documentation](https://keats.github.io/tera/docs/) for the complete
-reference.
 
 Files without the `.tmpl` suffix are **never** rendered — curly braces
 in shell scripts, Makefiles, and similar files are left untouched.
@@ -432,12 +466,9 @@ omit the `op://` prefix, dfiles adds it automatically.
 Mark any module that contains `op()` calls with `requires_op = true`:
 
 ```toml
-# config/modules/secrets.toml
+# modules/secrets.toml
 requires_op = true
 ```
-
-Any `extdir_` markers under `source/` that are associated with this profile
-will also respect `requires_op` — they are skipped if `op` is not available.
 
 If `op` is not installed or the user is not signed in, the module is skipped with
 a warning instead of failing with an error. All other modules are applied normally.
@@ -485,7 +516,7 @@ bootstrap:
   "version": "v1.2",
   "author": "alice",
   "profiles": ["default", "work"],
-  "modules": ["shell", "git", "packages", "ai"],
+  "modules": ["shell", "git", "packages"],
   "created": "2026-03-20"
 }
 ```
@@ -494,15 +525,47 @@ All fields except `name` and `version` are optional.
 
 ### The lock file
 
-`dfiles.lock` pins the SHA-256 of every fetched GitHub source for reproducible
-installs. Commit it alongside your config:
+`dfiles.lock` pins the SHA of every fetched GitHub source for reproducible installs.
+Commit it alongside your config:
 
 ```toml
 # dfiles.lock (auto-generated — do not edit by hand)
-[sources."gh:alice/my-env@v1.2"]
-sha256     = "3a9f2..."
-fetched_at = "2026-03-20T12:00:00Z"
+[skill."gh:anthropics/skills/pdf-processing"]
+sha        = "abc123def456..."
+fetched_at = "2026-03-21T10:00:00Z"
 ```
+
+---
+
+## Telemetry
+
+dfiles can write a local usage log to `~/.dfiles/telemetry.jsonl`. This is **off by
+default** and never sends any data anywhere — the file is yours to inspect and optionally
+share with maintainers for usage analysis.
+
+### Enabling
+
+In `dfiles.toml`:
+```toml
+[telemetry]
+enabled = true
+```
+
+Or per-invocation:
+```sh
+DFILES_TELEMETRY=1 dfiles apply
+```
+
+### Event format
+
+One JSON object per line:
+```json
+{"ts":"2026-03-21T12:00:00Z","cmd":"apply","flags":["--dry-run"],"profile":"default","os":"macos","arch":"aarch64","duration_ms":234,"exit_ok":true}
+```
+
+Fields recorded: timestamp, command name, CLI flags (names only), profile, OS, CPU
+architecture, wall-clock duration, and exit status. No file paths, usernames,
+hostnames, or other personal data.
 
 ---
 
@@ -520,8 +583,7 @@ dfiles import --from chezmoi --dry-run
 ### What gets imported
 
 Files are copied into `source/` preserving their chezmoi magic-name encoding, which
-dfiles uses natively. No translation needed for filenames — `dot_`, `private_`,
-`executable_`, and `symlink_` prefixes are understood directly.
+dfiles uses natively. No translation needed for filenames.
 
 | chezmoi source path | dfiles source path | destination |
 |--------------------|--------------------|-------------|
@@ -529,17 +591,9 @@ dfiles uses natively. No translation needed for filenames — `dot_`, `private_`
 | `dot_config/git/config` | `source/dot_config/git/config` | `~/.config/git/config` |
 | `private_dot_ssh/id_rsa` | `source/private_dot_ssh/id_rsa` | `~/.ssh/id_rsa` (0600) |
 | `executable_dot_local/bin/foo` | `source/executable_dot_local/bin/foo` | `~/.local/bin/foo` (0755) |
-| `private_executable_dot_local/bin/s` | `source/private_executable_dot_local/bin/s` | (0700) |
 
 `.chezmoiexternal.toml` is also parsed. Each entry with `type = "git-repo"` is
-converted to an `extdir_` marker file in `source/`:
-
-| `.chezmoiexternal.toml` entry | dfiles result |
-|-------------------------------|---------------|
-| `["~/.config/nvim"]` / `type = "git-repo"` | `source/dot_config/extdir_nvim` |
-| `["~/.config/tmux/plugins/tpm"]` / `type = "git-repo"` | `source/dot_tmux/plugins/extdir_tpm` |
-
-The marker file content mirrors the original TOML (`type`, `url`, `ref`).
+converted to an `extdir_` marker file in `source/`.
 
 ### What gets converted
 
@@ -551,20 +605,16 @@ The marker file content mirrors the original TOML (`type`, `url`, `ref`).
 | `{{ .chezmoi.username }}` | `{{ username }}` |
 | `{{ .chezmoi.os }}` | `{{ os }}` |
 | `{{ .chezmoi.homeDir }}` | `{{ get_env(name="HOME") }}` |
-| `{{ .someVar }}` | `{{ someVar }}` |
 | `{{- if eq .chezmoi.os "darwin" -}}` | `{% if os == "macos" %}` |
 | `{{- if eq .chezmoi.os "linux" -}}` | `{% if os == "linux" %}` |
-| `{{- if (index . "key") }}` | `{% if key %}` |
 | `{{- else if ... }}` | `{% elif ... %}` |
 | `{{- else }}` | `{% else %}` |
 | `{{- end }}` | `{% endif %}` |
 | `{{/* comment */}}` | `{# comment #}` |
 
-Constructs with no direct mapping (range loops, custom functions, pipeline operators)
-are preserved as-is and a warning is printed. The imported file is still usable;
-flagged constructs will need manual cleanup before `dfiles apply`.
+Constructs with no direct mapping are preserved as-is with a warning.
 
-### What gets skipped (v1)
+### What gets skipped
 
 | chezmoi prefix/suffix | Reason |
 |----------------------|--------|
@@ -573,16 +623,6 @@ flagged constructs will need manual cleanup before `dfiles apply`.
 | `run_once_` / `run_` / `once_` | Install/run scripts |
 | `.chezmoi*` / `chezmoistate.*` | chezmoi-internal files |
 
-Skipped items are always listed with a reason. P1 follow-ons for run scripts
-are tracked in `TODOS.md`.
-
-### Source directory detection
-
-1. `--source <path>` — use as-is
-2. `chezmoi source-path` — subprocess (if `chezmoi` is on `PATH`)
-3. `~/.local/share/chezmoi` — XDG default fallback
-4. Hard error with a hint if none of the above is found
-
 ### After importing
 
 ```
@@ -590,157 +630,7 @@ dfiles apply --dry-run        # verify the import looks correct
 dfiles apply                  # deploy to this machine
 ```
 
-The importer prints a hint if any new module is not yet listed in a profile in
-`dfiles.toml`. Re-running import is safe — it is idempotent and never overwrites
-existing source files.
-
----
-
-## Command reference
-
-### `dfiles init`
-
-Initialize a new dfiles repo.
-
-```
-dfiles init [--dir <path>]
-```
-
-Creates `dfiles.toml`, `source/`, `brew/`, `config/modules/shell.toml`, and `.gitignore`.
-Fails if already initialized.
-
-### `dfiles add <path>`
-
-Track a dotfile or directory.
-
-```
-dfiles add ~/.zshrc
-dfiles add ~/.ssh/id_rsa
-dfiles add ~/.tmux/plugins/tpm
-dfiles add ~/.config/nvim
-```
-
-**Tracking a file:** Copies it into `source/` with a magic-name encoded filename.
-Flags are auto-detected from the file's permissions:
-
-- No group/other read bits (mode `0600`) → `private_` prefix
-- Any execute bit → `executable_` prefix
-- Directory permissions are also checked: if `~/.ssh` is `0700`, adding
-  `~/.ssh/config` produces `source/private_dot_ssh/config`
-
-Warns before tracking files matching sensitive patterns (SSH keys, `.env`, etc.).
-
-**Tracking a directory:** If the directory is a git repo with one or more remotes,
-dfiles prompts you to choose:
-
-- **Add as external** — writes an `extdir_` marker file in `source/` (the
-  directory will be cloned on apply). Asks which remote to use if there are several.
-- **Add files recursively** — copies every non-hidden file in the directory tree
-  into `source/` with encoded filenames. Hidden directories (like `.git`) are skipped.
-
-If the directory has no git remotes, files are added recursively without prompting.
-
-No TOML entry is written — the encoded filename (or `extdir_` marker) is the
-complete record.
-
-### `dfiles apply [--profile <name>] [--module <name>] [--dry-run] [--dest <path>]`
-
-Apply tracked files and packages to this machine.
-
-```
-dfiles apply
-dfiles apply --profile work
-dfiles apply --module shell
-dfiles apply --dry-run
-dfiles apply --dest ~/staging    # write to staging dir instead of real home
-```
-
-- Backs up existing destination files to `~/.dfiles/backups/` before overwriting.
-- Installs Homebrew packages, runs mise, and fetches AI skills/commands.
-- Regenerates `~/.claude/CLAUDE.md` after every successful apply.
-- Writes state to `~/.dfiles/state.json`.
-
-`--dest <path>` rebases all destinations under `<path>` — useful for testing
-apply output without touching your real home directory.
-
-### `dfiles status [--profile <name>]`
-
-Show drift between tracked source files and live destinations.
-
-```
-dfiles status
-dfiles status --profile work
-```
-
-### `dfiles diff [--profile <name>] [--stat] [--color <auto|always|never>]`
-
-Show a unified diff between each tracked source file and its live destination.
-
-```
-dfiles diff
-dfiles diff --profile work
-dfiles diff --stat            # summary only (filenames + changed line counts)
-dfiles diff --color never     # plain text output for piping
-```
-
-Output markers:
-
-| Marker | Meaning |
-|--------|---------|
-| `--- source/...` / `+++ ~/...` | Unified diff header |
-| `? ~/.tmux/plugins/tpm  (extdir: not cloned)` | External not yet cloned |
-
-`--stat` shows a condensed summary: `  M ~/.zshrc  (+3 -1)`. Templates are
-rendered before diffing so you see the final content, not raw Tera syntax.
-
-### `dfiles bootstrap [<source>] [--profile <name>] [--dry-run]`
-
-Bootstrap this machine from a local or remote environment package.
-
-```
-dfiles bootstrap
-dfiles bootstrap gh:owner/repo@ref
-dfiles bootstrap gh:owner/repo@ref --profile work --dry-run
-```
-
-### `dfiles brew install <name> [--cask] [--module <name>]`
-
-Install a Homebrew formula and record it in your dfiles repo.
-
-```
-dfiles brew install ripgrep
-dfiles brew install iterm2 --cask
-dfiles brew install ripgrep --module packages
-```
-
-Runs `brew install [--cask] <name>` and adds the entry to the appropriate Brewfile:
-
-- No `--module` → `brew/Brewfile` (master)
-- `--module <name>` → `brew/Brewfile.<name>` (created and registered in the module config if needed)
-
-### `dfiles brew uninstall <name> [--cask]`
-
-Uninstall a Homebrew formula and remove it from all Brewfiles in your repo.
-
-```
-dfiles brew uninstall ripgrep
-dfiles brew uninstall iterm2 --cask
-```
-
-Scans every Brewfile under `brew/`, removes the matching entry, then runs
-`brew uninstall [--cask] <name>`.
-
-### `dfiles import --from <format> [--source <path>] [--dry-run]`
-
-Import dotfiles from another dotfile manager.
-
-```
-dfiles import --from chezmoi
-dfiles import --from chezmoi --source ~/path/to/chezmoi
-dfiles import --from chezmoi --dry-run
-```
-
-Currently only `chezmoi` is supported as a source format.
+Re-running import is safe — it is idempotent and never overwrites existing source files.
 
 ---
 
@@ -749,5 +639,6 @@ Currently only `chezmoi` is supported as a source format.
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `DFILES_DIR` | `~/dfiles` | Repo root directory |
-| `DFILES_CLAUDE_DIR` | `~/.claude` | Claude Code directory (skills, commands, CLAUDE.md) |
+| `DFILES_CLAUDE_DIR` | `~/.claude` | Claude Code directory (skills, CLAUDE.md) |
 | `DFILES_ENVS_DIR` | `~/.dfiles/envs` | Where remote bootstrap packages are extracted |
+| `DFILES_TELEMETRY` | unset | Set to `1` to enable telemetry, `0` to force-disable |

@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <linearGradient id="card3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0ea5e9"/>
+      <stop offset="100%" style="stop-color:#0891b2"/>
+    </linearGradient>
+    <linearGradient id="card2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#2563eb"/>
+      <stop offset="100%" style="stop-color:#1d4ed8"/>
+    </linearGradient>
+    <linearGradient id="card1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366f1"/>
+      <stop offset="100%" style="stop-color:#4f46e5"/>
+    </linearGradient>
+    <linearGradient id="bgGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f8fafc"/>
+      <stop offset="100%" style="stop-color:#f1f5f9"/>
+    </linearGradient>
+    <filter id="shadow2" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#00000020"/>
+    </filter>
+  </defs>
+
+  <!-- Background circle -->
+  <circle cx="100" cy="100" r="96" fill="url(#bgGrad2)"/>
+
+  <!-- Stacked file cards — back to front, each slightly offset -->
+
+  <!-- Card 3 (back) -->
+  <g transform="rotate(-6, 100, 105)" filter="url(#shadow2)">
+    <rect x="55" y="52" width="90" height="106" rx="6"
+          fill="url(#card3)"/>
+    <!-- folded corner -->
+    <path d="M121 52 L145 76 L121 76 Z" fill="#ffffff30"/>
+    <line x1="121" y1="52" x2="145" y2="52" stroke="none"/>
+    <!-- fold crease -->
+    <polyline points="121,52 121,76 145,76" fill="none" stroke="#ffffff40" stroke-width="1"/>
+    <!-- content lines -->
+    <rect x="64" y="90" width="50" height="5" rx="2" fill="#ffffff50"/>
+    <rect x="64" y="102" width="65" height="5" rx="2" fill="#ffffff40"/>
+    <rect x="64" y="114" width="40" height="5" rx="2" fill="#ffffff30"/>
+  </g>
+
+  <!-- Card 2 (middle) -->
+  <g transform="rotate(0, 100, 105)" filter="url(#shadow2)">
+    <rect x="55" y="58" width="90" height="106" rx="6"
+          fill="url(#card2)"/>
+    <polyline points="121,58 121,82 145,82" fill="none" stroke="#ffffff40" stroke-width="1"/>
+    <path d="M121 58 L145 82 L121 82 Z" fill="#ffffff30"/>
+    <rect x="64" y="96" width="55" height="5" rx="2" fill="#ffffff50"/>
+    <rect x="64" y="108" width="65" height="5" rx="2" fill="#ffffff40"/>
+    <rect x="64" y="120" width="42" height="5" rx="2" fill="#ffffff30"/>
+  </g>
+
+  <!-- Card 1 (front) -->
+  <g transform="rotate(6, 100, 105)" filter="url(#shadow2)">
+    <rect x="55" y="64" width="90" height="106" rx="6"
+          fill="url(#card1)"/>
+    <polyline points="121,64 121,88 145,88" fill="none" stroke="#ffffff40" stroke-width="1"/>
+    <path d="M121 64 L145 88 L121 88 Z" fill="#ffffff30"/>
+    <rect x="64" y="102" width="60" height="5" rx="2" fill="#ffffff60"/>
+    <rect x="64" y="114" width="65" height="5" rx="2" fill="#ffffff50"/>
+    <rect x="64" y="126" width="44" height="5" rx="2" fill="#ffffff40"/>
+    <rect x="64" y="138" width="52" height="5" rx="2" fill="#ffffff30"/>
+  </g>
+
+  <!-- Wordmark -->
+  <text x="100" y="183"
+        font-family="'Inter', 'SF Pro Display', 'Helvetica Neue', sans-serif"
+        font-size="18" font-weight="700" fill="#1e293b"
+        text-anchor="middle" letter-spacing="1">dfiles</text>
+</svg>

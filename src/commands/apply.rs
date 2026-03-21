@@ -26,7 +26,7 @@ use crate::config::module::expand_tilde;
 use crate::fs::{apply_permissions, backup_file, copy_to_dest, write_to_dest};
 use crate::ignore::IgnoreList;
 use crate::skill_cache::SkillCache;
-use crate::source::{scan, SourceEntry};
+use crate::source::{scan, scan_scripts, ScriptExecWhen, SourceEntry};
 use crate::state::{AiDeployedEntry, ModuleState, State};
 use crate::template::TemplateContext;
 
@@ -50,6 +50,10 @@ pub struct ApplyOptions<'a> {
     /// When true, `git pull --ff-only` existing extdir_ clones in addition to cloning
     /// missing ones. By default existing clones are left as-is (idempotent).
     pub apply_externals: bool,
+    /// When true, execute scripts from `source/scripts/` during apply.
+    /// `run_once_` scripts are only executed if they haven't run on this machine yet.
+    /// Without this flag, scripts are never executed (opt-in for safety).
+    pub run_scripts: bool,
     /// After installing packages, uninstall any leaf formula or cask that is not
     /// referenced by any Brewfile in the active profile.
     pub remove_unreferenced_brews: bool,
@@ -240,6 +244,14 @@ pub fn run(opts: &ApplyOptions<'_>) -> Result<()> {
     // ── 3. AI skills (ai/skills.toml) ────────────────────────────────────────
     if opts.apply_ai && !opts.dry_run {
         apply_ai_skills(opts, &mut state, &mut lock)?;
+    }
+
+    // ── 4. Run scripts from source/scripts/ ──────────────────────────────────
+    if opts.run_scripts && !opts.dry_run {
+        let scripts_dir = opts.repo_root.join("source").join("scripts");
+        let script_entries = scan_scripts(&scripts_dir)
+            .context("Cannot scan source/scripts/")?;
+        apply_scripts(&script_entries, &mut state)?;
     }
 
     if !opts.dry_run {
@@ -526,6 +538,60 @@ fn print_dry_run_entry(entry: &SourceEntry, dest_root: &Path) {
     );
     // Print as the encoded relative path for clarity
     let _ = src_rel; // suppress warning
+}
+
+// ─── Script execution ─────────────────────────────────────────────────────────
+
+/// Execute scripts from `source/scripts/`.
+///
+/// `run_once_` / `once_` scripts are executed only if they are not recorded in
+/// `state.scripts_run`. After a successful run, the timestamp is saved.
+/// `run_` scripts execute unconditionally on every apply.
+///
+/// Scripts are run with the user's default shell (`$SHELL` or `/bin/sh`).
+fn apply_scripts(scripts: &[crate::source::ScriptEntry], state: &mut State) -> Result<()> {
+    if scripts.is_empty() {
+        return Ok(());
+    }
+
+    println!("[scripts]");
+
+    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
+
+    for script in scripts {
+        if script.when == ScriptExecWhen::Once {
+            if state.scripts_run.contains_key(&script.name) {
+                println!("  ~ {} (already run — skipped)", script.name);
+                continue;
+            }
+        }
+
+        print!("  running {}… ", script.name);
+        let _ = std::io::Write::flush(&mut std::io::stdout());
+
+        let status = std::process::Command::new(&shell)
+            .arg(&script.src)
+            .status()
+            .with_context(|| format!("Cannot execute script {}", script.src.display()))?;
+
+        if status.success() {
+            println!("✓");
+            if script.when == ScriptExecWhen::Once {
+                let ts = chrono::Utc::now().to_rfc3339();
+                state.scripts_run.insert(script.name.clone(), ts);
+            }
+        } else {
+            let code = status.code().unwrap_or(-1);
+            println!("✗ (exit code {})", code);
+            anyhow::bail!(
+                "Script {} failed with exit code {}",
+                script.name, code
+            );
+        }
+    }
+
+    println!();
+    Ok(())
 }
 
 // ─── AI skills ────────────────────────────────────────────────────────────────

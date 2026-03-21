@@ -19,8 +19,8 @@
 use anyhow::{Context, Result};
 use std::path::Path;
 
-use crate::chezmoi::{self, ChezmoiEntry, ChezmoiExternalEntry, ChezmoiScriptEntry, ScriptMigration, ScriptWhen, SkippedEntry};
-use crate::config::module::{HomebrewConfig, MiseConfig, ModuleConfig};
+use crate::chezmoi::{self, ChezmoiBrewfileEntry, ChezmoiEntry, ChezmoiExternalEntry, ChezmoiScriptEntry, ScriptMigration, ScriptWhen, SkippedEntry};
+use crate::config::module::{expand_tilde, HomebrewConfig, MiseConfig, ModuleConfig};
 use crate::fs::copy_to_dest;
 use crate::source::extdir_source_path;
 
@@ -67,25 +67,25 @@ pub fn run(opts: &ImportOptions<'_>) -> Result<()> {
     println!("Chezmoi source: {}", source_dir.display());
     println!();
 
-    let (keeps, externals, skips, scripts) = chezmoi::scan(&source_dir, opts.include_ignored_files)?;
+    let (keeps, externals, skips, scripts, brewfiles) = chezmoi::scan(&source_dir, opts.include_ignored_files)?;
 
     if opts.dry_run {
-        print_dry_run_plan(&source_dir, &keeps, &externals, &skips, &scripts);
+        print_dry_run_plan(&source_dir, &keeps, &externals, &skips, &scripts, &brewfiles);
         return Ok(());
     }
 
-    if keeps.is_empty() && externals.is_empty() && scripts.is_empty() {
+    if keeps.is_empty() && externals.is_empty() && scripts.is_empty() && brewfiles.is_empty() {
         println!("Nothing to import.");
         print_skip_table(&skips);
         return Ok(());
     }
 
-    execute(opts, &source_dir, &keeps, &externals, &skips, &scripts)
+    execute(opts, &source_dir, &keeps, &externals, &skips, &scripts, &brewfiles)
 }
 
 // ─── Dry-run output ───────────────────────────────────────────────────────────
 
-fn print_dry_run_plan(chezmoi_source_dir: &std::path::Path, keeps: &[ChezmoiEntry], externals: &[ChezmoiExternalEntry], skips: &[SkippedEntry], scripts: &[ChezmoiScriptEntry]) {
+fn print_dry_run_plan(chezmoi_source_dir: &std::path::Path, keeps: &[ChezmoiEntry], externals: &[ChezmoiExternalEntry], skips: &[SkippedEntry], scripts: &[ChezmoiScriptEntry], brewfiles: &[ChezmoiBrewfileEntry]) {
     if keeps.is_empty() && externals.is_empty() {
         println!("Would import 0 files.");
     } else {
@@ -126,20 +126,66 @@ fn print_dry_run_plan(chezmoi_source_dir: &std::path::Path, keeps: &[ChezmoiEntr
             println!();
         }
     }
-    // Show script migrations in dry-run.
+    // Show script imports in dry-run.
     if !scripts.is_empty() {
-        println!("Would emit {} script migration(s):", scripts.len());
+        println!("Would import {} script(s) to source/scripts/:", scripts.len());
         println!();
         for s in scripts {
             let when_label = match s.when { ScriptWhen::Once => "run_once", ScriptWhen::Always => "run_always" };
             let migration_label = match &s.migration {
-                ScriptMigration::BrewBundle { brewfile_path } => format!("[homebrew] brewfile = {:?}", brewfile_path),
-                ScriptMigration::MiseInstall => "[mise]".to_string(),
-                ScriptMigration::Unrecognized => unreachable!("Unrecognized filtered before here"),
+                ScriptMigration::BrewBundle { brewfile_path } => format!(" + emit [homebrew] brewfile = {:?}", brewfile_path),
+                ScriptMigration::MiseInstall => " + emit [mise]".to_string(),
+                ScriptMigration::Unrecognized => " (no pattern detected — copy only)".to_string(),
             };
-            println!("  [{:10}]  {:50}  →  {}", when_label, s.chezmoi_path.display(), migration_label);
+            println!(
+                "  [{:10}]  {}  →  source/scripts/{}{}",
+                when_label, s.chezmoi_path.display(),
+                s.chezmoi_path.file_name().unwrap_or(s.chezmoi_path.as_os_str()).to_string_lossy(),
+                migration_label,
+            );
         }
         println!();
+    }
+
+    // Show Brewfile imports in dry-run.
+    if !brewfiles.is_empty() {
+        println!("Would import {} Brewfile(s) to brew/:", brewfiles.len());
+        println!();
+        for b in brewfiles {
+            println!(
+                "  {}  →  {}  (module: {})",
+                b.dest_tilde, b.brew_dest, b.module_name,
+            );
+        }
+        println!();
+    }
+
+    // Show script-referenced Brewfiles in dry-run.
+    let tracked_tilde: std::collections::HashSet<&str> =
+        brewfiles.iter().map(|b| b.dest_tilde.as_str()).collect();
+    for script in scripts {
+        if let ScriptMigration::BrewBundle { brewfile_path } = &script.migration {
+            let normalized = normalize_to_tilde(brewfile_path);
+            if !tracked_tilde.contains(normalized.as_str()) {
+                let filename = std::path::Path::new(brewfile_path)
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("Brewfile");
+                let brew_dest = crate::chezmoi::brewfile_brew_dest(filename);
+                let resolved = try_expand_tilde(brewfile_path);
+                if resolved.map_or(false, |p| p.exists()) {
+                    println!(
+                        "  Would copy {} → {}  (referenced in script: {})",
+                        brewfile_path, brew_dest, script.chezmoi_path.display(),
+                    );
+                } else {
+                    println!(
+                        "  warning: {} → {} not found on disk  (referenced in script: {})",
+                        brewfile_path, brew_dest, script.chezmoi_path.display(),
+                    );
+                }
+            }
+        }
     }
 
     // Show ignore file import in dry-run.
@@ -152,7 +198,7 @@ fn print_dry_run_plan(chezmoi_source_dir: &std::path::Path, keeps: &[ChezmoiEntr
 
 // ─── Real run ────────────────────────────────────────────────────────────────
 
-fn execute(opts: &ImportOptions<'_>, source_dir: &std::path::Path, keeps: &[ChezmoiEntry], externals: &[ChezmoiExternalEntry], skips: &[SkippedEntry], scripts: &[ChezmoiScriptEntry]) -> Result<()> {
+fn execute(opts: &ImportOptions<'_>, source_dir: &std::path::Path, keeps: &[ChezmoiEntry], externals: &[ChezmoiExternalEntry], skips: &[SkippedEntry], scripts: &[ChezmoiScriptEntry], brewfiles: &[ChezmoiBrewfileEntry]) -> Result<()> {
     let repo_source = opts.repo_root.join("source");
     std::fs::create_dir_all(&repo_source)?;
 
@@ -263,7 +309,13 @@ fn execute(opts: &ImportOptions<'_>, source_dir: &std::path::Path, keeps: &[Chez
         );
     }
 
-    // ── Emit module TOML for detected script migrations ───────────────────────
+    // ── Copy scripts to source/scripts/ for execution on apply ───────────────
+    import_scripts(source_dir, opts.repo_root, scripts)?;
+
+    // ── Import Brewfiles to brew/ and emit [homebrew] module TOML ─────────────
+    import_brewfiles(opts, source_dir, brewfiles, scripts)?;
+
+    // ── Emit module TOML for non-brew script migrations (mise) ────────────────
     emit_script_migrations(opts.repo_root, scripts)?;
 
     // ── Import .chezmoiignore → config/ignore ─────────────────────────────────
@@ -274,9 +326,10 @@ fn execute(opts: &ImportOptions<'_>, source_dir: &std::path::Path, keeps: &[Chez
 
     println!();
     println!(
-        "Imported {} file(s), {} external(s), {} script migration(s). Skipped {} item(s).",
+        "Imported {} file(s), {} external(s), {} Brewfile(s), {} script migration(s). Skipped {} item(s).",
         keeps.len(),
         externals.len(),
+        brewfiles.len(),
         scripts.len(),
         skips.iter().filter(|s| s.reason.display().is_some()).count(),
     );
@@ -287,60 +340,40 @@ fn execute(opts: &ImportOptions<'_>, source_dir: &std::path::Path, keeps: &[Chez
     Ok(())
 }
 
-/// Write module TOML entries for each recognised script migration.
+/// Write module TOML entries for mise script migrations.
 ///
-/// Each migration is written into `config/modules/<module>.toml`:
-/// - `BrewBundle` → `[homebrew]\nbrewfile = "<path>"`
-/// - `MiseInstall` → `[mise]`
+/// BrewBundle migrations are handled by `import_brewfiles()` — this function
+/// only emits `[mise]` sections for `mise install` scripts.
 ///
-/// Migrations are merged into the "packages" module by default.
+/// Migrations are merged into the "packages" module.
 /// Existing TOML files are loaded and updated in-place (additive, never overwrites).
 fn emit_script_migrations(repo_root: &Path, scripts: &[ChezmoiScriptEntry]) -> Result<()> {
-    if scripts.is_empty() {
+    let mise_scripts: Vec<_> = scripts
+        .iter()
+        .filter(|s| matches!(&s.migration, ScriptMigration::MiseInstall))
+        .collect();
+
+    if mise_scripts.is_empty() {
         return Ok(());
     }
 
-    // Collect all changes for the "packages" module (brew/mise always go here).
     let module_name = "packages";
     let mut module = ModuleConfig::load(repo_root, module_name)?;
     let mut changed = false;
 
-    for script in scripts {
-        match &script.migration {
-            ScriptMigration::BrewBundle { brewfile_path } => {
-                if module.homebrew.is_none() {
-                    // Use a normalised path: if the Brewfile path looks absolute or uses ~,
-                    // use it as-is; otherwise store it relative to the repo root.
-                    let stored_path = normalise_brewfile_path(brewfile_path);
-                    module.homebrew = Some(HomebrewConfig { brewfile: stored_path.clone() });
-                    println!(
-                        "  ✓  {} → config/modules/{}.toml  ([homebrew] brewfile = {:?})",
-                        script.chezmoi_path.display(), module_name, stored_path,
-                    );
-                    changed = true;
-                } else {
-                    println!(
-                        "  ~ {} → [homebrew] already set in {} — skipped",
-                        script.chezmoi_path.display(), module_name,
-                    );
-                }
-            }
-            ScriptMigration::MiseInstall => {
-                if module.mise.is_none() {
-                    module.mise = Some(MiseConfig { config: None });
-                    println!(
-                        "  ✓  {} → config/modules/{}.toml  ([mise])",
-                        script.chezmoi_path.display(), module_name,
-                    );
-                    changed = true;
-                } else {
-                    println!(
-                        "  ~ {} → [mise] already set in {} — skipped",
-                        script.chezmoi_path.display(), module_name,
-                    );
-                }
-            }
-            ScriptMigration::Unrecognized => unreachable!("Unrecognized filtered before here"),
+    for script in &mise_scripts {
+        if module.mise.is_none() {
+            module.mise = Some(MiseConfig { config: None });
+            println!(
+                "  ✓  {} → config/modules/{}.toml  ([mise])",
+                script.chezmoi_path.display(), module_name,
+            );
+            changed = true;
+        } else {
+            println!(
+                "  ~ {} → [mise] already set in {} — skipped",
+                script.chezmoi_path.display(), module_name,
+            );
         }
     }
 
@@ -351,14 +384,208 @@ fn emit_script_migrations(repo_root: &Path, scripts: &[ChezmoiScriptEntry]) -> R
     Ok(())
 }
 
-/// Normalise a Brewfile path for storage in module TOML.
+/// Copy all detected scripts into `source/scripts/` so they can be executed
+/// by `dfiles apply --run-scripts`.
 ///
-/// If the path contains `~` or an absolute path, keep it as-is so the user
-/// can adjust it. Otherwise, default to `"brew/Brewfile.packages"`.
-fn normalise_brewfile_path(path: &str) -> String {
-    if path == "Brewfile" {
-        // Plain `brew bundle` with no --file arg — use the dfiles convention.
-        "brew/Brewfile.packages".to_string()
+/// Each script is stored under its original filename. Existing files are skipped
+/// (idempotent — same behaviour as regular source file import).
+fn import_scripts(chezmoi_source_dir: &std::path::Path, repo_root: &Path, scripts: &[ChezmoiScriptEntry]) -> Result<()> {
+    if scripts.is_empty() {
+        return Ok(());
+    }
+
+    let scripts_dest = repo_root.join("source").join("scripts");
+    std::fs::create_dir_all(&scripts_dest)?;
+
+    for script in scripts {
+        let filename = script.chezmoi_path
+            .file_name()
+            .expect("script path always has a filename");
+        let dest = scripts_dest.join(filename);
+
+        if dest.exists() {
+            println!(
+                "  ~ {}  (source/scripts/{} already exists — skipped)",
+                script.chezmoi_path.display(),
+                filename.to_string_lossy(),
+            );
+            continue;
+        }
+
+        let src = chezmoi_source_dir.join(&script.chezmoi_path);
+        std::fs::copy(&src, &dest).with_context(|| {
+            format!(
+                "Cannot copy {} → source/scripts/{}",
+                src.display(),
+                filename.to_string_lossy(),
+            )
+        })?;
+
+        let when_label = match script.when { ScriptWhen::Once => "run_once", ScriptWhen::Always => "run_always" };
+        println!(
+            "  ✓  [{}]  {}  →  source/scripts/{}",
+            when_label,
+            script.chezmoi_path.display(),
+            filename.to_string_lossy(),
+        );
+    }
+
+    Ok(())
+}
+
+/// Copy Brewfiles to `brew/` and emit `[homebrew]` module TOML entries.
+///
+/// Handles two sources:
+/// 1. Chezmoi-tracked: copy from chezmoi source dir to `brew/`.
+/// 2. Script-referenced: `brew bundle --file=<path>` in a `run_once_` script —
+///    cross-correlate with tracked entries, then try to resolve on disk.
+fn import_brewfiles(
+    opts: &ImportOptions<'_>,
+    source_dir: &Path,
+    brewfiles: &[ChezmoiBrewfileEntry],
+    scripts: &[ChezmoiScriptEntry],
+) -> Result<()> {
+    let brew_dir = opts.repo_root.join("brew");
+
+    // Track which dest_tilde paths we've handled (for cross-correlation).
+    let mut handled_dest_tilde: std::collections::HashSet<String> =
+        std::collections::HashSet::new();
+
+    // ── Step 1: Copy chezmoi-tracked Brewfiles ─────────────────────────────────
+    for entry in brewfiles {
+        let brew_filename = std::path::Path::new(&entry.brew_dest)
+            .file_name()
+            .expect("brew_dest always has a filename");
+        let dest = brew_dir.join(brew_filename);
+
+        if dest.exists() {
+            println!(
+                "  ~ {}  ({} already exists — skipped)",
+                entry.dest_tilde, entry.brew_dest,
+            );
+            handled_dest_tilde.insert(entry.dest_tilde.clone());
+            continue;
+        }
+
+        std::fs::create_dir_all(&brew_dir)
+            .context("Cannot create brew/ directory")?;
+
+        let src = source_dir.join(&entry.chezmoi_path);
+        std::fs::copy(&src, &dest).with_context(|| {
+            format!("Cannot copy {} → {}", src.display(), dest.display())
+        })?;
+
+        println!("  ✓  {}  →  {}", entry.dest_tilde, entry.brew_dest);
+
+        // Emit module TOML.
+        emit_brewfile_module_toml(opts.repo_root, &entry.brew_dest, &entry.module_name)?;
+
+        handled_dest_tilde.insert(entry.dest_tilde.clone());
+    }
+
+    // ── Step 2: Script-referenced Brewfiles (Case C) ───────────────────────────
+    for script in scripts {
+        let ScriptMigration::BrewBundle { brewfile_path } = &script.migration else {
+            continue;
+        };
+
+        // Normalize path to tilde form for deduplication.
+        let normalized_tilde = normalize_to_tilde(brewfile_path);
+
+        // Skip if already covered by a chezmoi-tracked entry.
+        if handled_dest_tilde.contains(&normalized_tilde) {
+            continue;
+        }
+
+        let filename = std::path::Path::new(brewfile_path)
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("Brewfile");
+        let brew_dest = crate::chezmoi::brewfile_brew_dest(filename);
+        let module_name = crate::chezmoi::brewfile_module_name(filename);
+        let brew_filename = std::path::Path::new(&brew_dest)
+            .file_name()
+            .expect("brew_dest always has a filename");
+        let dest = brew_dir.join(brew_filename);
+
+        // Try to resolve the path on disk.
+        match try_expand_tilde(brewfile_path).filter(|p| p.exists()) {
+            Some(src) => {
+                // Found on disk — copy to brew/.
+                std::fs::create_dir_all(&brew_dir)
+                    .context("Cannot create brew/ directory")?;
+                std::fs::copy(&src, &dest).with_context(|| {
+                    format!("Cannot copy {} → {}", src.display(), dest.display())
+                })?;
+
+                println!(
+                    "  ✓  {}  →  {}  (from script: {})",
+                    brewfile_path, brew_dest,
+                    script.chezmoi_path.display(),
+                );
+
+                emit_brewfile_module_toml(opts.repo_root, &brew_dest, &module_name)?;
+
+                // Remind user to stage the new file.
+                println!(
+                    "  hint: Don't forget to stage this file:\n        git add {}   (or: jj file track {})",
+                    brew_dest, brew_dest,
+                );
+
+                handled_dest_tilde.insert(normalized_tilde);
+            }
+            None => {
+                // Cannot resolve — warn with manual copy instructions.
+                eprintln!(
+                    "  warning: script '{}' references Brewfile at '{}' which was not found on disk.",
+                    script.chezmoi_path.display(),
+                    brewfile_path,
+                );
+                eprintln!(
+                    "    Copy it manually:  mkdir -p {bdir}  &&  cp {path} {bdir}/{fname}",
+                    bdir = brew_dir.display(),
+                    path = brewfile_path,
+                    fname = brew_filename.to_string_lossy(),
+                );
+                eprintln!(
+                    "    Then add to config/modules/{}.toml:\n      [homebrew]\n      brewfile = {:?}",
+                    module_name, brew_dest,
+                );
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Emit (or skip if already set) a `[homebrew] brewfile = <path>` entry in a module TOML.
+fn emit_brewfile_module_toml(repo_root: &Path, brew_dest: &str, module_name: &str) -> Result<()> {
+    let mut module = ModuleConfig::load(repo_root, module_name)?;
+    if module.homebrew.is_none() {
+        module.homebrew = Some(HomebrewConfig { brewfile: brew_dest.to_string() });
+        module.save(repo_root, module_name)?;
+        println!(
+            "  ✓  → config/modules/{}.toml  ([homebrew] brewfile = {:?})",
+            module_name, brew_dest,
+        );
+    } else {
+        println!(
+            "  ~ [homebrew] already set in config/modules/{}.toml — skipped",
+            module_name,
+        );
+    }
+    Ok(())
+}
+
+/// Expand a path that may start with `~` to a `PathBuf`, returning `None` on failure.
+fn try_expand_tilde(path: &str) -> Option<std::path::PathBuf> {
+    expand_tilde(path).ok()
+}
+
+/// Normalize a path (possibly with `~`) to a tilde-prefixed string for comparison.
+fn normalize_to_tilde(path: &str) -> String {
+    if let Ok(expanded) = expand_tilde(path) {
+        crate::fs::tilde_path(&expanded)
     } else {
         path.to_string()
     }

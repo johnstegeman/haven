@@ -16,6 +16,12 @@ pub struct State {
     /// AI skill deployment state. Absent in old state.json — default is None.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ai: Option<AiState>,
+    /// Tracks which `run_once_` scripts have been executed on this machine.
+    /// Key: script name (filename only, e.g. `"run_once_setup.sh"`).
+    /// Value: ISO-8601 timestamp of first successful execution.
+    /// Absent in old state.json files — defaults to an empty map.
+    #[serde(default, skip_serializing_if = "std::collections::HashMap::is_empty")]
+    pub scripts_run: std::collections::HashMap<String, String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]

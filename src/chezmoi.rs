@@ -143,6 +143,22 @@ pub enum ScriptMigration {
     Unrecognized,
 }
 
+/// A chezmoi source Brewfile that should be copied to `brew/` instead of `source/`.
+///
+/// Detected by filename anywhere in the decoded destination path:
+/// `Brewfile`, `.Brewfile`, `Brewfile.<suffix>` (not `.lock`).
+#[derive(Debug, Clone)]
+pub struct ChezmoiBrewfileEntry {
+    /// Relative path inside the chezmoi source directory.
+    pub chezmoi_path: PathBuf,
+    /// Decoded absolute destination path with tilde (e.g. `"~/config/Brewfile"`).
+    pub dest_tilde: String,
+    /// Target path inside brew/ (e.g. `"brew/Brewfile.packages"`).
+    pub brew_dest: String,
+    /// Module name inferred from filename (e.g. `"packages"`).
+    pub module_name: String,
+}
+
 /// A chezmoi external that should become a dfiles `[[externals]]` entry.
 #[derive(Debug, Clone)]
 pub struct ChezmoiExternalEntry {
@@ -266,12 +282,13 @@ fn chezmoi_managed_paths(source_dir: &Path) -> Option<std::collections::HashSet<
 ///
 /// Directories starting with `.` are skipped entirely (they are chezmoi-internal
 /// or system directories — legitimate dotfile dirs use the `dot_` prefix).
-pub fn scan(source_dir: &Path, include_ignored: bool) -> Result<(Vec<ChezmoiEntry>, Vec<ChezmoiExternalEntry>, Vec<SkippedEntry>, Vec<ChezmoiScriptEntry>)> {
+pub fn scan(source_dir: &Path, include_ignored: bool) -> Result<(Vec<ChezmoiEntry>, Vec<ChezmoiExternalEntry>, Vec<SkippedEntry>, Vec<ChezmoiScriptEntry>, Vec<ChezmoiBrewfileEntry>)> {
     let managed = chezmoi_managed_paths(source_dir);
 
     let mut keeps: Vec<ChezmoiEntry> = Vec::new();
     let mut skips: Vec<SkippedEntry> = Vec::new();
     let mut scripts: Vec<ChezmoiScriptEntry> = Vec::new();
+    let mut brewfiles: Vec<ChezmoiBrewfileEntry> = Vec::new();
 
     let walker = WalkDir::new(source_dir)
         .min_depth(1)
@@ -329,7 +346,21 @@ pub fn scan(source_dir: &Path, include_ignored: bool) -> Result<(Vec<ChezmoiEntr
                         }
                     }
                 }
-                keeps.push(e);
+                // Check if the decoded dest is a Brewfile — redirect to brew/ instead of source/.
+                let dest_filename = Path::new(&e.dest_tilde)
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("");
+                if is_brewfile_name(dest_filename) {
+                    brewfiles.push(ChezmoiBrewfileEntry {
+                        brew_dest: brewfile_brew_dest(dest_filename),
+                        module_name: brewfile_module_name(dest_filename),
+                        chezmoi_path: e.chezmoi_path,
+                        dest_tilde: e.dest_tilde,
+                    });
+                } else {
+                    keeps.push(e);
+                }
             }
             ImportEntry::Skip(SkippedEntry { chezmoi_path, reason: SkipReason::Symlink }) => {
                 // Try to resolve the symlink target from the file's content.
@@ -347,14 +378,12 @@ pub fn scan(source_dir: &Path, include_ignored: bool) -> Result<(Vec<ChezmoiEntr
                 match std::fs::read_to_string(&abs) {
                     Ok(content) => {
                         let migration = detect_script_migration(&content);
-                        match migration {
-                            ScriptMigration::Unrecognized => {
-                                skips.push(SkippedEntry { chezmoi_path, reason: SkipReason::Script });
-                            }
-                            m => scripts.push(ChezmoiScriptEntry { chezmoi_path, when, migration: m }),
-                        }
+                        // All scripts go into `scripts` — unrecognised ones still get
+                        // copied to source/scripts/ for execution on apply.
+                        scripts.push(ChezmoiScriptEntry { chezmoi_path, when, migration });
                     }
                     Err(_) => {
+                        // Can't read the script — skip it.
                         skips.push(SkippedEntry { chezmoi_path, reason: SkipReason::Script });
                     }
                 }
@@ -398,7 +427,7 @@ pub fn scan(source_dir: &Path, include_ignored: bool) -> Result<(Vec<ChezmoiEntr
 
     let externals = parse_chezmoiexternal(source_dir)?;
 
-    Ok((keeps, externals, skips, scripts))
+    Ok((keeps, externals, skips, scripts, brewfiles))
 }
 
 // ─── .chezmoiexternal.toml parsing ───────────────────────────────────────────
@@ -852,6 +881,51 @@ fn decode_symlink_dest(rel_path: &Path) -> PathBuf {
     path
 }
 
+// ─── Brewfile detection helpers ───────────────────────────────────────────────
+
+/// Returns `true` if `name` matches a Brewfile naming pattern.
+///
+/// Patterns: `Brewfile`, `.Brewfile`, `Brewfile.<suffix>` (excluding `.lock`).
+pub fn is_brewfile_name(name: &str) -> bool {
+    if name == "Brewfile" || name == ".Brewfile" {
+        return true;
+    }
+    if let Some(suffix) = name.strip_prefix("Brewfile.") {
+        return !suffix.is_empty() && suffix != "lock";
+    }
+    false
+}
+
+/// Compute the `brew/` destination path for a Brewfile.
+///
+/// - `Brewfile` / `.Brewfile` → `"brew/Brewfile.packages"`
+/// - `Brewfile.<suffix>` → `"brew/Brewfile.<suffix>"`
+pub fn brewfile_brew_dest(filename: &str) -> String {
+    let base = filename.trim_start_matches('.');
+    if base == "Brewfile" {
+        "brew/Brewfile.packages".to_string()
+    } else if let Some(suffix) = base.strip_prefix("Brewfile.") {
+        format!("brew/Brewfile.{}", suffix)
+    } else {
+        "brew/Brewfile.packages".to_string()
+    }
+}
+
+/// Infer the module name from a Brewfile filename.
+///
+/// - `Brewfile` / `.Brewfile` → `"packages"`
+/// - `Brewfile.<suffix>` → `"<suffix>"`
+pub fn brewfile_module_name(filename: &str) -> String {
+    let base = filename.trim_start_matches('.');
+    if base == "Brewfile" {
+        "packages".to_string()
+    } else if let Some(suffix) = base.strip_prefix("Brewfile.") {
+        suffix.to_string()
+    } else {
+        "packages".to_string()
+    }
+}
+
 // ─── Script migration detection ───────────────────────────────────────────────
 
 /// Determine when a script should run from its filename prefix.
@@ -1242,5 +1316,62 @@ mod tests {
         let e = keep("create_dot_config/fish/config.fish");
         assert!(e.dest_tilde.ends_with("/.config/fish/config.fish"), "dest={}", e.dest_tilde);
         assert_eq!(e.source_name, "create_dot_config/fish/config.fish");
+    }
+
+    // ── is_brewfile_name ───────────────────────────────────────────────────────
+
+    #[test]
+    fn brewfile_detection_recognises_plain_brewfile() {
+        assert!(is_brewfile_name("Brewfile"));
+    }
+
+    #[test]
+    fn brewfile_detection_recognises_dotfile_brewfile() {
+        assert!(is_brewfile_name(".Brewfile"));
+    }
+
+    #[test]
+    fn brewfile_detection_recognises_brewfile_with_suffix() {
+        assert!(is_brewfile_name("Brewfile.work"));
+        assert!(is_brewfile_name("Brewfile.packages"));
+        assert!(is_brewfile_name("Brewfile.personal"));
+    }
+
+    #[test]
+    fn brewfile_detection_rejects_brewfile_lock() {
+        assert!(!is_brewfile_name("Brewfile.lock"));
+    }
+
+    #[test]
+    fn brewfile_detection_rejects_ordinary_files() {
+        assert!(!is_brewfile_name("zshrc"));
+        assert!(!is_brewfile_name("Gemfile"));
+        assert!(!is_brewfile_name("brewfile"));   // case-sensitive
+    }
+
+    // ── brewfile_brew_dest / brewfile_module_name ──────────────────────────────
+
+    #[test]
+    fn brewfile_brew_dest_plain_gives_packages() {
+        assert_eq!(brewfile_brew_dest("Brewfile"), "brew/Brewfile.packages");
+        assert_eq!(brewfile_brew_dest(".Brewfile"), "brew/Brewfile.packages");
+    }
+
+    #[test]
+    fn brewfile_brew_dest_suffix_preserves_suffix() {
+        assert_eq!(brewfile_brew_dest("Brewfile.work"), "brew/Brewfile.work");
+        assert_eq!(brewfile_brew_dest("Brewfile.personal"), "brew/Brewfile.personal");
+    }
+
+    #[test]
+    fn brewfile_module_name_plain_gives_packages() {
+        assert_eq!(brewfile_module_name("Brewfile"), "packages");
+        assert_eq!(brewfile_module_name(".Brewfile"), "packages");
+    }
+
+    #[test]
+    fn brewfile_module_name_suffix_gives_suffix() {
+        assert_eq!(brewfile_module_name("Brewfile.work"), "work");
+        assert_eq!(brewfile_module_name("Brewfile.personal"), "personal");
     }
 }

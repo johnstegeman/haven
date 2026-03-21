@@ -83,6 +83,7 @@ pub fn run(opts: &BootstrapOptions<'_>) -> Result<()> {
         apply_brews: true,
         apply_ai: true,
         apply_externals: false,
+        run_scripts: false,
         remove_unreferenced_brews: false,
         interactive: false,
     })?;

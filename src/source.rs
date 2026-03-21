@@ -254,6 +254,58 @@ pub fn encode_filename(
     out
 }
 
+// ─── Script entries ───────────────────────────────────────────────────────────
+
+/// When a tracked script should execute on apply.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ScriptExecWhen {
+    /// `run_once_` / `once_` — execute only once per machine (tracked in state.json).
+    Once,
+    /// `run_` — execute on every `dfiles apply`.
+    Always,
+}
+
+/// A script tracked in `source/scripts/`, ready to execute on apply.
+#[derive(Debug, Clone)]
+pub struct ScriptEntry {
+    /// Absolute path to the script file under `source/scripts/`.
+    pub src: std::path::PathBuf,
+    /// Original filename (e.g. `"run_once_setup.sh"`).
+    pub name: String,
+    /// When this script should run.
+    pub when: ScriptExecWhen,
+}
+
+/// Scan `source/scripts/` and return all tracked script entries.
+pub fn scan_scripts(scripts_dir: &std::path::Path) -> std::io::Result<Vec<ScriptEntry>> {
+    if !scripts_dir.exists() {
+        return Ok(Vec::new());
+    }
+
+    let mut entries = Vec::new();
+    for dent in std::fs::read_dir(scripts_dir)? {
+        let dent = dent?;
+        if !dent.file_type()?.is_file() {
+            continue;
+        }
+        let name = dent.file_name().to_string_lossy().to_string();
+        // Strip permission prefixes to find the timing prefix.
+        let mut stripped = name.as_str();
+        while let Some(rest) = stripped.strip_prefix("private_").or_else(|| stripped.strip_prefix("executable_")) {
+            stripped = rest;
+        }
+        let when = if stripped.starts_with("run_once_") || stripped.starts_with("once_") {
+            ScriptExecWhen::Once
+        } else {
+            ScriptExecWhen::Always
+        };
+        entries.push(ScriptEntry { src: dent.path(), name, when });
+    }
+
+    entries.sort_by(|a, b| a.name.cmp(&b.name));
+    Ok(entries)
+}
+
 // ─── Extdir path helper ───────────────────────────────────────────────────────
 
 /// Build the `source/` path for an `extdir_` marker file from a tilde dest path.

@@ -294,6 +294,13 @@ enum Commands {
         #[arg(long)]
         apply_externals: bool,
 
+        /// Execute scripts from `source/scripts/` during this apply.
+        /// `run_once_` scripts execute only once per machine; subsequent runs are skipped.
+        /// `run_` scripts execute on every apply when this flag is present.
+        /// Scripts are never run without this flag (opt-in for safety).
+        #[arg(long)]
+        run_scripts: bool,
+
         /// (Debug builds only) Write files into this directory instead of `~`.
         ///
         /// Mirrors the real filesystem layout under the given root so you can
@@ -562,6 +569,7 @@ fn run() -> Result<()> {
             brews,
             ai,
             apply_externals,
+            run_scripts,
             remove_unreferenced_brews,
             interactive,
             dest,
@@ -585,6 +593,7 @@ fn run() -> Result<()> {
                 apply_brews: *brews || none_specified,
                 apply_ai: *ai || none_specified,
                 apply_externals: *apply_externals,
+                run_scripts: *run_scripts,
                 remove_unreferenced_brews: *remove_unreferenced_brews || *interactive,
                 interactive: *interactive,
             })?;

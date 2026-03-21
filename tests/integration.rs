@@ -33,6 +33,17 @@ fn cmd_home(repo: &TempDir, home: &TempDir) -> Command {
     c
 }
 
+/// Like `cmd_home` but also pins the state directory to a specific path.
+/// Useful for multi-apply tests that need state to persist between invocations.
+fn cmd_home_with_state(repo: &TempDir, home: &TempDir, state_dir: &std::path::Path) -> Command {
+    let mut c = cmd_home(repo, home);
+    // dfiles reads state from <home>/.dfiles by default. Override HOME so it lands
+    // in the provided state_dir's parent, but we just set HOME to ensure it's consistent.
+    // The state dir is HOME/.dfiles, so as long as HOME is stable between calls, it works.
+    let _ = state_dir; // state_dir is HOME/.dfiles which cmd_home already pins via HOME
+    c
+}
+
 // ─── init ────────────────────────────────────────────────────────────────────
 
 #[test]
@@ -767,6 +778,88 @@ fn apply_dry_run_prints_plan_without_writing() {
         !dest_path.exists(),
         "dry-run must not write files"
     );
+}
+
+#[test]
+fn apply_run_scripts_executes_script() {
+    let repo = TempDir::new().unwrap();
+    let home = TempDir::new().unwrap();
+
+    // Write a run_ script that creates a sentinel file.
+    let scripts_dir = repo.path().join("source").join("scripts");
+    fs::create_dir_all(&scripts_dir).unwrap();
+    let sentinel = home.path().join("script_ran");
+    let script_content = format!("#!/bin/sh\ntouch {:?}\n", sentinel);
+    fs::write(scripts_dir.join("run_setup.sh"), &script_content).unwrap();
+    // Make it executable.
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(scripts_dir.join("run_setup.sh"), fs::Permissions::from_mode(0o755)).unwrap();
+    }
+
+    cmd_home(&repo, &home)
+        .args(["apply", "--run-scripts"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("[scripts]"));
+
+    assert!(sentinel.exists(), "script should have created the sentinel file");
+}
+
+#[test]
+fn apply_run_once_script_runs_only_once() {
+    let repo = TempDir::new().unwrap();
+    let home = TempDir::new().unwrap();
+
+    let scripts_dir = repo.path().join("source").join("scripts");
+    fs::create_dir_all(&scripts_dir).unwrap();
+    let counter_file = home.path().join("run_count");
+    // Script appends a line to a counter file on each run.
+    let script_content = format!("#!/bin/sh\necho run >> {:?}\n", counter_file);
+    fs::write(scripts_dir.join("run_once_setup.sh"), &script_content).unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(scripts_dir.join("run_once_setup.sh"), fs::Permissions::from_mode(0o755)).unwrap();
+    }
+
+    // First apply: script should run.
+    cmd_home(&repo, &home)
+        .args(["apply", "--run-scripts"])
+        .assert()
+        .success();
+    let lines_after_first = fs::read_to_string(&counter_file).unwrap_or_default();
+    assert_eq!(lines_after_first.lines().count(), 1, "script should run once on first apply");
+
+    // Second apply with same HOME (state persists in HOME/.dfiles): script should NOT run again.
+    cmd_home(&repo, &home)
+        .args(["apply", "--run-scripts"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("already run"));
+    let lines_after_second = fs::read_to_string(&counter_file).unwrap_or_default();
+    assert_eq!(lines_after_second.lines().count(), 1, "run_once_ script must not run a second time");
+}
+
+#[test]
+fn apply_scripts_not_run_without_flag() {
+    let repo = TempDir::new().unwrap();
+    let home = TempDir::new().unwrap();
+
+    let scripts_dir = repo.path().join("source").join("scripts");
+    fs::create_dir_all(&scripts_dir).unwrap();
+    let sentinel = home.path().join("should_not_exist");
+    let script_content = format!("#!/bin/sh\ntouch {:?}\n", sentinel);
+    fs::write(scripts_dir.join("run_setup.sh"), &script_content).unwrap();
+
+    // Apply WITHOUT --run-scripts.
+    cmd_home(&repo, &home)
+        .arg("apply")
+        .assert()
+        .success();
+
+    assert!(!sentinel.exists(), "script must not run without --run-scripts flag");
 }
 
 #[test]
@@ -3054,7 +3147,10 @@ fn import_run_once_brew_bundle_emits_homebrew_module_toml() {
     let chezmoi_src = TempDir::new().unwrap();
     make_chezmoi_dir(&chezmoi_src);
 
-    // A run_once_ script containing `brew bundle --file=~/Brewfile`
+    // A Brewfile tracked in the chezmoi source (decodes to ~/Brewfile).
+    fs::write(chezmoi_src.path().join("Brewfile"), "brew \"ripgrep\"\n").unwrap();
+
+    // A run_once_ script that references the same Brewfile.
     fs::write(
         chezmoi_src.path().join("run_once_install-packages.sh"),
         "#!/bin/bash\nbrew bundle --file=~/Brewfile\n",
@@ -3069,12 +3165,144 @@ fn import_run_once_brew_bundle_emits_homebrew_module_toml() {
         .success()
         .stdout(predicate::str::contains("[homebrew]"));
 
-    // A module TOML for "packages" should exist with [homebrew] section.
+    // Brewfile should be copied to brew/.
+    let brewfile_dest = repo.path().join("brew").join("Brewfile.packages");
+    assert!(brewfile_dest.exists(), "brew/Brewfile.packages should exist");
+    assert_eq!(
+        fs::read_to_string(&brewfile_dest).unwrap(),
+        "brew \"ripgrep\"\n",
+    );
+
+    // A module TOML for "packages" should have [homebrew] pointing to brew/Brewfile.packages.
     let toml_path = repo.path().join("config").join("modules").join("packages.toml");
     assert!(toml_path.exists(), "packages.toml should be written");
     let toml_content = fs::read_to_string(&toml_path).unwrap();
     assert!(toml_content.contains("[homebrew]"), "should contain [homebrew]");
-    assert!(toml_content.contains("~/Brewfile"), "should contain brewfile path");
+    assert!(toml_content.contains("brew/Brewfile.packages"), "should contain brew/Brewfile.packages");
+}
+
+#[test]
+fn import_brewfile_in_chezmoi_source_copied_to_brew_dir() {
+    let repo = TempDir::new().unwrap();
+    let chezmoi_src = TempDir::new().unwrap();
+    make_chezmoi_dir(&chezmoi_src);
+
+    // A plain Brewfile in the chezmoi root (decodes to ~/Brewfile).
+    fs::write(chezmoi_src.path().join("Brewfile"), "brew \"git\"\n").unwrap();
+
+    cmd(&repo).arg("init").assert().success();
+
+    let out = cmd(&repo)
+        .args(["import", "--from", "chezmoi", "--source"])
+        .arg(chezmoi_src.path())
+        .assert()
+        .success();
+    let stdout = String::from_utf8(out.get_output().stdout.clone()).unwrap();
+
+    // Brewfile should NOT appear in source/.
+    assert!(
+        !repo.path().join("source").join("Brewfile").exists(),
+        "Brewfile must not be copied to source/"
+    );
+
+    // Brewfile should be in brew/.
+    let brewfile_dest = repo.path().join("brew").join("Brewfile.packages");
+    assert!(brewfile_dest.exists(), "brew/Brewfile.packages should exist");
+    assert_eq!(fs::read_to_string(&brewfile_dest).unwrap(), "brew \"git\"\n");
+
+    // Module TOML should reference brew/Brewfile.packages.
+    let toml_path = repo.path().join("config").join("modules").join("packages.toml");
+    assert!(toml_path.exists(), "packages.toml should be created");
+    let toml = fs::read_to_string(&toml_path).unwrap();
+    assert!(toml.contains("[homebrew]"), "packages.toml should have [homebrew]");
+    assert!(toml.contains("brew/Brewfile.packages"), "packages.toml should reference brew/Brewfile.packages");
+
+    // Summary line should mention 1 Brewfile.
+    assert!(stdout.contains("1 Brewfile"), "summary should say 1 Brewfile(s)");
+}
+
+#[test]
+fn import_brewfile_with_suffix_preserves_module_name() {
+    let repo = TempDir::new().unwrap();
+    let chezmoi_src = TempDir::new().unwrap();
+    make_chezmoi_dir(&chezmoi_src);
+
+    // Brewfile.work decodes to ~/Brewfile.work → module "work", dest "brew/Brewfile.work".
+    fs::write(chezmoi_src.path().join("Brewfile.work"), "brew \"slack\"\n").unwrap();
+
+    cmd(&repo).arg("init").assert().success();
+
+    cmd(&repo)
+        .args(["import", "--from", "chezmoi", "--source"])
+        .arg(chezmoi_src.path())
+        .assert()
+        .success();
+
+    let brewfile_dest = repo.path().join("brew").join("Brewfile.work");
+    assert!(brewfile_dest.exists(), "brew/Brewfile.work should exist");
+
+    let toml_path = repo.path().join("config").join("modules").join("work.toml");
+    assert!(toml_path.exists(), "work.toml should be created");
+    let toml = fs::read_to_string(&toml_path).unwrap();
+    assert!(toml.contains("brew/Brewfile.work"), "work.toml should reference brew/Brewfile.work");
+}
+
+#[test]
+fn import_brewfile_in_subdir_detected_by_filename() {
+    let repo = TempDir::new().unwrap();
+    let chezmoi_src = TempDir::new().unwrap();
+    make_chezmoi_dir(&chezmoi_src);
+
+    // Brewfile in a subdirectory (e.g. ~/config/Brewfile) — detected by filename alone.
+    fs::create_dir_all(chezmoi_src.path().join("config")).unwrap();
+    fs::write(chezmoi_src.path().join("config").join("Brewfile"), "brew \"fd\"\n").unwrap();
+
+    cmd(&repo).arg("init").assert().success();
+
+    cmd(&repo)
+        .args(["import", "--from", "chezmoi", "--source"])
+        .arg(chezmoi_src.path())
+        .assert()
+        .success();
+
+    // Should land in brew/ not source/config/.
+    assert!(
+        !repo.path().join("source").join("config").join("Brewfile").exists(),
+        "Brewfile must not be in source/"
+    );
+    assert!(
+        repo.path().join("brew").join("Brewfile.packages").exists(),
+        "brew/Brewfile.packages should exist"
+    );
+}
+
+#[test]
+fn import_brewfile_lock_is_not_detected_as_brewfile() {
+    let repo = TempDir::new().unwrap();
+    let chezmoi_src = TempDir::new().unwrap();
+    make_chezmoi_dir(&chezmoi_src);
+
+    // Brewfile.lock should NOT be treated as a Brewfile.
+    fs::write(chezmoi_src.path().join("Brewfile.lock"), "# lock content\n").unwrap();
+
+    cmd(&repo).arg("init").assert().success();
+
+    cmd(&repo)
+        .args(["import", "--from", "chezmoi", "--source"])
+        .arg(chezmoi_src.path())
+        .assert()
+        .success();
+
+    // Brewfile.lock should land in source/ as a regular file.
+    assert!(
+        repo.path().join("source").join("Brewfile.lock").exists(),
+        "Brewfile.lock should be treated as a regular source file"
+    );
+    // And NOT in brew/.
+    assert!(
+        !repo.path().join("brew").join("Brewfile.lock").exists(),
+        "Brewfile.lock must not be copied to brew/"
+    );
 }
 
 #[test]
@@ -3104,7 +3332,7 @@ fn import_run_once_mise_install_emits_mise_module_toml() {
 }
 
 #[test]
-fn import_unrecognised_script_is_skipped_with_note() {
+fn import_unrecognised_script_is_copied_to_source_scripts() {
     let repo = TempDir::new().unwrap();
     let chezmoi_src = TempDir::new().unwrap();
     make_chezmoi_dir(&chezmoi_src);
@@ -3116,15 +3344,20 @@ fn import_unrecognised_script_is_skipped_with_note() {
 
     cmd(&repo).arg("init").assert().success();
 
-    let output = cmd(&repo)
+    cmd(&repo)
         .args(["import", "--from", "chezmoi", "--source"])
         .arg(chezmoi_src.path())
         .assert()
-        .success();
+        .success()
+        // Script should show in output as copied (no pattern detected).
+        .stdout(predicate::str::contains("run_once_custom.sh"));
 
-    // Should appear in the skip table with manual migration note.
-    output.stdout(predicate::str::contains("unrecognised script"));
-    // No packages.toml should be written.
+    // Script should be copied to source/scripts/.
+    assert!(
+        repo.path().join("source").join("scripts").join("run_once_custom.sh").exists(),
+        "script should be copied to source/scripts/"
+    );
+    // No packages.toml should be written (no recognised pattern).
     assert!(
         !repo.path().join("config").join("modules").join("packages.toml").exists(),
         "no TOML should be written for unrecognised script"

@@ -657,7 +657,7 @@ fn run() -> Result<()> {
             let has_drift = commands::diff::run(&commands::diff::DiffOptions {
                 repo_root: &repo,
                 dest_root: &dest_root_buf,
-                claude_dir: &claude_dir,
+                state_dir: &state_dir,
                 profile: &resolved,
                 module_filter: module.as_deref(),
                 diff_files: *files || none_specified,

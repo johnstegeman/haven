@@ -130,10 +130,16 @@ mod tests {
     }
 
     #[test]
-    fn pin_and_save_round_trips() {
+    fn sources_save_and_round_trip() {
         let dir = TempDir::new().unwrap();
         let mut lock = LockFile::load(dir.path()).unwrap();
-        lock.pin("gh:alice/dotfiles@v1.0", "abc123");
+        lock.sources.insert(
+            "gh:alice/dotfiles@v1.0".to_string(),
+            LockEntry {
+                sha256: "abc123".to_string(),
+                fetched_at: "2026-01-01T00:00:00Z".to_string(),
+            },
+        );
         lock.save(dir.path()).unwrap();
 
         let loaded = LockFile::load(dir.path()).unwrap();

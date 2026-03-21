@@ -29,11 +29,14 @@
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 
+use crate::ai_skill::{SkillSource, SkillsConfig};
 use crate::config::{sort_modules, DfilesConfig, ModuleConfig};
 use crate::config::module::expand_tilde;
 use crate::diff_util::{colorize_diff, stat_line, unified_diff};
 use crate::drift::{check_drift, check_drift_link, check_drift_link_template, check_drift_template, DriftKind};
 use crate::ignore::IgnoreList;
+use crate::lock::LockFile;
+use crate::skill_cache::SkillCache;
 use crate::source::scan;
 use crate::template::TemplateContext;
 
@@ -52,7 +55,8 @@ pub struct DiffOptions<'a> {
     pub repo_root: &'a Path,
     /// Where live files reside. `/` in production; temp dir in tests.
     pub dest_root: &'a Path,
-    pub claude_dir: &'a Path,
+    /// `~/.dfiles` — used to find the skill cache for AI version drift checks.
+    pub state_dir: &'a Path,
     pub profile: &'a str,
     /// When set, scope brew/AI diff to this module only.
     pub module_filter: Option<&'a str>,
@@ -315,8 +319,57 @@ pub fn run(opts: &DiffOptions<'_>) -> Result<bool> {
         }
     }
 
-    // AI drift is driven by ai/skills.toml (handled in the ai/skills section above),
-    // not by module TOML. The [ai] module section has been removed.
+    // ── AI skills ─────────────────────────────────────────────────────────────
+    if opts.diff_ai {
+        if let Ok(Some(skills_cfg)) = SkillsConfig::load(opts.repo_root) {
+            let lock = LockFile::load(opts.repo_root).unwrap_or_default();
+            let cache = SkillCache::new(opts.state_dir);
+            let mut section_lines: Vec<String> = Vec::new();
+
+            for skill in &skills_cfg.skills {
+                let source = match SkillSource::parse(&skill.source) {
+                    Ok(s) => s,
+                    Err(_) => continue,
+                };
+                let gh = match source {
+                    SkillSource::Gh(ref gh) => gh,
+                    SkillSource::Dir(_) => continue, // no version tracking for local skills
+                };
+                let lock_key = gh.source_key();
+                let lock_sha = match lock.skill_sha(&lock_key) {
+                    Some(s) => s.to_string(),
+                    None => continue, // never fetched from this lock — skip
+                };
+
+                let cache_path = cache.cache_path(gh);
+                let installed_sha = read_cache_sha(&cache_path);
+
+                match installed_sha {
+                    None => {
+                        section_lines.push(format!("  ? {}  (not installed)", skill.name));
+                    }
+                    Some(ref installed) if installed != &lock_sha => {
+                        section_lines.push(format!(
+                            "  ~ {}  (installed: {}, pinned: {})",
+                            skill.name,
+                            &installed[..installed.len().min(8)],
+                            &lock_sha[..lock_sha.len().min(8)],
+                        ));
+                    }
+                    Some(_) => {} // up to date
+                }
+            }
+
+            if !section_lines.is_empty() {
+                any_drift = true;
+                println!("[ai]");
+                for line in &section_lines {
+                    println!("{}", line);
+                }
+                println!();
+            }
+        }
+    }
 
     if !any_drift {
         println!("✓ Everything up to date (profile: {})", opts.profile);
@@ -380,6 +433,17 @@ fn read_text_or_notice(
         }
         Ok(bytes) => Some(String::from_utf8_lossy(&bytes).into_owned()),
     }
+}
+
+// ─── AI skill helpers ─────────────────────────────────────────────────────────
+
+/// Read the `.dfiles-sha` file from a skill cache directory.
+/// Returns `None` if the directory doesn't exist or the file is unreadable.
+fn read_cache_sha(cache_path: &Path) -> Option<String> {
+    let sha_file = cache_path.join(".dfiles-sha");
+    std::fs::read_to_string(&sha_file)
+        .ok()
+        .map(|s| s.trim().to_string())
 }
 
 // ─── extdir_ helpers ──────────────────────────────────────────────────────────

@@ -266,19 +266,14 @@ to the home directory, and imports the target file if it exists. Falls back to
 
 ---
 
-## P2: AI version drift in `dfiles diff`
+## ~~P2: AI version drift in `dfiles diff`~~ DONE
 
-**What:** Show whether installed AI skills/commands match the commit SHA pinned in `dfiles.lock`. Currently `dfiles diff` only checks present/absent — it cannot tell you if an installed skill is stale.
-
-**Why:** Once users have been running dfiles for a while, skills and commands may be pinned to old versions in `dfiles.lock`. `dfiles diff` should surface this as drift: `~ gh:anthropics/claude-code-gstack (installed: a1b2c3d, pinned: e4f5g6h)`.
-
-**Pros:** Makes the AI section of `dfiles diff` actually useful for ongoing maintenance, not just initial setup. Pairs naturally with the P1 SHA verification TODO.
-
-**Cons:** Requires reading the installed skill's git HEAD (`.git/HEAD` inside the skill directory) and comparing against the SHA in `dfiles.lock`. Both must be present and parseable. Edge cases: skill installed without git history (shallow clones), lock file absent, skill directory modified by user.
-
-**Context:** The lock file format already stores `{ source → sha }`. The installed skill directory is a git repo cloned by `apply.rs`. Reading its current HEAD is `git -C <skill_dir> rev-parse HEAD`. Compare against `lock.get(source_str)`. If they differ, show the mismatch. If lock has no entry, skip (not yet pinned).
-
-**Depends on / blocked by:** ~~`dfiles diff` shipping~~ — unblocked. P1 SHA verification TODO (to ensure lock entries are reliable).
+Implemented 2026-03-21. `src/commands/diff.rs` [ai] section: loads `ai/skills.toml`
+and `dfiles.lock`, reads `.dfiles-sha` from each skill's cache dir, compares against
+the lock SHA. Output: `~ name  (installed: abc12345, pinned: def67890)` for stale
+skills, `? name  (not installed)` for missing ones. Local `dir:` sources and
+unpinned skills (no lock entry) are silently skipped. `DiffOptions.claude_dir` was
+dead code — replaced with `state_dir` to enable cache lookup.
 
 ---
 

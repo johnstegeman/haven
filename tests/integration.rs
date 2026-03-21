@@ -3047,3 +3047,86 @@ fn import_no_chezmoiignore_does_not_create_config_ignore() {
         "config/ignore should not be created when .chezmoiignore is absent"
     );
 }
+
+#[test]
+fn import_run_once_brew_bundle_emits_homebrew_module_toml() {
+    let repo = TempDir::new().unwrap();
+    let chezmoi_src = TempDir::new().unwrap();
+    make_chezmoi_dir(&chezmoi_src);
+
+    // A run_once_ script containing `brew bundle --file=~/Brewfile`
+    fs::write(
+        chezmoi_src.path().join("run_once_install-packages.sh"),
+        "#!/bin/bash\nbrew bundle --file=~/Brewfile\n",
+    ).unwrap();
+
+    cmd(&repo).arg("init").assert().success();
+
+    cmd(&repo)
+        .args(["import", "--from", "chezmoi", "--source"])
+        .arg(chezmoi_src.path())
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("[homebrew]"));
+
+    // A module TOML for "packages" should exist with [homebrew] section.
+    let toml_path = repo.path().join("config").join("modules").join("packages.toml");
+    assert!(toml_path.exists(), "packages.toml should be written");
+    let toml_content = fs::read_to_string(&toml_path).unwrap();
+    assert!(toml_content.contains("[homebrew]"), "should contain [homebrew]");
+    assert!(toml_content.contains("~/Brewfile"), "should contain brewfile path");
+}
+
+#[test]
+fn import_run_once_mise_install_emits_mise_module_toml() {
+    let repo = TempDir::new().unwrap();
+    let chezmoi_src = TempDir::new().unwrap();
+    make_chezmoi_dir(&chezmoi_src);
+
+    fs::write(
+        chezmoi_src.path().join("run_once_install-tools.sh"),
+        "#!/bin/bash\nmise install\n",
+    ).unwrap();
+
+    cmd(&repo).arg("init").assert().success();
+
+    cmd(&repo)
+        .args(["import", "--from", "chezmoi", "--source"])
+        .arg(chezmoi_src.path())
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("[mise]"));
+
+    let toml_path = repo.path().join("config").join("modules").join("packages.toml");
+    assert!(toml_path.exists(), "packages.toml should be written");
+    let toml_content = fs::read_to_string(&toml_path).unwrap();
+    assert!(toml_content.contains("[mise]"), "should contain [mise]");
+}
+
+#[test]
+fn import_unrecognised_script_is_skipped_with_note() {
+    let repo = TempDir::new().unwrap();
+    let chezmoi_src = TempDir::new().unwrap();
+    make_chezmoi_dir(&chezmoi_src);
+
+    fs::write(
+        chezmoi_src.path().join("run_once_custom.sh"),
+        "#!/bin/bash\necho 'custom stuff'\n",
+    ).unwrap();
+
+    cmd(&repo).arg("init").assert().success();
+
+    let output = cmd(&repo)
+        .args(["import", "--from", "chezmoi", "--source"])
+        .arg(chezmoi_src.path())
+        .assert()
+        .success();
+
+    // Should appear in the skip table with manual migration note.
+    output.stdout(predicate::str::contains("unrecognised script"));
+    // No packages.toml should be written.
+    assert!(
+        !repo.path().join("config").join("modules").join("packages.toml").exists(),
+        "no TOML should be written for unrecognised script"
+    );
+}

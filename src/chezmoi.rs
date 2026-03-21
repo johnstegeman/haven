@@ -102,11 +102,45 @@ impl SkipReason {
             SkipReason::Symlink => Some("symlink — target could not be resolved (manual migration required)"),
             SkipReason::UnsupportedAttribute => Some("unsupported chezmoi attribute (P1)"),
             SkipReason::Template => Some("Go template — could not read file (manual migration required)"),
-            SkipReason::Script => Some("install/run script (P1)"),
+            SkipReason::Script => Some("unrecognised script — manual migration required (see TODOS.md)"),
             SkipReason::Internal => None, // silent
             SkipReason::Ignored => Some("ignored by .chezmoiignore (use --include-ignored-files to import anyway)"),
         }
     }
+}
+
+/// A detected migration from a chezmoi `run_once_` / `run_` / `once_` script.
+///
+/// Recognised patterns are converted to dfiles module TOML on import.
+/// Unrecognised scripts are collected separately and skipped with an explanation.
+#[derive(Debug, Clone)]
+pub struct ChezmoiScriptEntry {
+    /// Relative path inside the chezmoi source directory.
+    pub chezmoi_path: PathBuf,
+    /// When the script should run.
+    pub when: ScriptWhen,
+    /// What dfiles migration was detected in the script body.
+    pub migration: ScriptMigration,
+}
+
+/// When a chezmoi script runs.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ScriptWhen {
+    /// `run_once_` / `once_` — run one time only.
+    Once,
+    /// `run_` — run on every apply.
+    Always,
+}
+
+/// What was detected inside a chezmoi script.
+#[derive(Debug, Clone)]
+pub enum ScriptMigration {
+    /// `brew bundle --file=<path>` was found — emit a `[homebrew]` module section.
+    BrewBundle { brewfile_path: String },
+    /// `mise install` was found — emit a `[mise]` module section.
+    MiseInstall,
+    /// Nothing recognisable — skip with a manual-migration note.
+    Unrecognized,
 }
 
 /// A chezmoi external that should become a dfiles `[[externals]]` entry.
@@ -232,11 +266,12 @@ fn chezmoi_managed_paths(source_dir: &Path) -> Option<std::collections::HashSet<
 ///
 /// Directories starting with `.` are skipped entirely (they are chezmoi-internal
 /// or system directories — legitimate dotfile dirs use the `dot_` prefix).
-pub fn scan(source_dir: &Path, include_ignored: bool) -> Result<(Vec<ChezmoiEntry>, Vec<ChezmoiExternalEntry>, Vec<SkippedEntry>)> {
+pub fn scan(source_dir: &Path, include_ignored: bool) -> Result<(Vec<ChezmoiEntry>, Vec<ChezmoiExternalEntry>, Vec<SkippedEntry>, Vec<ChezmoiScriptEntry>)> {
     let managed = chezmoi_managed_paths(source_dir);
 
     let mut keeps: Vec<ChezmoiEntry> = Vec::new();
     let mut skips: Vec<SkippedEntry> = Vec::new();
+    let mut scripts: Vec<ChezmoiScriptEntry> = Vec::new();
 
     let walker = WalkDir::new(source_dir)
         .min_depth(1)
@@ -305,6 +340,25 @@ pub fn scan(source_dir: &Path, include_ignored: bool) -> Result<(Vec<ChezmoiEntr
                     skips.push(SkippedEntry { chezmoi_path, reason: SkipReason::Symlink });
                 }
             }
+            ImportEntry::Skip(SkippedEntry { chezmoi_path, reason: SkipReason::Script }) => {
+                // Try to detect a recognised migration pattern in the script body.
+                let abs = source_dir.join(&chezmoi_path);
+                let when = script_when(&chezmoi_path);
+                match std::fs::read_to_string(&abs) {
+                    Ok(content) => {
+                        let migration = detect_script_migration(&content);
+                        match migration {
+                            ScriptMigration::Unrecognized => {
+                                skips.push(SkippedEntry { chezmoi_path, reason: SkipReason::Script });
+                            }
+                            m => scripts.push(ChezmoiScriptEntry { chezmoi_path, when, migration: m }),
+                        }
+                    }
+                    Err(_) => {
+                        skips.push(SkippedEntry { chezmoi_path, reason: SkipReason::Script });
+                    }
+                }
+            }
             ImportEntry::Skip(e) => skips.push(e),
         }
     }
@@ -344,7 +398,7 @@ pub fn scan(source_dir: &Path, include_ignored: bool) -> Result<(Vec<ChezmoiEntr
 
     let externals = parse_chezmoiexternal(source_dir)?;
 
-    Ok((keeps, externals, skips))
+    Ok((keeps, externals, skips, scripts))
 }
 
 // ─── .chezmoiexternal.toml parsing ───────────────────────────────────────────
@@ -798,6 +852,75 @@ fn decode_symlink_dest(rel_path: &Path) -> PathBuf {
     path
 }
 
+// ─── Script migration detection ───────────────────────────────────────────────
+
+/// Determine when a script should run from its filename prefix.
+fn script_when(rel_path: &Path) -> ScriptWhen {
+    let name = rel_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("");
+    let (stripped, _, _) = strip_permission_prefixes(name);
+    if stripped.starts_with("run_once_") || stripped.starts_with("once_") {
+        ScriptWhen::Once
+    } else {
+        ScriptWhen::Always
+    }
+}
+
+/// Scan a script's content and return the best-matching migration.
+///
+/// Detection order (first match wins):
+/// 1. `brew bundle --file=<path>` → `BrewBundle { brewfile_path }`
+/// 2. `brew bundle` (no --file) → `BrewBundle { brewfile_path: "Brewfile" }`
+/// 3. `mise install` → `MiseInstall`
+/// 4. No match → `Unrecognized`
+pub fn detect_script_migration(content: &str) -> ScriptMigration {
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with('#') {
+            continue; // skip comments
+        }
+
+        // brew bundle [--file=<path>]
+        if let Some(idx) = trimmed.find("brew bundle") {
+            let after = trimmed[idx + "brew bundle".len()..].trim();
+            if let Some(path) = extract_brew_bundle_file(after) {
+                return ScriptMigration::BrewBundle { brewfile_path: path };
+            }
+            // bare `brew bundle` with no --file flag
+            if after.is_empty() || after.starts_with('#') || after.starts_with("--") {
+                return ScriptMigration::BrewBundle {
+                    brewfile_path: "Brewfile".to_string(),
+                };
+            }
+        }
+
+        // mise install
+        if trimmed.contains("mise install") {
+            return ScriptMigration::MiseInstall;
+        }
+    }
+
+    ScriptMigration::Unrecognized
+}
+
+/// Extract the path argument from `--file=<path>` or `--file <path>`.
+fn extract_brew_bundle_file(rest: &str) -> Option<String> {
+    if let Some(after) = rest.strip_prefix("--file=") {
+        let path = after.split_whitespace().next()?.trim_matches(|c| c == '"' || c == '\'');
+        if !path.is_empty() {
+            return Some(path.to_string());
+        }
+    } else if let Some(after) = rest.strip_prefix("--file ") {
+        let path = after.trim_start().split_whitespace().next()?.trim_matches(|c| c == '"' || c == '\'');
+        if !path.is_empty() {
+            return Some(path.to_string());
+        }
+    }
+    None
+}
+
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -1024,6 +1147,74 @@ mod tests {
     #[test]
     fn source_name_template_keeps_tmpl_suffix() {
         assert_eq!(source_name(Path::new("dot_gitconfig.tmpl")), "dot_gitconfig.tmpl");
+    }
+
+    // ── create_: decoded as Keep, dest strips create_ prefix ──────────────────
+
+    // ── detect_script_migration ────────────────────────────────────────────────
+
+    #[test]
+    fn detects_brew_bundle_with_file_flag() {
+        let content = "#!/bin/bash\nbrew bundle --file=~/dotfiles/Brewfile\n";
+        match detect_script_migration(content) {
+            ScriptMigration::BrewBundle { brewfile_path } => {
+                assert_eq!(brewfile_path, "~/dotfiles/Brewfile");
+            }
+            other => panic!("expected BrewBundle, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn detects_brew_bundle_bare() {
+        let content = "#!/bin/bash\nbrew bundle\n";
+        match detect_script_migration(content) {
+            ScriptMigration::BrewBundle { brewfile_path } => {
+                assert_eq!(brewfile_path, "Brewfile");
+            }
+            other => panic!("expected BrewBundle, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn detects_mise_install() {
+        let content = "#!/bin/bash\nmise install\n";
+        match detect_script_migration(content) {
+            ScriptMigration::MiseInstall => {}
+            other => panic!("expected MiseInstall, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn detects_nothing_for_unrecognised_script() {
+        let content = "#!/bin/bash\necho hello\n";
+        match detect_script_migration(content) {
+            ScriptMigration::Unrecognized => {}
+            other => panic!("expected Unrecognized, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn skips_commented_brew_bundle_line() {
+        let content = "#!/bin/bash\n# brew bundle --file=Brewfile\necho done\n";
+        match detect_script_migration(content) {
+            ScriptMigration::Unrecognized => {}
+            other => panic!("expected Unrecognized for commented line, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn script_when_run_once_prefix() {
+        assert_eq!(script_when(Path::new("run_once_setup.sh")), ScriptWhen::Once);
+    }
+
+    #[test]
+    fn script_when_run_prefix() {
+        assert_eq!(script_when(Path::new("run_setup.sh")), ScriptWhen::Always);
+    }
+
+    #[test]
+    fn script_when_once_prefix() {
+        assert_eq!(script_when(Path::new("once_setup.sh")), ScriptWhen::Once);
     }
 
     // ── create_: decoded as Keep, dest strips create_ prefix ──────────────────

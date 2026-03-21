@@ -258,7 +258,7 @@ fn write_sha_file(cache_dir: &Path, sha: &str) -> Result<()> {
 
 // ─── Dir copy helper ──────────────────────────────────────────────────────────
 
-fn copy_dir_excluding_git(src: &Path, dest: &Path) -> Result<()> {
+pub(crate) fn copy_dir_excluding_git(src: &Path, dest: &Path) -> Result<()> {
     for entry in walkdir::WalkDir::new(src).min_depth(1) {
         let entry = entry.context("Error walking cloned skill dir")?;
         let rel = entry.path().strip_prefix(src)?;

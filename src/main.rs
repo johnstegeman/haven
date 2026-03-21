@@ -64,10 +64,38 @@ enum AiAction {
         deploy: String,
     },
 
+    /// Import a locally-developed skill into the dfiles repo.
+    ///
+    /// Copies the skill directory into `ai/skills/<name>/files/`, writes
+    /// `ai/skills/<name>/skill.toml` with `source = "repo:"`, creates a blank
+    /// `all.md` snippet stub, and removes the original directory.
+    ///
+    /// Run `dfiles apply --ai` afterward to deploy the skill symlink to
+    /// `~/.claude/skills/<name>` (or equivalent for your active platforms).
+    ///
+    /// Examples:
+    ///   dfiles ai add-local ~/.claude/skills/myskill
+    ///   dfiles ai add-local ~/dev/my-skill --name myskill
+    ///   dfiles ai add-local ~/.claude/skills/myskill --platforms claude-code
+    #[command(name = "add-local")]
+    AddLocal {
+        /// Path to the local skill directory to import.
+        path: String,
+
+        /// Name for the skill. Defaults to the directory name of the path.
+        #[arg(long)]
+        name: Option<String>,
+
+        /// Target platforms: `all`, `cross-client`, or comma-separated platform IDs.
+        /// Default: `all`.
+        #[arg(long, default_value = "all")]
+        platforms: String,
+    },
+
     /// Download skills into the local cache without deploying them.
     ///
     /// Respects the lock file — already-cached skills at the pinned SHA are skipped.
-    /// `dir:` skills are always skipped (local dirs are read directly on apply).
+    /// `dir:` and `repo:` skills are always skipped (read directly on apply).
     ///
     /// Examples:
     ///   dfiles ai fetch
@@ -766,6 +794,14 @@ fn run() -> Result<()> {
                     name: name.as_deref(),
                     platforms,
                     deploy,
+                })?;
+            }
+            AiAction::AddLocal { path, name, platforms } => {
+                commands::ai::add_local(&commands::ai::AddLocalOptions {
+                    repo_root: &repo,
+                    path,
+                    name: name.as_deref(),
+                    platforms,
                 })?;
             }
             AiAction::Fetch { name } => {

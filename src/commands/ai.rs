@@ -1,12 +1,13 @@
-/// `dfiles ai` subcommands: discover, add, fetch, update, remove.
+/// `dfiles ai` subcommands: discover, add, add-local, fetch, update, remove.
 ///
 /// These commands manage the lifecycle of AI skills declared in `ai/skills.toml`:
 ///
-/// - `discover`  — scan for installed AI platforms, offer to update `active` list
-/// - `add`       — append a new `[[skill]]` entry to `ai/skills.toml`
-/// - `fetch`     — download `gh:` skills into the local cache (respects lock SHA)
-/// - `update`    — like `fetch` but clears the lock SHA first to force re-download
-/// - `remove`    — remove a skill from the config, lock file, and optionally live dirs
+/// - `discover`   — scan for installed AI platforms, offer to update `active` list
+/// - `add`        — append a new `[[skill]]` entry to `ai/skills.toml`
+/// - `add-local`  — import a locally-developed skill into the dfiles repo (`repo:` source)
+/// - `fetch`      — download `gh:` skills into the local cache (respects lock SHA)
+/// - `update`     — like `fetch` but clears the lock SHA first to force re-download
+/// - `remove`     — remove a skill from the config, lock file, and optionally live dirs
 use anyhow::{Context, Result};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
@@ -230,6 +231,7 @@ pub fn add(opts: &AddOptions<'_>) -> Result<()> {
 /// - `gh:anthropics/skills/pdf-processing` → `"pdf-processing"` (last subpath component)
 /// - `gh:anthropics/pdf-skill` → `"pdf-skill"` (repo name)
 /// - `dir:~/projects/my-skill` → `"my-skill"` (last path component)
+/// - `repo:` → not applicable (name comes from the source path in add-local)
 fn infer_name_from_source(source: &SkillSource) -> String {
     match source {
         SkillSource::Gh(gh) => gh.name().to_string(),
@@ -237,7 +239,114 @@ fn infer_name_from_source(source: &SkillSource) -> String {
             .file_name()
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_else(|| "skill".to_string()),
+        SkillSource::Repo => "skill".to_string(),
     }
+}
+
+// ─── add-local ────────────────────────────────────────────────────────────────
+
+/// Options for `dfiles ai add-local`.
+pub struct AddLocalOptions<'a> {
+    pub repo_root: &'a Path,
+    /// Path to the local skill directory to import.
+    pub path: &'a str,
+    /// Override for the skill name. Defaults to the directory name of `path`.
+    pub name: Option<&'a str>,
+    /// Target platforms. Default: `"all"`.
+    pub platforms: &'a str,
+}
+
+/// Import a locally-developed skill into the dfiles repo.
+///
+/// Copies the skill directory into `ai/skills/<name>/files/`, writes
+/// `ai/skills/<name>/skill.toml` with `source = "repo:"`, creates a blank
+/// `all.md` snippet stub, and removes the original directory.
+///
+/// Run `dfiles apply --ai` afterward to deploy the skill symlink to
+/// `~/.claude/skills/<name>` (or the equivalent for your active platforms).
+pub fn add_local(opts: &AddLocalOptions<'_>) -> Result<()> {
+    use crate::config::module::expand_tilde;
+
+    // Expand tilde and resolve the source path.
+    let src_path = expand_tilde(opts.path)
+        .with_context(|| format!("Cannot expand path '{}'", opts.path))?;
+
+    if !src_path.exists() {
+        anyhow::bail!("Path does not exist: {}", src_path.display());
+    }
+    if !src_path.is_dir() {
+        anyhow::bail!("Path is not a directory: {}", src_path.display());
+    }
+
+    // Infer skill name from directory name (or --name override).
+    let name = match opts.name {
+        Some(n) => n.to_string(),
+        None => src_path
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .with_context(|| {
+                format!("Cannot determine skill name from '{}'", src_path.display())
+            })?,
+    };
+
+    // Check for name conflicts.
+    if let Some(existing) = SkillsConfig::load(opts.repo_root)? {
+        if existing.skills.iter().any(|s| s.name == name) {
+            anyhow::bail!(
+                "A skill named '{}' already exists in ai/skills/.\n\
+                 Use --name to specify a different name.",
+                name
+            );
+        }
+    }
+
+    let files_dir = opts
+        .repo_root
+        .join("ai")
+        .join("skills")
+        .join(&name)
+        .join("files");
+
+    // Refuse to overwrite an existing files/ dir to avoid silent data loss.
+    if files_dir.exists() {
+        anyhow::bail!(
+            "ai/skills/{}/files/ already exists. Remove it manually before retrying.",
+            name
+        );
+    }
+
+    // Copy source directory into files/. Clean up on failure.
+    std::fs::create_dir_all(&files_dir)
+        .with_context(|| format!("Cannot create {}", files_dir.display()))?;
+
+    if let Err(e) = crate::skill_cache::copy_dir_excluding_git(&src_path, &files_dir) {
+        // Remove partial files/ dir before bailing.
+        let _ = std::fs::remove_dir_all(&files_dir);
+        return Err(e.context(format!(
+            "Failed to copy '{}' into repo — original directory is unchanged.",
+            src_path.display()
+        )));
+    }
+
+    // Write skill.toml and create all.md stub.
+    write_skill_dir(opts.repo_root, &name, "repo:", opts.platforms, "symlink")?;
+
+    // Remove the original directory — import is complete.
+    std::fs::remove_dir_all(&src_path).with_context(|| {
+        format!(
+            "Files copied but failed to remove original '{}'. \
+             You may want to remove it manually to avoid confusion.",
+            src_path.display()
+        )
+    })?;
+
+    println!("Added local skill '{}'.", name);
+    println!("  Files:   ai/skills/{}/files/", name);
+    println!("  Snippet: ai/skills/{}/all.md  (edit to add agent instructions)", name);
+    println!();
+    println!("Run `dfiles apply --ai` to deploy the skill symlink.");
+
+    Ok(())
 }
 
 /// Parse `"symlink"` or `"copy"` into `DeployMethod`.
@@ -335,12 +444,12 @@ pub fn fetch(opts: &FetchOptions<'_>) -> Result<()> {
                     }
                 }
             }
-            SkillSource::Dir(_) => {
-                // dir: skills are read directly at apply time — no cache needed.
+            SkillSource::Dir(_) | SkillSource::Repo => {
+                // dir: and repo: skills are read directly at apply time — no cache needed.
                 if opts.name.is_some() {
                     println!(
-                        "Skill '{}' uses a dir: source — nothing to fetch.",
-                        decl.name
+                        "Skill '{}' uses a local source ({}) — nothing to fetch.",
+                        decl.name, decl.source
                     );
                 }
             }
@@ -399,11 +508,12 @@ pub fn update(opts: &UpdateOptions<'_>) -> Result<()> {
                     }
                 }
             }
-            SkillSource::Dir(_) => {
+            SkillSource::Dir(_) | SkillSource::Repo => {
+                // dir: and repo: skills are read directly at apply time — nothing to update.
                 if opts.name.is_some() {
                     println!(
-                        "Skill '{}' uses a dir: source — nothing to update.",
-                        decl.name
+                        "Skill '{}' uses a local source ({}) — nothing to update.",
+                        decl.name, decl.source
                     );
                 }
             }

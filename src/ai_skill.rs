@@ -22,6 +22,16 @@
 /// platforms = ["claude-code"]
 /// deploy   = "symlink"
 /// ```
+///
+/// For locally-developed skills imported via `dfiles ai add-local`, the source
+/// is `"repo:"` and the skill files live in `ai/skills/<name>/files/`:
+///
+/// ```
+/// ai/skills/myskill/
+///   skill.toml    ← source = "repo:", platforms = "all"
+///   all.md        ← user snippet
+///   files/        ← actual skill content (SKILL.md, etc.)
+/// ```
 use anyhow::{Context, Result};
 use serde::Deserialize;
 use std::collections::HashSet;
@@ -33,25 +43,33 @@ use crate::github::GhSource;
 
 // ─── Source ──────────────────────────────────────────────────────────────────
 
-/// A parsed skill source: either a GitHub source or a local directory.
+/// A parsed skill source: GitHub, local directory, or repo-embedded.
 #[derive(Debug, Clone)]
 pub enum SkillSource {
     Gh(GhSource),
     Dir(PathBuf),
+    /// Skill content is embedded in the dfiles repo at `ai/skills/<name>/files/`.
+    ///
+    /// The resolved path is `<repo_root>/ai/skills/<name>/files/`, where `<name>`
+    /// comes from the skill declaration's directory name. Use `dfiles ai add-local`
+    /// to import a local skill into the repo.
+    Repo,
 }
 
 impl SkillSource {
-    /// Parse a `gh:owner/repo[/subpath][@ref]` or `dir:~/path` source string.
+    /// Parse a `gh:owner/repo[/subpath][@ref]`, `dir:~/path`, or `repo:` source string.
     pub fn parse(s: &str) -> Result<Self> {
         if let Some(rest) = s.strip_prefix("dir:") {
             let path = expand_tilde(rest)
                 .with_context(|| format!("Cannot expand path in '{}'", s))?;
             Ok(Self::Dir(path))
+        } else if s == "repo:" {
+            Ok(Self::Repo)
         } else if s.starts_with("gh:") {
             Ok(Self::Gh(GhSource::parse(s)?))
         } else {
             anyhow::bail!(
-                "Unknown source prefix in '{}'. Expected 'gh:owner/repo' or 'dir:~/path'.",
+                "Unknown source prefix in '{}'. Expected 'gh:owner/repo', 'dir:~/path', or 'repo:'.",
                 s
             )
         }
@@ -321,6 +339,19 @@ mod tests {
             SkillSource::Dir(p) => assert_eq!(p, PathBuf::from("/tmp/my-skill")),
             _ => panic!("expected Dir"),
         }
+    }
+
+    #[test]
+    fn parses_repo_source() {
+        let src = SkillSource::parse("repo:").unwrap();
+        assert!(matches!(src, SkillSource::Repo));
+    }
+
+    #[test]
+    fn rejects_repo_with_path_arg() {
+        // repo: takes no path argument — any suffix is rejected.
+        assert!(SkillSource::parse("repo:files").is_err());
+        assert!(SkillSource::parse("repo:ai/skills/foo/files").is_err());
     }
 
     #[test]

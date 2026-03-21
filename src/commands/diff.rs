@@ -340,8 +340,49 @@ pub fn run(opts: &DiffOptions<'_>) -> Result<bool> {
                     Err(_) => continue,
                 };
                 let gh = match source {
-                    SkillSource::Gh(ref gh) => gh,
+                    SkillSource::Repo => {
+                        // repo: skills are embedded in the dfiles repo.
+                        // Check for uncommitted changes in the files/ subdir.
+                        let files_path = opts
+                            .repo_root
+                            .join("ai")
+                            .join("skills")
+                            .join(&skill.name)
+                            .join("files");
+                        if !files_path.exists() {
+                            section_lines.push(format!(
+                                "  ? {}  (repo: files not found)",
+                                skill.name
+                            ));
+                        } else {
+                            // Run git status --short on the files/ subdir.
+                            // If git is unavailable or fails (e.g. jj-only repo), skip silently.
+                            let rel_path = format!("ai/skills/{}/files", skill.name);
+                            let dirty = std::process::Command::new("git")
+                                .args([
+                                    "-C",
+                                    &opts.repo_root.to_string_lossy(),
+                                    "status",
+                                    "--short",
+                                    "--",
+                                    &rel_path,
+                                ])
+                                .output()
+                                .ok()
+                                .filter(|o| o.status.success())
+                                .map(|o| !o.stdout.is_empty())
+                                .unwrap_or(false);
+                            if dirty {
+                                section_lines.push(format!(
+                                    "  ~ {}  (repo: uncommitted changes)",
+                                    skill.name
+                                ));
+                            }
+                        }
+                        continue;
+                    }
                     SkillSource::Dir(_) => continue, // no version tracking for local skills
+                    SkillSource::Gh(ref gh) => gh,
                 };
                 let lock_key = gh.source_key();
                 let lock_sha = match lock.skill_sha(&lock_key) {

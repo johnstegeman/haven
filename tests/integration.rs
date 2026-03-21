@@ -3547,3 +3547,213 @@ fn import_unrecognised_script_is_copied_to_source_scripts() {
         "no TOML should be written for unrecognised script"
     );
 }
+
+// ─── add-local / repo: source type ───────────────────────────────────────────
+
+/// Helper: create a fake skill directory with a SKILL.md.
+fn make_skill_dir(parent: &TempDir, name: &str) -> std::path::PathBuf {
+    let skill_dir = parent.path().join(name);
+    fs::create_dir_all(&skill_dir).unwrap();
+    fs::write(skill_dir.join("SKILL.md"), format!("# {}\nA test skill.", name)).unwrap();
+    fs::write(skill_dir.join("extra.md"), "extra content").unwrap();
+    skill_dir
+}
+
+#[test]
+fn ai_add_local_copies_files_and_writes_skill_toml() {
+    let repo = TempDir::new().unwrap();
+    let skills_parent = TempDir::new().unwrap();
+    cmd(&repo).arg("init").assert().success();
+
+    make_skill_dir(&skills_parent, "myskill");
+
+    cmd(&repo)
+        .args(["ai", "add-local"])
+        .arg(skills_parent.path().join("myskill"))
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("Added local skill 'myskill'"))
+        .stdout(predicates::str::contains("ai/skills/myskill/files/"))
+        .stdout(predicates::str::contains("dfiles apply --ai"));
+
+    // skill.toml should have source = "repo:"
+    let skill_toml = repo.path().join("ai").join("skills").join("myskill").join("skill.toml");
+    assert!(skill_toml.exists(), "skill.toml should be created");
+    let toml_content = fs::read_to_string(&skill_toml).unwrap();
+    assert!(toml_content.contains("repo:"), "skill.toml should contain repo:");
+
+    // files/ should contain the original skill files
+    let files_dir = repo.path().join("ai").join("skills").join("myskill").join("files");
+    assert!(files_dir.join("SKILL.md").exists(), "SKILL.md should be in files/");
+    assert!(files_dir.join("extra.md").exists(), "extra.md should be in files/");
+
+    // blank all.md should be created
+    let all_md = repo.path().join("ai").join("skills").join("myskill").join("all.md");
+    assert!(all_md.exists(), "all.md stub should be created");
+
+    // original directory should be removed
+    assert!(
+        !skills_parent.path().join("myskill").exists(),
+        "original directory should be removed"
+    );
+}
+
+#[test]
+fn ai_add_local_name_override() {
+    let repo = TempDir::new().unwrap();
+    let skills_parent = TempDir::new().unwrap();
+    cmd(&repo).arg("init").assert().success();
+
+    make_skill_dir(&skills_parent, "source-dir");
+
+    cmd(&repo)
+        .args(["ai", "add-local"])
+        .arg(skills_parent.path().join("source-dir"))
+        .args(["--name", "custom-name"])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("Added local skill 'custom-name'"));
+
+    assert!(
+        repo.path().join("ai").join("skills").join("custom-name").join("files").join("SKILL.md").exists(),
+        "files/ should be under custom-name"
+    );
+}
+
+#[test]
+fn ai_add_local_errors_on_missing_path() {
+    let repo = TempDir::new().unwrap();
+    cmd(&repo).arg("init").assert().success();
+
+    cmd(&repo)
+        .args(["ai", "add-local", "/nonexistent/path/skill"])
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("does not exist"));
+}
+
+#[test]
+fn ai_add_local_errors_on_duplicate_name() {
+    let repo = TempDir::new().unwrap();
+    let skills_parent = TempDir::new().unwrap();
+    cmd(&repo).arg("init").assert().success();
+
+    // First import succeeds.
+    make_skill_dir(&skills_parent, "myskill");
+    cmd(&repo)
+        .args(["ai", "add-local"])
+        .arg(skills_parent.path().join("myskill"))
+        .assert()
+        .success();
+
+    // Second import with same name fails.
+    let second = TempDir::new().unwrap();
+    make_skill_dir(&second, "myskill");
+    cmd(&repo)
+        .args(["ai", "add-local"])
+        .arg(second.path().join("myskill"))
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("already exists"));
+}
+
+#[test]
+fn ai_apply_deploys_repo_skill_as_symlink() {
+    let repo = TempDir::new().unwrap();
+    let home = TempDir::new().unwrap();
+    let skills_parent = TempDir::new().unwrap();
+    cmd(&repo).arg("init").assert().success();
+
+    make_skill_dir(&skills_parent, "myskill");
+    cmd(&repo)
+        .args(["ai", "add-local"])
+        .arg(skills_parent.path().join("myskill"))
+        .assert()
+        .success();
+
+    // Set up CLAUDE.md-style platforms (claude-code active).
+    let platforms_dir = repo.path().join("ai");
+    fs::create_dir_all(&platforms_dir).unwrap();
+    fs::write(
+        platforms_dir.join("platforms.toml"),
+        "active = [\"claude-code\"]\n",
+    ).unwrap();
+
+    let claude_skills = home.path().join(".claude").join("skills");
+    cmd_home(&repo, &home)
+        .env("DFILES_CLAUDE_DIR", home.path().join(".claude"))
+        .args(["apply", "--ai"])
+        .assert()
+        .success();
+
+    // Deployed target should exist (symlink or dir).
+    let deployed = claude_skills.join("myskill");
+    assert!(
+        deployed.exists() || deployed.is_symlink(),
+        "skill should be deployed to ~/.claude/skills/myskill"
+    );
+}
+
+#[test]
+fn ai_diff_repo_skill_missing_files_shows_question_mark() {
+    let repo = TempDir::new().unwrap();
+    let home = TempDir::new().unwrap();
+    cmd(&repo).arg("init").assert().success();
+
+    // Write skill.toml manually with source = "repo:" but no files/ subdir.
+    let skill_dir = repo.path().join("ai").join("skills").join("myskill");
+    fs::create_dir_all(&skill_dir).unwrap();
+    fs::write(
+        skill_dir.join("skill.toml"),
+        "source    = \"repo:\"\nplatforms = \"all\"\n",
+    ).unwrap();
+
+    cmd_home(&repo, &home)
+        .args(["diff", "--ai"])
+        .assert()
+        .stdout(predicates::str::contains("myskill"))
+        .stdout(predicates::str::contains("repo: files not found"));
+}
+
+#[test]
+fn ai_fetch_skips_repo_skill() {
+    let repo = TempDir::new().unwrap();
+    let home = TempDir::new().unwrap();
+    let skills_parent = TempDir::new().unwrap();
+    cmd(&repo).arg("init").assert().success();
+
+    make_skill_dir(&skills_parent, "myskill");
+    cmd(&repo)
+        .args(["ai", "add-local"])
+        .arg(skills_parent.path().join("myskill"))
+        .assert()
+        .success();
+
+    // fetch should not error on repo: skills.
+    cmd_home(&repo, &home)
+        .args(["ai", "fetch"])
+        .assert()
+        .success();
+}
+
+#[test]
+fn skill_source_parses_repo() {
+    // Verify the CLI round-trips: skill.toml with "repo:" is accepted by apply --dry-run.
+    let repo = TempDir::new().unwrap();
+    let home = TempDir::new().unwrap();
+    cmd(&repo).arg("init").assert().success();
+
+    let skill_dir = repo.path().join("ai").join("skills").join("myskill");
+    fs::create_dir_all(skill_dir.join("files")).unwrap();
+    fs::write(skill_dir.join("files").join("SKILL.md"), "# myskill").unwrap();
+    fs::write(
+        skill_dir.join("skill.toml"),
+        "source    = \"repo:\"\nplatforms = \"all\"\n",
+    ).unwrap();
+
+    cmd_home(&repo, &home)
+        .env("DFILES_CLAUDE_DIR", home.path().join(".claude"))
+        .args(["apply", "--dry-run", "--ai"])
+        .assert()
+        .success();
+}

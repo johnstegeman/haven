@@ -894,6 +894,32 @@ fn apply_ai_skills(
                     });
                 }
             }
+            SkillSource::Repo => {
+                // repo: skills live at <repo_root>/ai/skills/<name>/files/.
+                let files_path = opts
+                    .repo_root
+                    .join("ai")
+                    .join("skills")
+                    .join(&skill.name)
+                    .join("files");
+                if !files_path.exists() {
+                    eprintln!(
+                        "  error: skill '{}' — repo: files not found at {}",
+                        skill.name,
+                        files_path.display()
+                    );
+                    plans.push(SkillPlan {
+                        skill, source_str, target_platforms,
+                        path: None, sha: None, failed: true,
+                    });
+                    skills_failed += 1;
+                } else {
+                    plans.push(SkillPlan {
+                        skill, source_str, target_platforms,
+                        path: Some(files_path), sha: None, failed: false,
+                    });
+                }
+            }
         }
     }
 

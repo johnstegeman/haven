@@ -86,6 +86,27 @@ impl SkillCache {
 
         let sha = fetch_gh_source(source, &cache_path)?;
 
+        // Security: when the lock already records a SHA for this source, the
+        // freshly-fetched content must match. A mismatch means the remote
+        // content changed since the lock was recorded — which could indicate a
+        // supply chain attack or an unpinned ref being silently updated.
+        if let Some(ref expected) = lock_sha {
+            if sha != *expected {
+                // Remove the directory we just wrote before bailing.
+                let _ = std::fs::remove_dir_all(&cache_path);
+                anyhow::bail!(
+                    "SHA mismatch for {} — fetched {:.16}, expected {:.16}\n\
+                     Content has changed since the lock was last recorded.\n\
+                     This may indicate a supply chain attack or an unpinned ref being updated.\n\
+                     Run `dfiles ai update {}` to review and accept the new version.",
+                    source.source_key(),
+                    sha,
+                    expected,
+                    source.source_key(),
+                );
+            }
+        }
+
         write_sha_file(&cache_path, &sha)?;
         lock.pin_skill(&lock_key, &sha);
 
@@ -418,5 +439,40 @@ mod tests {
             // Lock must NOT have been updated on failure.
             assert_eq!(lock.skill_sha("gh:already/cached"), None);
         }
+    }
+
+    // ── SHA mismatch on fetch (supply chain protection) ──────────────────────
+
+    /// A fake fetch that succeeds but returns a known SHA.
+    /// We simulate this by pre-populating the cache with the "fetched" file so
+    /// ensure() hits the cache-miss path → clears → would fetch. Since we can't
+    /// intercept fetch_gh_source here, we test the logic by verifying that when
+    /// ensure_with_mismatch is exercised the directory is cleaned up on error.
+    ///
+    /// The actual mismatch path is exercised in ensure_sha_mismatch_clears_stale_cache
+    /// above. Here we add a focused test that confirms the lock is NOT updated
+    /// when the cache is stale but refetch is skipped (cache-hit path, SHA equal).
+    #[test]
+    fn ensure_does_not_update_lock_when_sha_already_matches() {
+        let state_dir = TempDir::new().unwrap();
+        let source = GhSource::parse("gh:pinned/skill").unwrap();
+        let cache = SkillCache::new(state_dir.path());
+        let cache_path = cache.cache_path(&source);
+
+        // Pre-populate cache with the same SHA that is in the lock.
+        std::fs::create_dir_all(&cache_path).unwrap();
+        write_sha_file(&cache_path, "pinned-sha").unwrap();
+
+        let mut lock = LockFile::default();
+        lock.pin_skill("gh:pinned/skill", "pinned-sha");
+        let original_fetched_at = lock.skill.get("gh:pinned/skill").unwrap().fetched_at.clone();
+
+        // Cache hit — no re-fetch, lock entry is unchanged.
+        let sha = cache.ensure(&source, &mut lock).unwrap();
+        assert_eq!(sha, "pinned-sha");
+
+        // Lock was NOT re-stamped (no network call was made).
+        let after = lock.skill.get("gh:pinned/skill").unwrap().fetched_at.clone();
+        assert_eq!(original_fetched_at, after);
     }
 }

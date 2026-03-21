@@ -252,6 +252,23 @@ enum Commands {
         update: bool,
     },
 
+    /// Stop tracking a dotfile by removing it from the source/ directory.
+    ///
+    /// The live file on disk is left unchanged — only the source/ copy is removed.
+    /// Run `dfiles status` first to verify the path before removing.
+    ///
+    /// Examples:
+    ///   dfiles remove ~/.zshrc
+    ///   dfiles remove ~/.config/git/config --dry-run
+    Remove {
+        /// Destination path to stop tracking (e.g. ~/.zshrc).
+        file: PathBuf,
+
+        /// Print what would be removed without deleting any files.
+        #[arg(long)]
+        dry_run: bool,
+    },
+
     /// Apply tracked files and packages to this machine.
     ///
     /// Copies source files to their destinations, installs Homebrew packages,
@@ -569,6 +586,14 @@ fn run() -> Result<()> {
 
         Commands::Add { file, link, apply, update } => {
             commands::add::run(&repo, file, *link, *apply, *update)?;
+        }
+
+        Commands::Remove { file, dry_run } => {
+            commands::remove::run(&commands::remove::RemoveOptions {
+                repo_root: &repo,
+                file,
+                dry_run: *dry_run,
+            })?;
         }
 
         Commands::Apply {

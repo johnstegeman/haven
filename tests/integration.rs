@@ -974,6 +974,102 @@ fn apply_backs_up_existing_file() {
         .stdout(predicate::str::contains("backed up"));
 }
 
+// ─── extfile_ ────────────────────────────────────────────────────────────────
+
+#[test]
+fn apply_extfile_dry_run_shows_download_entry() {
+    let repo = TempDir::new().unwrap();
+    let home = TempDir::new().unwrap();
+
+    // Write an extfile_ marker for a binary at ~/.local/bin/gh.
+    let source_dir = repo.path().join("source");
+    let bin_dir = source_dir.join("dot_local").join("bin");
+    fs::create_dir_all(&bin_dir).unwrap();
+    fs::write(
+        bin_dir.join("extfile_gh"),
+        "type = \"file\"\nurl  = \"https://example.com/gh-v2.0.tar.gz\"\nref  = \"v2.0\"\n",
+    )
+    .unwrap();
+
+    cmd_home(&repo, &home)
+        .args(["apply", "--dry-run"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("[extfile]"))
+        .stdout(predicate::str::contains("https://example.com/gh-v2.0.tar.gz"));
+}
+
+#[test]
+fn apply_extfile_archive_dry_run_shows_extract_label() {
+    let repo = TempDir::new().unwrap();
+    let home = TempDir::new().unwrap();
+
+    let source_dir = repo.path().join("source");
+    fs::create_dir_all(&source_dir).unwrap();
+    fs::write(
+        source_dir.join("extfile_dot_config_backup"),
+        "type = \"archive\"\nurl  = \"https://example.com/config.tar.gz\"\n",
+    )
+    .unwrap();
+
+    cmd_home(&repo, &home)
+        .args(["apply", "--dry-run"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("[extfile]"))
+        .stdout(predicate::str::contains("extract"));
+}
+
+#[test]
+fn diff_extfile_missing_shows_question_mark() {
+    let repo = TempDir::new().unwrap();
+    let home = TempDir::new().unwrap();
+
+    // Marker present in source/ but file not yet downloaded (dest absent).
+    let source_dir = repo.path().join("source");
+    let bin_dir = source_dir.join("dot_local").join("bin");
+    fs::create_dir_all(&bin_dir).unwrap();
+    fs::write(
+        bin_dir.join("extfile_mytool"),
+        "type = \"file\"\nurl  = \"https://example.com/mytool\"\n",
+    )
+    .unwrap();
+
+    cmd_home(&repo, &home)
+        .args(["diff", "--files"])
+        .assert()
+        // Exit 1 = drift found.
+        .code(1)
+        .stdout(predicate::str::contains("extfile: not downloaded"));
+}
+
+#[test]
+fn source_extfile_flag_decoded_from_path() {
+    // Unit-level check: extfile_ prefix sets the extfile flag.
+    use assert_cmd::Command;
+    // We exercise this indirectly via dry-run: the marker is scanned and
+    // printed as [extfile], confirming decode_component set flags.extfile.
+    let repo = TempDir::new().unwrap();
+    let home = TempDir::new().unwrap();
+
+    let source_dir = repo.path().join("source");
+    fs::create_dir_all(&source_dir).unwrap();
+    fs::write(
+        source_dir.join("extfile_dot_tool"),
+        "type = \"file\"\nurl  = \"https://example.com/tool\"\n",
+    )
+    .unwrap();
+
+    Command::cargo_bin("dfiles")
+        .unwrap()
+        .args(["--dir", repo.path().to_str().unwrap()])
+        .env("HOME", home.path())
+        .args(["apply", "--dry-run"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("[extfile]"));
+}
+
 // ─── status ──────────────────────────────────────────────────────────────────
 
 #[test]

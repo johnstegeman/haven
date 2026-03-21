@@ -346,6 +346,104 @@ fn parse_extdir_content(src: &Path) -> Result<ExtdirContent> {
     Ok(content)
 }
 
+// ─── Extfile marker ───────────────────────────────────────────────────────────
+
+/// Parsed content of an `extfile_<name>` marker file in `source/`.
+///
+/// ```toml
+/// type   = "file"          # "file" (default) or "archive" (.tar.gz / .tgz)
+/// url    = "https://..."   # required: download URL
+/// ref    = "v1.0"          # optional: version label for display / changelog
+/// sha256 = "abc123..."     # optional: hex SHA-256 of the downloaded content
+/// ```
+#[derive(serde::Deserialize)]
+struct ExtfileContent {
+    url: String,
+    #[serde(rename = "ref")]
+    ref_name: Option<String>,
+    #[serde(rename = "type", default = "default_extfile_type")]
+    kind: String,
+    sha256: Option<String>,
+}
+
+fn default_extfile_type() -> String {
+    "file".to_string()
+}
+
+fn parse_extfile_content(src: &Path) -> Result<ExtfileContent> {
+    let text = std::fs::read_to_string(src)
+        .with_context(|| format!("Cannot read extfile marker {}", src.display()))?;
+    let content: ExtfileContent = toml::from_str(&text)
+        .with_context(|| format!("Invalid TOML in extfile marker {}", src.display()))?;
+    Ok(content)
+}
+
+/// Download an `extfile_` source and write it to `dest`.
+///
+/// - `kind = "file"`: writes the downloaded bytes directly to `dest`.
+/// - `kind = "archive"`: extracts the tarball to `dest` (treated as a directory).
+///
+/// If `sha256` is set in the marker, the downloaded content is verified
+/// before writing. A mismatch is a hard error.
+fn apply_extfile_entry(content: &ExtfileContent, dest: &Path, backup_dir: &Path) -> Result<()> {
+    use sha2::{Digest, Sha256};
+
+    println!("  Downloading {}…", content.url);
+    let bytes = crate::github::download_bytes(&content.url)
+        .with_context(|| format!("Failed to download {}", content.url))?;
+
+    // Verify SHA-256 if provided.
+    if let Some(expected_hex) = &content.sha256 {
+        let mut hasher = Sha256::new();
+        hasher.update(&bytes);
+        let actual_hex = format!("{:x}", hasher.finalize());
+        if actual_hex != expected_hex.to_lowercase() {
+            anyhow::bail!(
+                "extfile SHA-256 mismatch for {}:\n  expected: {}\n  actual:   {}\n\
+                 Update the sha256 field in your extfile_ marker to accept the new content.",
+                dest.display(),
+                expected_hex,
+                actual_hex,
+            );
+        }
+    }
+
+    match content.kind.as_str() {
+        "file" => {
+            // Back up existing file.
+            if dest.exists() {
+                let backup = crate::fs::backup_file(dest, backup_dir)
+                    .with_context(|| format!("Cannot back up {}", dest.display()))?;
+                println!("  backed up {} → {}", dest.display(), backup.display());
+            }
+            if let Some(parent) = dest.parent() {
+                std::fs::create_dir_all(parent)?;
+            }
+            std::fs::write(dest, &bytes)
+                .with_context(|| format!("Cannot write {}", dest.display()))?;
+        }
+        "archive" => {
+            // Extract tarball to dest directory.
+            if let Some(parent) = dest.parent() {
+                std::fs::create_dir_all(parent)?;
+            }
+            std::fs::create_dir_all(dest)
+                .with_context(|| format!("Cannot create dest dir {}", dest.display()))?;
+            crate::github::extract_tarball(&bytes, None, dest)
+                .with_context(|| format!("Cannot extract archive to {}", dest.display()))?;
+        }
+        other => {
+            anyhow::bail!(
+                "extfile type '{}' is not supported (only 'file' or 'archive'): {}",
+                other,
+                dest.display()
+            );
+        }
+    }
+
+    Ok(())
+}
+
 // ─── Exact directory enforcement ──────────────────────────────────────────────
 
 /// Walk all source entries and build a map from each `exact_`-declared destination
@@ -468,6 +566,19 @@ fn apply_entry(
         return Ok(());
     }
 
+    if entry.flags.extfile {
+        let content = parse_extfile_content(&entry.src)
+            .with_context(|| format!("Bad extfile marker: {}", entry.src.display()))?;
+        apply_extfile_entry(&content, &dest, opts.backup_dir)?;
+        // chmod +x when executable_ prefix is set.
+        if entry.flags.executable && content.kind == "file" {
+            apply_permissions(&dest, false, true)
+                .with_context(|| format!("Cannot set permissions on {}", dest.display()))?;
+        }
+        println!("  ✓ {}", dest.display());
+        return Ok(());
+    }
+
     if entry.flags.symlink {
         if entry.flags.private || entry.flags.executable {
             eprintln!(
@@ -550,6 +661,26 @@ fn print_dry_run_entry(entry: &SourceEntry, dest_root: &Path) {
             }
             Err(_) => {
                 println!("  [extdir] {}  (marker unreadable)", dest.display());
+            }
+        }
+        return;
+    }
+
+    if entry.flags.extfile {
+        match parse_extfile_content(&entry.src) {
+            Ok(content) => {
+                let ref_hint = content.ref_name.as_deref().unwrap_or("latest");
+                let type_hint = if content.kind == "archive" { "extract" } else { "download" };
+                println!(
+                    "  [extfile] {} {} → {}  ({})",
+                    type_hint,
+                    content.url,
+                    dest.display(),
+                    ref_hint
+                );
+            }
+            Err(_) => {
+                println!("  [extfile] {}  (marker unreadable)", dest.display());
             }
         }
         return;

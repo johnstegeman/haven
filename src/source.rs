@@ -54,6 +54,11 @@ pub struct FileFlags {
     /// repo into `dest_tilde` on apply. The marker file's TOML content holds the
     /// `url` (required) and optional `ref` and `type` fields.
     pub extdir: bool,
+    /// When true, this entry is an external-file marker: download a single file
+    /// (or archive) from a URL on apply. The marker file's TOML content holds the
+    /// `url` (required), optional `ref`, `type` ("file" or "archive"), and optional
+    /// `sha256` for verification.
+    pub extfile: bool,
     /// When true, skip writing the file if the destination already exists.
     /// Corresponds to chezmoi's `create_` prefix — seed-only files that should
     /// not overwrite user customisations after initial setup.
@@ -188,6 +193,9 @@ pub fn decode_component(s: &str, is_file: bool) -> (String, FileFlags) {
             remaining = rest;
         } else if let Some(rest) = remaining.strip_prefix("extdir_") {
             flags.extdir = true;
+            remaining = rest;
+        } else if let Some(rest) = remaining.strip_prefix("extfile_") {
+            flags.extfile = true;
             remaining = rest;
         } else if let Some(rest) = remaining.strip_prefix("create_") {
             flags.create_only = true;
@@ -331,6 +339,33 @@ pub fn extdir_source_path(repo_source: &Path, dest_tilde: &str) -> PathBuf {
     if n > 0 {
         let last = parts[n - 1];
         let encoded_last = format!("extdir_{}", encode_filename(last, false, false, false, false));
+        path = path.join(encoded_last);
+    }
+    path
+}
+
+/// Build the `source/` path for an `extfile_` marker file from a tilde dest path.
+///
+/// Examples:
+/// ```text
+/// "~/.local/bin/gh"   →  source/dot_local/bin/extfile_gh
+/// "~/.config/tool"    →  source/dot_config/extfile_tool
+/// ```
+///
+/// Directory components are encoded with [`encode_filename`]. The final
+/// component gets the `extfile_` prefix.
+pub fn extfile_source_path(repo_source: &Path, dest_tilde: &str) -> PathBuf {
+    let rel = dest_tilde.strip_prefix("~/").unwrap_or(dest_tilde);
+    let parts: Vec<&str> = rel.split('/').filter(|s| !s.is_empty()).collect();
+    let n = parts.len();
+
+    let mut path = repo_source.to_path_buf();
+    for component in &parts[..n.saturating_sub(1)] {
+        path = path.join(encode_filename(component, false, false, false, false));
+    }
+    if n > 0 {
+        let last = parts[n - 1];
+        let encoded_last = format!("extfile_{}", encode_filename(last, false, false, false, false));
         path = path.join(encoded_last);
     }
     path
@@ -570,5 +605,51 @@ mod tests {
         assert_eq!(e.dest_tilde, "~/.config/fish/config.fish");
         // Dir at index 0 is create_dot_config → decoded to .config with create_only.
         assert!(e.dirs[0].flags.create_only, "expected dir create_only=true");
+    }
+
+    // ── extfile_ ──────────────────────────────────────────────────────────────
+
+    #[test]
+    fn component_extfile_sets_flag() {
+        let (name, flags) = decode_component("extfile_gh", false);
+        assert_eq!(name, "gh");
+        assert!(flags.extfile);
+        assert!(!flags.extdir);
+    }
+
+    #[test]
+    fn component_extfile_dot_prefix() {
+        let (name, flags) = decode_component("extfile_dot_local", false);
+        assert_eq!(name, ".local");
+        assert!(flags.extfile);
+    }
+
+    #[test]
+    fn path_extfile_simple() {
+        let e = decode("dot_local/bin/extfile_gh");
+        assert_eq!(e.dest_tilde, "~/.local/bin/gh");
+        assert!(e.flags.extfile);
+        assert!(!e.dirs.iter().any(|d| d.flags.extfile));
+    }
+
+    #[test]
+    fn extfile_source_path_simple() {
+        let source = PathBuf::from("/repo/source");
+        let p = extfile_source_path(&source, "~/.local/bin/gh");
+        assert_eq!(p, PathBuf::from("/repo/source/dot_local/bin/extfile_gh"));
+    }
+
+    #[test]
+    fn extfile_source_path_single_component() {
+        let source = PathBuf::from("/repo/source");
+        let p = extfile_source_path(&source, "~/mytool");
+        assert_eq!(p, PathBuf::from("/repo/source/extfile_mytool"));
+    }
+
+    #[test]
+    fn extfile_source_path_dotfile() {
+        let source = PathBuf::from("/repo/source");
+        let p = extfile_source_path(&source, "~/.config/tool");
+        assert_eq!(p, PathBuf::from("/repo/source/dot_config/extfile_tool"));
     }
 }

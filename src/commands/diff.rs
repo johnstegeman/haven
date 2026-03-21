@@ -120,6 +120,14 @@ pub fn run(opts: &DiffOptions<'_>) -> Result<bool> {
                 continue;
             }
 
+            if entry.flags.extfile {
+                if !dest.exists() {
+                    section_lines.push(format!("  ? {}  (extfile: not downloaded)", label));
+                }
+                // No content-hash tracking yet — presence check only.
+                continue;
+            }
+
             if entry.flags.symlink {
                 let (kind, expected_target) = if entry.flags.template {
                     let src_text = std::fs::read_to_string(&entry.src);

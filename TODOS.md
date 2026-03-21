@@ -55,19 +55,17 @@ skill you control to validate the convention.
 
 ---
 
-## P2: extfile_ source-encoded single-file externals
+## ~~P2: extfile_ source-encoded single-file externals~~ DONE
 
-**What:** Add `extfile_<name>` prefix to `source/` for fetching a single remote file (binary, release asset) rather than cloning a repo.
-
-**Why:** Completes the external encoding story. `extdir_` covers git repos; `extfile_` covers standalone binaries/assets.
-
-**Pros:** Consistent naming system; no new config format needed — same TOML schema as `extdir_`.
-
-**Cons:** Requires download/checksum logic; more edge cases than git clone.
-
-**Context:** `extdir_` shipped (2026-03-20). `extfile_` file content would use the same TOML schema (`type`, `url`, `ref`). `type` would be `"file"` or `"archive"`. Ready to implement.
-
-**Depends on / blocked by:** ~~`extdir_` feature shipping~~ — unblocked.
+Implemented 2026-03-21. `src/source.rs`: `FileFlags.extfile` set when `extfile_` prefix present;
+`extfile_source_path()` helper mirrors `extdir_source_path()`. `src/commands/apply.rs`:
+`apply_extfile_entry()` downloads URL via `crate::github::download_bytes()`, optionally verifies
+SHA-256 (optional `sha256` field in TOML), writes file for `type = "file"` or extracts tarball for
+`type = "archive"` (reuses existing `extract_tarball()`). `src/commands/diff.rs`: presence-check
+only (`? path  (extfile: not downloaded)` when dest absent). `executable_` chmod supported for
+`type = "file"`. Integration tests: `apply_extfile_dry_run_shows_download_entry`,
+`apply_extfile_archive_dry_run_shows_extract_label`, `diff_extfile_missing_shows_question_mark`,
+`source_extfile_flag_decoded_from_path`.
 
 ---
 

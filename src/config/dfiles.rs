@@ -5,14 +5,14 @@ use std::path::{Path, PathBuf};
 
 /// Root config: `dfiles.toml` in the repo root.
 #[derive(Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
+
 pub struct DfilesConfig {
     #[serde(default)]
     pub profile: HashMap<String, ProfileConfig>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
+
 pub struct ProfileConfig {
     /// List of module names to apply for this profile.
     #[serde(default)]

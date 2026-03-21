@@ -19,7 +19,7 @@ use std::path::{Path, PathBuf};
 /// commands = ["gh:jstegeman/my-commands@main"]
 /// ```
 #[derive(Debug, Deserialize, Serialize, Default)]
-#[serde(deny_unknown_fields)]
+
 pub struct ModuleConfig {
     /// Homebrew Brewfile for this module.
     pub homebrew: Option<HomebrewConfig>,
@@ -43,7 +43,7 @@ pub struct ModuleConfig {
 /// brewfile = "brew/Brewfile.shell"
 /// ```
 #[derive(Debug, Deserialize, Serialize, Default, Clone)]
-#[serde(deny_unknown_fields)]
+
 pub struct HomebrewConfig {
     /// Path to this module's Brewfile, relative to the dfiles repo root.
     /// Convention: `brew/Brewfile.<module>`.
@@ -57,7 +57,7 @@ pub struct HomebrewConfig {
 /// config = "source/mise.toml"
 /// ```
 #[derive(Debug, Deserialize, Serialize, Clone)]
-#[serde(deny_unknown_fields)]
+
 pub struct MiseConfig {
     /// Path to the mise config file, relative to the dfiles repo root.
     pub config: Option<String>,
@@ -71,7 +71,7 @@ pub struct MiseConfig {
 /// commands = ["gh:jstegeman/my-commands@main"]
 /// ```
 #[derive(Debug, Deserialize, Serialize, Default, Clone)]
-#[serde(deny_unknown_fields)]
+
 pub struct AiConfig {
     /// Claude Code skills to install. Each entry is a `gh:owner/repo[@ref]` source.
     #[serde(default)]

@@ -770,6 +770,57 @@ fn apply_dry_run_prints_plan_without_writing() {
 }
 
 #[test]
+fn apply_exact_dir_removes_untracked_files() {
+    let repo = TempDir::new().unwrap();
+    let home = TempDir::new().unwrap();
+
+    // Source: exact_dot_ssh/config → ~/.ssh/config  (exact_ on the dir)
+    let source_dir = repo.path().join("source");
+    let ssh_src = source_dir.join("exact_dot_ssh");
+    fs::create_dir_all(&ssh_src).unwrap();
+    fs::write(ssh_src.join("config"), "[Host *]\n").unwrap();
+
+    // Dest: ~/.ssh/ has a tracked file and an untracked stale key.
+    let ssh_dest = home.path().join(".ssh");
+    fs::create_dir_all(&ssh_dest).unwrap();
+    fs::write(ssh_dest.join("config"), "[Host *]\n").unwrap();
+    fs::write(ssh_dest.join("id_rsa_old"), "stale key\n").unwrap();
+
+    cmd_home(&repo, &home)
+        .arg("apply")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("[exact]"));
+
+    // Tracked file stays.
+    assert!(ssh_dest.join("config").exists(), "tracked file must remain");
+    // Untracked file removed.
+    assert!(!ssh_dest.join("id_rsa_old").exists(), "untracked file must be removed");
+}
+
+#[test]
+fn apply_exact_dir_keeps_tracked_files() {
+    let repo = TempDir::new().unwrap();
+    let home = TempDir::new().unwrap();
+
+    let source_dir = repo.path().join("source");
+    let ssh_src = source_dir.join("exact_dot_ssh");
+    fs::create_dir_all(&ssh_src).unwrap();
+    fs::write(ssh_src.join("config"), "[Host *]\n").unwrap();
+
+    // Dest only has the tracked file — nothing to remove.
+    let ssh_dest = home.path().join(".ssh");
+    fs::create_dir_all(&ssh_dest).unwrap();
+
+    cmd_home(&repo, &home)
+        .arg("apply")
+        .assert()
+        .success();
+
+    assert!(ssh_dest.join("config").exists());
+}
+
+#[test]
 fn apply_create_only_skips_if_dest_exists() {
     let repo = TempDir::new().unwrap();
     let home = TempDir::new().unwrap();

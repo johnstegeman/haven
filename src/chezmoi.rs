@@ -17,7 +17,8 @@
 ///        │       ├─ symlink_*               → read content, resolve target
 ///        │       │     target resolves      → Keep with link=true, copy_from=target
 ///        │       │     target unresolvable  → Skip(Symlink)
-///        │       ├─ exact_* / modify_*             → Skip(Unsupported)
+///        │       ├─ modify_*                       → Skip(Unsupported)
+///        │       ├─ exact_* (dir prefix)           → Keep (prefix preserved; apply purges untracked entries)
 ///        │       ├─ create_*                       → Keep (prefix preserved; apply skips if dest exists)
 ///        │       ├─ run_once_* / run_* / once_*   → Skip(Script)
 ///        │       ├─ *.tmpl                         → Skip(Template)
@@ -485,11 +486,12 @@ pub fn decode_entry(rel_path: &Path) -> ImportEntry {
     if first_stripped.starts_with("symlink_") {
         return skip(rel_path, SkipReason::Symlink);
     }
-    if first_stripped.starts_with("exact_") || first_stripped.starts_with("modify_") {
+    if first_stripped.starts_with("modify_") {
         return skip(rel_path, SkipReason::UnsupportedAttribute);
     }
-    // create_: supported — the prefix is kept in source/ so that source.rs sets
-    // create_only on apply. No special handling needed here beyond not skipping it.
+    // exact_: supported — the prefix is kept in source/ so that source.rs sets
+    // exact on the SourceDir at apply time. apply.rs then purges untracked entries.
+    // create_: supported — prefix kept in source/; apply skips write if dest exists.
     if first_stripped.starts_with("run_once_")
         || first_stripped.starts_with("run_")
         || first_stripped.starts_with("once_")
@@ -545,8 +547,9 @@ fn decode_dest(rel_path: &Path) -> PathBuf {
     // Strip permission prefixes then dot_ from the first component only.
     if let Some(first) = components.first_mut() {
         let (stripped, _, _) = strip_permission_prefixes(first);
-        // Also strip create_ for dest calculation — the prefix stays in source_name.
+        // Also strip create_ and exact_ for dest calculation — prefixes stay in source_name.
         let stripped = stripped.strip_prefix("create_").unwrap_or(stripped);
+        let stripped = stripped.strip_prefix("exact_").unwrap_or(stripped);
         if let Some(rest) = stripped.strip_prefix("dot_") {
             *first = format!(".{}", rest);
         } else {
@@ -957,8 +960,11 @@ mod tests {
     }
 
     #[test]
-    fn skip_exact_dot_config() {
-        assert_eq!(skip_reason("exact_dot_config"), SkipReason::UnsupportedAttribute);
+    fn exact_dot_config_decodes_to_config() {
+        // exact_ is now supported — it decodes like a regular dir prefix.
+        let e = keep("exact_dot_config/fish/config.fish");
+        assert!(e.dest_tilde.ends_with("/.config/fish/config.fish"), "dest={}", e.dest_tilde);
+        assert_eq!(e.source_name, "exact_dot_config/fish/config.fish");
     }
 
     #[test]

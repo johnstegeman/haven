@@ -58,6 +58,11 @@ pub struct FileFlags {
     /// Corresponds to chezmoi's `create_` prefix — seed-only files that should
     /// not overwrite user customisations after initial setup.
     pub create_only: bool,
+    /// When true (on a `SourceDir`), this directory is declared as "exact": any
+    /// file or subdirectory present in the destination but not tracked in source/
+    /// will be backed up and removed during apply.
+    /// Corresponds to chezmoi's `exact_` directory prefix.
+    pub exact: bool,
 }
 
 /// A decoded source file entry, ready to be applied.
@@ -186,6 +191,9 @@ pub fn decode_component(s: &str, is_file: bool) -> (String, FileFlags) {
             remaining = rest;
         } else if let Some(rest) = remaining.strip_prefix("create_") {
             flags.create_only = true;
+            remaining = rest;
+        } else if let Some(rest) = remaining.strip_prefix("exact_") {
+            flags.exact = true;
             remaining = rest;
         } else {
             break;
@@ -484,6 +492,22 @@ mod tests {
         let e = decode("create_dot_zshrc");
         assert_eq!(e.dest_tilde, "~/.zshrc");
         assert!(e.flags.create_only, "expected create_only=true");
+    }
+
+    #[test]
+    fn component_exact_dir() {
+        let (name, flags) = decode_component("exact_dot_config", false);
+        assert_eq!(name, ".config");
+        assert!(flags.exact, "expected exact=true");
+        assert!(!flags.create_only);
+    }
+
+    #[test]
+    fn path_exact_dir_sets_flag_on_sourcedir() {
+        let e = decode("exact_dot_config/fish/config.fish");
+        assert_eq!(e.dest_tilde, "~/.config/fish/config.fish");
+        assert!(e.dirs[0].flags.exact, "expected exact dir flag on ~/.config");
+        assert!(!e.flags.exact, "file itself should not have exact flag");
     }
 
     #[test]

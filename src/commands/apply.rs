@@ -16,6 +16,7 @@
 ///
 use anyhow::{Context, Result};
 use chrono::Utc;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 use crate::ai_platform::PlatformsConfig;
@@ -98,6 +99,14 @@ pub fn run(opts: &ApplyOptions<'_>) -> Result<()> {
         }
         if opts.dry_run {
             println!();
+        }
+
+        // Enforce exact directories: remove untracked entries from dirs declared exact_.
+        if !opts.dry_run {
+            let exact_dirs = collect_exact_dirs(&entries, opts.dest_root);
+            for (dir_path, tracked) in &exact_dirs {
+                purge_exact_dir(dir_path, tracked, opts.backup_dir)?;
+            }
         }
     }
 
@@ -282,6 +291,82 @@ fn parse_extdir_content(src: &Path) -> Result<ExtdirContent> {
     let content: ExtdirContent = toml::from_str(&text)
         .with_context(|| format!("Invalid TOML in extdir marker {}", src.display()))?;
     Ok(content)
+}
+
+// ─── Exact directory enforcement ──────────────────────────────────────────────
+
+/// Walk all source entries and build a map from each `exact_`-declared destination
+/// directory to the set of direct-child names that are tracked in source/.
+///
+/// Only direct children (one level deep) of each exact dir are collected.
+/// Subdirectory names are tracked the same as file names — both are protected.
+fn collect_exact_dirs(entries: &[SourceEntry], dest_root: &Path) -> HashMap<PathBuf, HashSet<String>> {
+    let mut exact_dirs: HashMap<PathBuf, HashSet<String>> = HashMap::new();
+
+    for entry in entries {
+        if entry.flags.extdir { continue; }
+
+        for (idx, dir) in entry.dirs.iter().enumerate() {
+            if !dir.flags.exact { continue; }
+
+            let exact_dir_path = match expand_tilde(&dir.dest_tilde) {
+                Ok(p) => resolve_dest(p, dest_root),
+                Err(_) => continue,
+            };
+
+            // The direct child is either the next dir in the chain, or the file itself.
+            let direct_child_tilde = if idx + 1 < entry.dirs.len() {
+                &entry.dirs[idx + 1].dest_tilde
+            } else {
+                &entry.dest_tilde
+            };
+
+            let child_path = match expand_tilde(direct_child_tilde) {
+                Ok(p) => resolve_dest(p, dest_root),
+                Err(_) => continue,
+            };
+
+            if child_path.parent() == Some(&exact_dir_path) {
+                if let Some(name) = child_path.file_name().map(|n| n.to_string_lossy().to_string()) {
+                    exact_dirs.entry(exact_dir_path).or_default().insert(name);
+                }
+            }
+        }
+    }
+
+    exact_dirs
+}
+
+/// Delete (with backup) any entry inside `dir_path` whose name is not in `tracked`.
+///
+/// Only regular files are deleted. Directories are never removed — this matches
+/// chezmoi's behaviour and avoids accidentally deleting deeply-nested content.
+/// Does nothing if `dir_path` does not exist.
+fn purge_exact_dir(dir_path: &Path, tracked: &HashSet<String>, backup_dir: &Path) -> Result<()> {
+    if !dir_path.exists() {
+        return Ok(());
+    }
+
+    for dent in std::fs::read_dir(dir_path)
+        .with_context(|| format!("Cannot read exact dir {}", dir_path.display()))?
+    {
+        let dent = dent?;
+        // Only remove regular files, never directories.
+        if !dent.file_type()?.is_file() {
+            continue;
+        }
+        let name = dent.file_name().to_string_lossy().to_string();
+        if !tracked.contains(&name) {
+            let path = dent.path();
+            let backup = backup_file(&path, backup_dir)
+                .with_context(|| format!("Cannot back up {}", path.display()))?;
+            std::fs::remove_file(&path)
+                .with_context(|| format!("Cannot remove untracked file {}", path.display()))?;
+            println!("  [exact] removed {} → backed up to {}", path.display(), backup.display());
+        }
+    }
+
+    Ok(())
 }
 
 // ─── File application ─────────────────────────────────────────────────────────

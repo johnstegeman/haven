@@ -593,6 +593,413 @@ fn find_deployed_paths(state_dir: &Path, skill_name: &str) -> Vec<(String, PathB
         .collect()
 }
 
+// ─── search ───────────────────────────────────────────────────────────────────
+
+/// Options for `dfiles ai search`.
+pub struct SearchOptions<'a> {
+    pub query: &'a str,
+    pub limit: u8,
+}
+
+/// Search skills.sh and display matching skills with their gh: sources.
+pub fn search(opts: &SearchOptions<'_>) -> Result<()> {
+    print!("Searching skills.sh for '{}' ...", opts.query);
+    io::stdout().flush()?;
+
+    let results = skillssh_search(opts.query, opts.limit as usize)?;
+    println!();
+
+    if results.is_empty() {
+        println!("No results found for '{}'.", opts.query);
+        return Ok(());
+    }
+
+    println!("{} result(s):\n", results.len());
+    for entry in &results {
+        println!("  {}  ({} installs)", entry.gh_source(), entry.installs);
+    }
+    println!();
+    println!("To add a skill:  dfiles ai add <gh:source>");
+    Ok(())
+}
+
+// ─── scan ─────────────────────────────────────────────────────────────────────
+
+/// Options for `dfiles ai scan`.
+pub struct ScanOptions<'a> {
+    pub repo_root: &'a Path,
+    pub state_dir: &'a Path,
+    /// Directory to scan for skill subdirectories.
+    pub dir: &'a str,
+    pub dry_run: bool,
+}
+
+/// Scan a skills directory, detect gh: sources, and interactively add unmanaged
+/// skills to `ai/skills.toml`.
+pub fn scan(opts: &ScanOptions<'_>) -> Result<()> {
+    let scan_dir = expand_dir(opts.dir)?;
+    let skill_cache_dir = opts.state_dir.join("skills");
+
+    // Load existing skills to skip already-managed ones.
+    let existing_names: std::collections::HashSet<String> = SkillsConfig::load(opts.repo_root)?
+        .map(|c| c.skills.into_iter().map(|s| s.name).collect())
+        .unwrap_or_default();
+
+    // Collect candidate skill entries: (display_name, real_path).
+    let mut candidates: Vec<(String, PathBuf)> = Vec::new();
+
+    let read_dir = std::fs::read_dir(&scan_dir)
+        .with_context(|| format!("Cannot read directory {}", scan_dir.display()))?;
+
+    for entry in read_dir {
+        let entry = entry.context("Error reading directory entry")?;
+        let name = entry.file_name().to_string_lossy().into_owned();
+
+        // Skip hidden entries.
+        if name.starts_with('.') {
+            continue;
+        }
+
+        // Resolve symlinks to their real path.
+        let real_path = std::fs::canonicalize(entry.path())
+            .unwrap_or_else(|_| entry.path().to_path_buf());
+
+        // Skip if not a directory.
+        if !real_path.is_dir() {
+            continue;
+        }
+
+        // Skip if already managed by dfiles (points into the skill cache).
+        if real_path.starts_with(&skill_cache_dir) {
+            continue;
+        }
+
+        // Skip if no SKILL.md — not a skill directory.
+        if !real_path.join("SKILL.md").exists() {
+            // Also check one level deeper (monorepo: scan_dir/gstack/browse/SKILL.md).
+            // We handle monorepos by recursing one level if the dir has no SKILL.md
+            // but contains subdirs that do.
+            let has_subskills = std::fs::read_dir(&real_path)
+                .ok()
+                .map(|entries| {
+                    entries.flatten().any(|e| {
+                        let sub_real = std::fs::canonicalize(e.path())
+                            .unwrap_or_else(|_| e.path().to_path_buf());
+                        sub_real.is_dir() && sub_real.join("SKILL.md").exists()
+                    })
+                })
+                .unwrap_or(false);
+
+            if has_subskills {
+                // Recurse one level: add each subdir as a candidate.
+                if let Ok(sub_entries) = std::fs::read_dir(&real_path) {
+                    for sub in sub_entries.flatten() {
+                        let sub_name = sub.file_name().to_string_lossy().into_owned();
+                        if sub_name.starts_with('.') { continue; }
+                        let sub_real = std::fs::canonicalize(sub.path())
+                            .unwrap_or_else(|_| sub.path().to_path_buf());
+                        if sub_real.is_dir() && sub_real.join("SKILL.md").exists() {
+                            candidates.push((sub_name, sub_real));
+                        }
+                    }
+                }
+            }
+            continue;
+        }
+
+        candidates.push((name, real_path));
+    }
+
+    // Remove candidates already tracked in skills.toml.
+    let candidates: Vec<_> = candidates
+        .into_iter()
+        .filter(|(name, _)| !existing_names.contains(name))
+        .collect();
+
+    if candidates.is_empty() {
+        println!("No unmanaged skills found in {}.", scan_dir.display());
+        return Ok(());
+    }
+
+    println!("Found {} unmanaged skill(s) in {}.\n", candidates.len(), scan_dir.display());
+
+    let total = candidates.len();
+    let mut added = 0usize;
+
+    for (idx, (name, real_path)) in candidates.iter().enumerate() {
+        println!("[{}/{}] {}", idx + 1, total, name);
+
+        // Try git detection first.
+        let detected = detect_gh_source(real_path);
+
+        let proposed = match &detected {
+            Some(src) => {
+                let detail = git_remote_url(real_path)
+                    .unwrap_or_else(|| "git remote".to_string());
+                println!("  Detected: {}  ({})", src, detail);
+                src.clone()
+            }
+            None => {
+                // Fall back to skills.sh search.
+                print!("  No git remote — searching skills.sh for '{}' ...", name);
+                io::stdout().flush()?;
+                let results = skillssh_search(name, 5).unwrap_or_default();
+                println!();
+
+                if results.is_empty() {
+                    println!("  No matches found on skills.sh.");
+                    println!("  Skip with 'n' or enter a source manually with 'e'.");
+                    String::new()
+                } else {
+                    let best = &results[0];
+                    let dup_note = if results.len() > 1 {
+                        format!("  ({} results — use '?' to see all)", results.len())
+                    } else {
+                        String::new()
+                    };
+                    println!(
+                        "  Best match: {}  ({} installs){}",
+                        best.gh_source(), best.installs, dup_note
+                    );
+                    best.gh_source()
+                }
+            }
+        };
+
+        // Interactive prompt loop.
+        let all_results: Option<Vec<SkillsShEntry>> = if detected.is_none() {
+            Some(skillssh_search(name, 10).unwrap_or_default())
+        } else {
+            None
+        };
+
+        loop {
+            let hint = if proposed.is_empty() {
+                "[y=skip/n=skip/e=enter manually/?=search results]".to_string()
+            } else {
+                format!("Add {}?  [y/n/e=edit/?=more results]", proposed)
+            };
+            print!("  {} ", hint);
+            io::stdout().flush()?;
+
+            let mut input = String::new();
+            io::stdin().read_line(&mut input)?;
+            let input = input.trim();
+
+            match input {
+                "y" | "Y" | "" if !proposed.is_empty() => {
+                    if opts.dry_run {
+                        println!("  (dry-run) Would add: {}", proposed);
+                    } else {
+                        append_skill_entry(opts.repo_root, name, &proposed, "all", "symlink")?;
+                        println!("  Added {}.", proposed);
+                    }
+                    added += 1;
+                    break;
+                }
+                "n" | "N" => {
+                    println!("  Skipped.");
+                    break;
+                }
+                "e" | "E" => {
+                    print!("  Enter gh: source: ");
+                    io::stdout().flush()?;
+                    let mut src_input = String::new();
+                    io::stdin().read_line(&mut src_input)?;
+                    let src = src_input.trim().to_string();
+                    if src.is_empty() {
+                        println!("  Skipped.");
+                        break;
+                    }
+                    // Validate the source string.
+                    match SkillSource::parse(&src) {
+                        Err(e) => {
+                            println!("  Invalid source: {}. Try again.", e);
+                            continue;
+                        }
+                        Ok(_) => {
+                            if opts.dry_run {
+                                println!("  (dry-run) Would add: {}", src);
+                            } else {
+                                append_skill_entry(opts.repo_root, name, &src, "all", "symlink")?;
+                                println!("  Added {}.", src);
+                            }
+                            added += 1;
+                            break;
+                        }
+                    }
+                }
+                "?" => {
+                    let results = all_results.as_deref().unwrap_or(&[]);
+                    if results.is_empty() {
+                        println!("  No skills.sh results available.");
+                    } else {
+                        for (i, r) in results.iter().enumerate() {
+                            println!("    {}. {}  ({} installs)", i + 1, r.gh_source(), r.installs);
+                        }
+                        print!("  Pick [1-{}] or (n)ext/(e)nter manually: ", results.len());
+                        io::stdout().flush()?;
+                        let mut pick = String::new();
+                        io::stdin().read_line(&mut pick)?;
+                        let pick = pick.trim();
+                        if let Ok(n) = pick.parse::<usize>() {
+                            if n >= 1 && n <= results.len() {
+                                let chosen = results[n - 1].gh_source();
+                                if opts.dry_run {
+                                    println!("  (dry-run) Would add: {}", chosen);
+                                } else {
+                                    append_skill_entry(opts.repo_root, name, &chosen, "all", "symlink")?;
+                                    println!("  Added {}.", chosen);
+                                }
+                                added += 1;
+                                break;
+                            }
+                        }
+                        if pick == "n" || pick == "N" {
+                            println!("  Skipped.");
+                            break;
+                        }
+                        // Otherwise loop back to the prompt.
+                        continue;
+                    }
+                }
+                _ => {
+                    println!("  Unknown input. Use y/n/e/?");
+                    continue;
+                }
+            }
+        }
+        println!();
+    }
+
+    if opts.dry_run {
+        println!("Dry run — {} skill(s) would be added.", added);
+    } else if added > 0 {
+        println!("{} skill(s) added to ai/skills.toml.", added);
+        println!("Run `dfiles apply --ai` to deploy.");
+    } else {
+        println!("No skills added.");
+    }
+
+    Ok(())
+}
+
+// ─── skills.sh API ────────────────────────────────────────────────────────────
+
+#[derive(serde::Deserialize)]
+struct SkillsShResponse {
+    skills: Vec<SkillsShEntry>,
+}
+
+#[derive(serde::Deserialize)]
+struct SkillsShEntry {
+    /// Full path: "owner/repo/skillName" — maps to gh:owner/repo/skillName.
+    id: String,
+    installs: u64,
+}
+
+impl SkillsShEntry {
+    fn gh_source(&self) -> String {
+        format!("gh:{}", self.id)
+    }
+}
+
+fn skillssh_search(query: &str, limit: usize) -> Result<Vec<SkillsShEntry>> {
+    let response = ureq::get("https://skills.sh/api/search")
+        .query("q", query)
+        .query("limit", &limit.to_string())
+        .set("User-Agent", "dfiles/0.1 (+https://github.com/dfiles-sh/dfiles)")
+        .call()
+        .context("skills.sh request failed")?
+        .into_string()
+        .context("skills.sh response was not UTF-8")?;
+
+    let parsed: SkillsShResponse = serde_json::from_str(&response)
+        .context("skills.sh response could not be parsed")?;
+
+    Ok(parsed.skills)
+}
+
+// ─── git source detection ─────────────────────────────────────────────────────
+
+/// Try to derive a `gh:owner/repo[/subpath]` source from a skill directory
+/// by reading its git remote and computing the subpath from the repo root.
+fn detect_gh_source(skill_dir: &Path) -> Option<String> {
+    // Find the git repo root containing this directory.
+    let root_out = std::process::Command::new("git")
+        .args(["-C", &skill_dir.to_string_lossy(), "rev-parse", "--show-toplevel"])
+        .output()
+        .ok()?;
+    if !root_out.status.success() {
+        return None;
+    }
+    let git_root = PathBuf::from(
+        String::from_utf8(root_out.stdout).ok()?.trim().to_string()
+    );
+
+    // Get the origin remote URL.
+    let remote_out = std::process::Command::new("git")
+        .args(["-C", &skill_dir.to_string_lossy(), "remote", "get-url", "origin"])
+        .output()
+        .ok()?;
+    if !remote_out.status.success() {
+        return None;
+    }
+    let remote_url = String::from_utf8(remote_out.stdout).ok()?;
+    let (owner, repo) = parse_github_url(remote_url.trim())?;
+
+    // Compute the subpath: skill_dir relative to git root.
+    let subpath = skill_dir.strip_prefix(&git_root).ok()?;
+    let subpath_str = subpath.to_string_lossy();
+
+    if subpath_str.is_empty() || subpath_str == "." {
+        Some(format!("gh:{}/{}", owner, repo))
+    } else {
+        Some(format!("gh:{}/{}/{}", owner, repo, subpath_str))
+    }
+}
+
+/// Return just the remote URL string (for display), without parsing it.
+fn git_remote_url(skill_dir: &Path) -> Option<String> {
+    let out = std::process::Command::new("git")
+        .args(["-C", &skill_dir.to_string_lossy(), "remote", "get-url", "origin"])
+        .output()
+        .ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    Some(String::from_utf8(out.stdout).ok()?.trim().to_string())
+}
+
+/// Parse `https://github.com/owner/repo[.git]` or `git@github.com:owner/repo[.git]`
+/// into `(owner, repo)`. Returns `None` for non-GitHub remotes.
+fn parse_github_url(url: &str) -> Option<(String, String)> {
+    let url = url.trim_end_matches(".git");
+    if let Some(rest) = url.strip_prefix("https://github.com/") {
+        let mut parts = rest.splitn(2, '/');
+        return Some((parts.next()?.to_string(), parts.next()?.to_string()));
+    }
+    if let Some(rest) = url.strip_prefix("git@github.com:") {
+        let mut parts = rest.splitn(2, '/');
+        return Some((parts.next()?.to_string(), parts.next()?.to_string()));
+    }
+    None
+}
+
+/// Expand `~` in a directory path and return the canonical `PathBuf`.
+fn expand_dir(dir: &str) -> Result<PathBuf> {
+    let expanded = if let Some(rest) = dir.strip_prefix("~/") {
+        dirs::home_dir()
+            .context("Cannot determine home directory")?
+            .join(rest)
+    } else if dir == "~" {
+        dirs::home_dir().context("Cannot determine home directory")?
+    } else {
+        PathBuf::from(dir)
+    };
+    Ok(expanded)
+}
+
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
 /// Load `ai/skills.toml` and return an error if it doesn't exist.

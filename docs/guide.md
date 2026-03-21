@@ -375,9 +375,32 @@ dfiles ai add <source>      # add a [[skill]] entry to ai/skills.toml
 dfiles ai fetch [name]      # download to cache without deploying
 dfiles ai update [name]     # re-fetch + update lock SHAs
 dfiles ai remove <name>     # remove from ai/skills.toml
+dfiles ai search <query>    # search skills.sh for available skills
+dfiles ai scan <dir>        # interactively import unmanaged skills from a directory
 ```
 
 After adding or updating skills, run `dfiles apply --ai` to deploy them.
+
+### Discovering and importing existing skills
+
+If you already have skills installed in a skills directory (e.g. via `npx skills add`)
+and want to bring them under dfiles management, use `dfiles ai scan`:
+
+```
+dfiles ai scan ~/.claude/skills
+dfiles ai scan ~/.agents/skills
+```
+
+For each unmanaged skill, dfiles tries to identify its GitHub source by inspecting
+git remotes or searching the skills.sh registry. It then prompts you to confirm,
+edit, or skip each one. Confirmed skills are appended to `ai/skills.toml`.
+
+To browse what's available on skills.sh before scanning:
+
+```
+dfiles ai search pdf
+dfiles ai search browser --limit 5
+```
 
 dfiles regenerates `~/.claude/CLAUDE.md` after every successful apply so Claude
 Code always has an accurate inventory of installed skills.

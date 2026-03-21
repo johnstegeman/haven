@@ -106,6 +106,42 @@ enum AiAction {
         #[arg(long)]
         yes: bool,
     },
+
+    /// Search skills.sh for skills matching a query and display results.
+    ///
+    /// Results show the skill name, gh: source, and install count.
+    /// To add a skill from the results: `dfiles ai add gh:owner/repo/skill-name`.
+    ///
+    /// Examples:
+    ///   dfiles ai search jujutsu
+    ///   dfiles ai search "pdf processing" --limit 5
+    Search {
+        /// Search query.
+        query: String,
+
+        /// Maximum number of results to show. Default: 10.
+        #[arg(long, default_value = "10")]
+        limit: u8,
+    },
+
+    /// Scan a skills directory for unmanaged skills and offer to add them.
+    ///
+    /// Walks the given directory for subdirectories containing a SKILL.md.
+    /// For each unmanaged skill, tries to detect the gh: source via git remote,
+    /// then falls back to searching skills.sh. Prompts for confirmation before
+    /// adding anything to ai/skills.toml.
+    ///
+    /// Examples:
+    ///   dfiles ai scan ~/.claude/skills
+    ///   dfiles ai scan ~/.agents/skills --dry-run
+    Scan {
+        /// Directory to scan for skill subdirectories.
+        dir: String,
+
+        /// Show what would be added without writing to ai/skills.toml.
+        #[arg(long)]
+        dry_run: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -733,6 +769,20 @@ fn run() -> Result<()> {
                     state_dir: &state_dir,
                     name,
                     yes: *yes,
+                })?;
+            }
+            AiAction::Search { query, limit } => {
+                commands::ai::search(&commands::ai::SearchOptions {
+                    query,
+                    limit: *limit,
+                })?;
+            }
+            AiAction::Scan { dir, dry_run } => {
+                commands::ai::scan(&commands::ai::ScanOptions {
+                    repo_root: &repo,
+                    state_dir: &state_dir,
+                    dir,
+                    dry_run: *dry_run,
                 })?;
             }
         },

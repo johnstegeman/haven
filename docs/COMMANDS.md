@@ -23,6 +23,8 @@ dfiles ai add <source> [--name <n>] [--platforms <p>] [--deploy symlink|copy]
 dfiles ai fetch [<name>]
 dfiles ai update [<name>]
 dfiles ai remove <name> [--yes]
+dfiles ai search <query> [--limit <n>]
+dfiles ai scan <dir> [--dry-run]
 ```
 
 ---
@@ -310,6 +312,44 @@ dfiles ai remove <name> [--yes]
 |-----------------|-------------|
 | `name` | Skill name as declared in `ai/skills.toml`. |
 | `--yes` | Skip confirmation prompts. |
+
+### `dfiles ai search`
+
+Search the [skills.sh](https://skills.sh) registry for available skills.
+
+```
+dfiles ai search <query> [--limit <n>]
+```
+
+| Argument/Option | Description |
+|-----------------|-------------|
+| `query` | Search term (e.g. `pdf`, `browser`, `git`). |
+| `--limit <n>` | Maximum number of results to show. Default: 10. |
+
+Results show the skill source in `gh:owner/repo/skill` format and install count.
+Copy the source and pass it to `dfiles ai add` to start tracking it.
+
+### `dfiles ai scan`
+
+Interactively scan an existing skills directory and offer to add any unmanaged
+skills to `ai/skills.toml`.
+
+```
+dfiles ai scan <dir> [--dry-run]
+```
+
+| Argument/Option | Description |
+|-----------------|-------------|
+| `dir` | Path to a skills directory to scan (e.g. `~/.claude/skills`). |
+| `--dry-run` | Show what would be added without modifying `ai/skills.toml`. |
+
+For each unmanaged skill found, dfiles tries to identify its GitHub source via:
+1. Git remote detection (for skills that are git clones)
+2. skills.sh registry search (fuzzy match on the skill directory name)
+
+If a source is found it is shown as a suggestion; the user is prompted to
+confirm (`y`), edit the source (`e`), or skip (`n`) each skill. Skills that
+are already tracked in `ai/skills.toml` are silently skipped.
 
 ---
 

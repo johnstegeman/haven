@@ -24,21 +24,12 @@ Updated by /plan-ceo-review on 2026-03-21 (AI skills management)
 
 ---
 
-## P3: File locking for concurrent `dfiles apply`
+## ~~P3: File locking for concurrent `dfiles apply`~~ DONE
 
-**What:** Add a lock file (`~/.dfiles/apply.lock`) that prevents two simultaneous `dfiles apply` runs from racing on `state.json` writes.
-
-**Why:** Two terminal windows running `dfiles apply` concurrently would corrupt `state.json` (last write wins). While low probability, it is a real failure mode with no recovery path other than manual state.json repair.
-
-**Pros:** Eliminates the race condition cleanly. XS implementation (write PID to lock file, check on startup, clean up on exit). Consistent with how most package managers handle concurrent access.
-
-**Cons:** If dfiles crashes without cleaning the lock, the user sees a "dfiles is already running" error on the next run. Must handle stale lock detection (check if PID in lock file is still alive).
-
-**Context:** AI skills management (2026-03-21) noted this as a low-priority edge case. Implementation: on apply start, try to create `~/.dfiles/apply.lock` (exclusive); write PID; check if lock exists on startup and whether the PID is alive; remove on clean exit or after detecting stale lock.
-
-**Effort:** XS (human) → XS (CC+gstack)
-**Priority:** P3
-**Depends on:** None (standalone improvement)
+Implemented 2026-03-21. `src/commands/apply.rs`: `ApplyLock` RAII struct writes PID
+to `~/.dfiles/apply.lock` on construction; Drop removes it. Stale lock detection via
+`kill(pid, 0)` — if the recorded PID is not alive, the lock is removed and apply
+proceeds. Skipped in `--dry-run` mode.
 
 ---
 

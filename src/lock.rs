@@ -12,8 +12,9 @@
 /// fetched_at = "2026-03-21T10:00:00Z"
 /// ```
 ///
-/// The lockfile is written after each successful fetch. SHA verification (P1 TODO)
-/// will compare the stored SHA against re-downloaded content before overwriting.
+/// The lockfile is written after each successful fetch. On a cache miss, the
+/// freshly-fetched SHA is compared against the recorded lock entry — a mismatch
+/// is a hard error (see `SkillCache::ensure`).
 ///
 /// Skills use their full source key (e.g. `"gh:owner/repo/subpath"`) as the TOML
 /// table key, not the skill name, so renames don't invalidate the lock.
@@ -79,17 +80,6 @@ impl LockFile {
         let text = toml::to_string_pretty(self)?;
         std::fs::write(&path, text)
             .with_context(|| format!("Cannot write {}", path.display()))
-    }
-
-    /// Record a newly fetched dotfile/command source with its SHA-256.
-    pub fn pin(&mut self, key: &str, sha256: &str) {
-        self.sources.insert(
-            key.to_string(),
-            LockEntry {
-                sha256: sha256.to_string(),
-                fetched_at: chrono::Utc::now().to_rfc3339(),
-            },
-        );
     }
 
     /// Return the pinned SHA for a dotfile/command source key, if present.

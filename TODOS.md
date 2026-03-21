@@ -74,21 +74,14 @@ Updated by /plan-ceo-review on 2026-03-21 (AI skills management)
 
 ---
 
-## P1: dfiles.lock SHA Verification (Security)
+## ~~P1: dfiles.lock SHA Verification (Security)~~ DONE
 
-**What:** Verify downloaded GitHub sources match the SHA pinned in `dfiles.lock`.
-
-**Why:** Without SHA verification, the lockfile provides no security guarantee. A compromised or renamed GitHub release could silently replace your skills/commands with malicious content.
-
-**Pros:** Lockfile has integrity. Supply chain attacks on GitHub releases are caught. Users can trust that `dfiles apply` always installs what they reviewed.
-
-**Cons:** Small amount of additional code in the fetch pipeline. Checksums must be stored per-source in dfiles.lock.
-
-**Context:** The lockfile format (`dfiles.lock`) pins GitHub sources by commit SHA. The verification step needs to: (1) store SHA when first fetching a source, (2) compute SHA of downloaded content, (3) compare — hard error on mismatch.
-
-**Effort:** S (human) → S (CC+gstack)
-**Priority:** P1
-**Depends on:** dfiles.lock implementation (Week 6 in the build order)
+Implemented in `src/skill_cache.rs` (`SkillCache::ensure`). On cache miss, the
+freshly-fetched SHA is compared against the lock entry — hard error with a message
+pointing to `dfiles ai update` if they differ. Stale cache directory is cleaned up
+before bailing. Both git sparse checkout (commit SHA) and tarball fallback
+(SHA-256 of bytes) are covered. Lock comment and `lock::pin` dead code cleaned
+up 2026-03-21.
 
 ---
 

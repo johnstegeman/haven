@@ -439,12 +439,12 @@ fn add_is_idempotent() {
         .assert()
         .success();
 
-    // Add again — should say already tracked.
+    // Add again without --update — should fail with "already tracked".
     cmd_home(&repo, &home)
         .args(["add", dotfile.to_str().unwrap()])
         .assert()
-        .success()
-        .stdout(predicate::str::contains("already tracked"));
+        .failure()
+        .stderr(predicate::str::contains("already tracked"));
 
     // Exactly one source file with encoded name.
     assert!(repo.path().join("source").join("dot_idempotent.rc").exists());
@@ -2582,6 +2582,59 @@ fn add_apply_requires_link_flag() {
         .args(["add", dotfile.to_str().unwrap(), "--apply"])
         .assert()
         .failure();
+}
+
+#[test]
+fn add_update_flag_recopies_changed_file() {
+    let repo = TempDir::new().unwrap();
+    let home = TempDir::new().unwrap();
+    cmd(&repo).arg("init").assert().success();
+
+    let dotfile = home.path().join(".myconfig");
+    fs::write(&dotfile, "version = 1\n").unwrap();
+
+    // Initial add.
+    cmd_home(&repo, &home)
+        .args(["add", dotfile.to_str().unwrap()])
+        .assert()
+        .success();
+
+    // Update the file on disk.
+    fs::write(&dotfile, "version = 2\n").unwrap();
+
+    // --update should re-copy without error.
+    cmd_home(&repo, &home)
+        .args(["add", dotfile.to_str().unwrap(), "--update"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Added:"));
+
+    // Source file should now contain the new content.
+    let source = repo.path().join("source").join("dot_myconfig");
+    assert_eq!(fs::read_to_string(&source).unwrap(), "version = 2\n");
+}
+
+#[test]
+fn add_without_update_flag_errors_when_already_tracked() {
+    let repo = TempDir::new().unwrap();
+    let home = TempDir::new().unwrap();
+    cmd(&repo).arg("init").assert().success();
+
+    let dotfile = home.path().join(".tracked");
+    fs::write(&dotfile, "data\n").unwrap();
+
+    cmd_home(&repo, &home)
+        .args(["add", dotfile.to_str().unwrap()])
+        .assert()
+        .success();
+
+    // Second add without --update must fail.
+    cmd_home(&repo, &home)
+        .args(["add", dotfile.to_str().unwrap()])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("already tracked"))
+        .stderr(predicate::str::contains("--update"));
 }
 
 #[test]

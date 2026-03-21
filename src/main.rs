@@ -245,6 +245,11 @@ enum Commands {
         /// back into source/. Only valid with --link.
         #[arg(long, requires = "link")]
         apply: bool,
+
+        /// Re-copy the file into source/ even if it is already tracked.
+        /// Without this flag, adding an already-tracked file is an error.
+        #[arg(long)]
+        update: bool,
     },
 
     /// Apply tracked files and packages to this machine.
@@ -562,8 +567,8 @@ fn run() -> Result<()> {
             })?;
         }
 
-        Commands::Add { file, link, apply } => {
-            commands::add::run(&repo, file, *link, *apply)?;
+        Commands::Add { file, link, apply, update } => {
+            commands::add::run(&repo, file, *link, *apply, *update)?;
         }
 
         Commands::Apply {

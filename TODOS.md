@@ -311,3 +311,42 @@ to the home directory, and imports the target file if it exists. Falls back to
 **Effort:** S (human) → S (CC+gstack)
 **Priority:** P3
 **Depends on:** v1 stable + `state.json` being written on 2+ machines, schema finalized
+
+---
+
+## P3 (chezmoi importer): Platform-conditional `.chezmoiignore` rules not imported
+
+**What:** Lines in `.chezmoiignore` that use Go template conditionals (e.g. `{{ if eq .chezmoi.os "linux" }}...{{ end }}`) are currently silently skipped during import.
+
+**Why:** Chezmoi users often have platform-specific ignores (e.g. ignore macOS-only configs on Linux). These are lost during import — all files get imported regardless of platform, which may be fine in most cases but can surprise users.
+
+**Mitigations:** dfiles itself has no ignore file format yet. Users can manually delete unwanted source files after import.
+
+**Effort:** S (human) → S (CC+gstack)
+**Priority:** P3
+
+---
+
+## P3 (chezmoi importer): External `refreshPeriod` not supported
+
+**What:** `.chezmoiexternal.toml` entries with `refreshPeriod` (telling chezmoi to re-clone periodically) are imported as plain `extdir_` or `extfile_` entries with no re-fetch policy.
+
+**Why:** dfiles has no concept of automatic refresh for externals. The `extdir_` entry will be cloned once on first apply and never updated automatically.
+
+**Mitigations:** Users can run `dfiles apply` whenever they want to re-fetch, or use `dfiles ai update` for skills. The `refreshPeriod` metadata is logged as a skip note during import so users are aware.
+
+**Effort:** M (human) → S (CC+gstack)
+**Priority:** P3
+
+---
+
+## P3: `dfiles rename` / `dfiles move` command
+
+**What:** Add a command to rename or move a tracked file — updating both the encoded source filename and any references in module TOML.
+
+**Why:** Currently, renaming a tracked file requires manually renaming the encoded source file (getting the prefix encoding right) and updating any TOML references. This is error-prone.
+
+**Mitigations:** Users can `dfiles add --update` after moving the original file, then manually remove the old source entry. Clunky but functional.
+
+**Effort:** S (human) → S (CC+gstack)
+**Priority:** P3

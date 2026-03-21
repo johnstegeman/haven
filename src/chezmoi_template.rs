@@ -14,7 +14,7 @@
 /// | `.chezmoi.username`              | `username`                           |
 /// | `.chezmoi.os`                    | `os`                                 |
 /// | `.chezmoi.arch`                  | *unconvertible* (warning emitted)    |
-/// | `.chezmoi.homeDir`               | `get_env(name="HOME")`               |
+/// | `.chezmoi.homeDir`               | `home_dir`                           |
 /// | `.chezmoi.sourceDir`             | `source_dir`                         |
 /// | `.chezmoi.config.data.<key>`     | `get_env(name="<KEY>")` + warning    |
 ///
@@ -273,8 +273,8 @@ fn go_var_to_tera(var: &str) -> Option<String> {
         ".chezmoi.hostname"  => Some("hostname".into()),
         ".chezmoi.username"  => Some("username".into()),
         ".chezmoi.os"        => Some("os".into()),
-        ".chezmoi.homeDir"   => Some("get_env(name=\"HOME\")".into()),
-        ".chezmoi.homedir"   => Some("get_env(name=\"HOME\")".into()), // lowercase variant
+        ".chezmoi.homeDir"   => Some("home_dir".into()),
+        ".chezmoi.homedir"   => Some("home_dir".into()), // lowercase variant
         ".chezmoi.sourceDir" => Some("source_dir".into()),
         ".chezmoi.sourcedir" => Some("source_dir".into()), // lowercase variant
         _ => {
@@ -333,7 +333,7 @@ mod tests {
     fn converts_homedir() {
         assert_eq!(
             convert_clean("Home: {{ .chezmoi.homeDir }}"),
-            "Home: {{ get_env(name=\"HOME\") }}"
+            "Home: {{ home_dir }}"
         );
     }
 

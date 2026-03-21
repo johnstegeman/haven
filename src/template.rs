@@ -6,6 +6,7 @@
 ///   {{ hostname }}                    # machine hostname
 ///   {{ username }}                    # current user ($USER / $USERNAME)
 ///   {{ profile }}                     # active dfiles profile name
+///   {{ home_dir }}                    # absolute path to the home directory (e.g. /Users/you)
 ///   {{ source_dir }}                  # absolute path to the dfiles repo root (e.g. /Users/you/dfiles)
 ///   {{ get_env(name="VAR") }}         # read an environment variable (Tera built-in)
 ///   {{ get_env(name="VAR", default="fallback") }}
@@ -30,6 +31,7 @@ pub struct TemplateContext {
     pub hostname: String,
     pub username: String,
     pub profile: String,
+    pub home_dir: String,
     pub source_dir: String,
 }
 
@@ -41,6 +43,10 @@ impl TemplateContext {
             hostname: detect_hostname(),
             username: detect_username(),
             profile: profile.to_string(),
+            home_dir: dirs::home_dir()
+                .unwrap_or_else(|| std::path::PathBuf::from("/tmp"))
+                .to_string_lossy()
+                .into_owned(),
             source_dir: repo_root.to_string_lossy().into_owned(),
         }
     }
@@ -51,6 +57,7 @@ impl TemplateContext {
         ctx.insert("hostname", &self.hostname);
         ctx.insert("username", &self.username);
         ctx.insert("profile", &self.profile);
+        ctx.insert("home_dir", &self.home_dir);
         ctx.insert("source_dir", &self.source_dir);
         ctx
     }
@@ -111,6 +118,7 @@ mod tests {
             hostname: "testhost".to_string(),
             username: "testuser".to_string(),
             profile: profile.to_string(),
+            home_dir: "/home/testuser".to_string(),
             source_dir: "/home/testuser/dfiles".to_string(),
         }
     }
@@ -137,6 +145,12 @@ mod tests {
     fn renders_profile_variable() {
         let out = render("profile={{ profile }}", &ctx("work")).unwrap();
         assert_eq!(out, "profile=work");
+    }
+
+    #[test]
+    fn renders_home_dir_variable() {
+        let out = render("home={{ home_dir }}", &ctx("default")).unwrap();
+        assert_eq!(out, "home=/home/testuser");
     }
 
     #[test]

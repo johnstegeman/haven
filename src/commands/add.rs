@@ -8,7 +8,7 @@ use crate::config::module::expand_tilde;
 use crate::fs::{is_sensitive, tilde_path};
 use crate::source::{encode_filename, extdir_source_path};
 
-pub fn run(repo_root: &Path, file: &Path, link: bool, apply: bool) -> Result<()> {
+pub fn run(repo_root: &Path, file: &Path, link: bool, apply: bool, update: bool) -> Result<()> {
     let file = resolve_path(file)?;
 
     if !file.exists() {
@@ -41,15 +41,17 @@ pub fn run(repo_root: &Path, file: &Path, link: bool, apply: bool) -> Result<()>
     let encoded = encode_rel_path(&home, rel, private, executable, link)?;
     let source_dest = repo_root.join("source").join(&encoded);
 
-    // Idempotency check.
+    // Idempotency / update check.
     if source_dest.exists() {
-        let dest_tilde = tilde_path(&file);
-        println!(
-            "{} is already tracked (source/{})",
-            dest_tilde,
-            encoded.display()
-        );
-        return Ok(());
+        if update {
+            // --update: fall through and overwrite.
+        } else {
+            bail!(
+                "{} is already tracked (source/{}). Use --update to re-copy.",
+                tilde_path(&file),
+                encoded.display()
+            );
+        }
     }
 
     // Create intermediate directories in source/ if needed.

@@ -14,7 +14,7 @@
 ///                  + install foo module's AI skills / commands
 ///                  + run foo module's mise
 ///
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use chrono::Utc;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -62,7 +62,59 @@ pub struct ApplyOptions<'a> {
     pub interactive: bool,
 }
 
+/// RAII guard that holds `~/.dfiles/apply.lock` for the duration of apply.
+struct ApplyLock {
+    path: PathBuf,
+}
+
+impl ApplyLock {
+    fn acquire(state_dir: &Path) -> Result<Self> {
+        let path = state_dir.join("apply.lock");
+        if let Ok(contents) = std::fs::read_to_string(&path) {
+            // Check whether the PID recorded in the lock file is still alive.
+            if let Ok(pid) = contents.trim().parse::<u32>() {
+                let alive = std::path::Path::new(&format!("/proc/{}/status", pid)).exists()
+                    || {
+                        // On macOS /proc doesn't exist; use kill(pid, 0) via ps.
+                        std::process::Command::new("kill")
+                            .args(["-0", &pid.to_string()])
+                            .output()
+                            .map(|o| o.status.success())
+                            .unwrap_or(false)
+                    };
+                if alive {
+                    bail!(
+                        "dfiles apply is already running (PID {}). \
+                         If this is wrong, delete {}",
+                        pid,
+                        path.display()
+                    );
+                }
+                // Stale lock — remove it and continue.
+                let _ = std::fs::remove_file(&path);
+            }
+        }
+        std::fs::create_dir_all(state_dir).context("Cannot create state directory")?;
+        std::fs::write(&path, std::process::id().to_string())
+            .with_context(|| format!("Cannot write lock file {}", path.display()))?;
+        Ok(Self { path })
+    }
+}
+
+impl Drop for ApplyLock {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.path);
+    }
+}
+
 pub fn run(opts: &ApplyOptions<'_>) -> Result<()> {
+    // Prevent two simultaneous `dfiles apply` runs from racing on state.json.
+    let _lock = if !opts.dry_run {
+        Some(ApplyLock::acquire(opts.state_dir)?)
+    } else {
+        None
+    };
+
     let template_ctx = TemplateContext::from_env(opts.profile, opts.repo_root);
     let source_dir = opts.repo_root.join("source");
 

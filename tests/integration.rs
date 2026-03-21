@@ -2500,6 +2500,91 @@ fn add_link_flag_encodes_symlink_in_filename() {
 }
 
 #[test]
+fn add_link_apply_installs_symlink_immediately() {
+    let repo = TempDir::new().unwrap();
+    let home = TempDir::new().unwrap();
+    cmd(&repo).arg("init").assert().success();
+
+    let dotfile = home.path().join("vscode_settings.json");
+    fs::write(&dotfile, r#"{"editor.fontSize": 14}"#).unwrap();
+
+    cmd_home(&repo, &home)
+        .args(["add", dotfile.to_str().unwrap(), "--link", "--apply"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("linked"));
+
+    // Original path should now be a symlink.
+    assert!(dotfile.is_symlink(), "original file should be replaced by a symlink");
+
+    // Symlink should point into source/.
+    let target = fs::read_link(&dotfile).unwrap();
+    let expected = repo.path().join("source").join("symlink_vscode_settings.json");
+    assert_eq!(target, expected, "symlink should point to source/symlink_vscode_settings.json");
+
+    // The file content should still be accessible through the symlink.
+    let content = fs::read_to_string(&dotfile).unwrap();
+    assert_eq!(content, r#"{"editor.fontSize": 14}"#);
+}
+
+#[test]
+fn add_link_apply_backs_up_existing_file() {
+    let repo = TempDir::new().unwrap();
+    let home = TempDir::new().unwrap();
+    cmd(&repo).arg("init").assert().success();
+
+    let dotfile = home.path().join("settings.toml");
+    fs::write(&dotfile, "key = \"value\"\n").unwrap();
+
+    cmd_home(&repo, &home)
+        .args(["add", dotfile.to_str().unwrap(), "--link", "--apply"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("backed up"));
+
+    // Backup should exist as <filename>.bak.
+    let backup = home.path().join("settings.toml.bak");
+    assert!(backup.exists(), "backup file should exist");
+    assert_eq!(fs::read_to_string(&backup).unwrap(), "key = \"value\"\n");
+}
+
+#[test]
+fn add_link_without_apply_does_not_create_symlink() {
+    let repo = TempDir::new().unwrap();
+    let home = TempDir::new().unwrap();
+    cmd(&repo).arg("init").assert().success();
+
+    let dotfile = home.path().join("settings.json");
+    fs::write(&dotfile, "{}").unwrap();
+
+    cmd_home(&repo, &home)
+        .args(["add", dotfile.to_str().unwrap(), "--link"])
+        .assert()
+        .success();
+
+    // Without --apply, original file should NOT be a symlink.
+    assert!(!dotfile.is_symlink(), "without --apply the original file should not be replaced");
+    // But source/ should have the encoded file.
+    assert!(repo.path().join("source").join("symlink_settings.json").exists());
+}
+
+#[test]
+fn add_apply_requires_link_flag() {
+    let repo = TempDir::new().unwrap();
+    let home = TempDir::new().unwrap();
+    cmd(&repo).arg("init").assert().success();
+
+    let dotfile = home.path().join("settings.json");
+    fs::write(&dotfile, "{}").unwrap();
+
+    // --apply without --link should be rejected by clap.
+    cmd_home(&repo, &home)
+        .args(["add", dotfile.to_str().unwrap(), "--apply"])
+        .assert()
+        .failure();
+}
+
+#[test]
 fn import_symlink_prefix_resolves_to_link_entry() {
     // A chezmoi file named `symlink_dot_vimrc` whose content is a valid absolute
     // path to an existing file should be imported with symlink_ encoding preserved.

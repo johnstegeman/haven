@@ -8,7 +8,7 @@ use crate::config::module::expand_tilde;
 use crate::fs::{is_sensitive, tilde_path};
 use crate::source::{encode_filename, extdir_source_path};
 
-pub fn run(repo_root: &Path, file: &Path, link: bool) -> Result<()> {
+pub fn run(repo_root: &Path, file: &Path, link: bool, apply: bool) -> Result<()> {
     let file = resolve_path(file)?;
 
     if !file.exists() {
@@ -69,6 +69,50 @@ pub fn run(repo_root: &Path, file: &Path, link: bool) -> Result<()> {
 
     let dest_tilde = tilde_path(&file);
     println!("Added: {} → source/{}", dest_tilde, encoded.display());
+
+    // --apply: immediately replace the original file with a symlink back into source/.
+    if apply {
+        install_symlink(&file, &source_dest)?;
+    }
+
+    Ok(())
+}
+
+/// Replace `dest` with a symlink pointing at `source_file`.
+///
+/// Backs up `dest` to `<dest>.bak` if it exists and is not already the
+/// correct symlink. On success prints a confirmation line.
+fn install_symlink(dest: &Path, source_file: &Path) -> Result<()> {
+    use std::os::unix::fs::symlink;
+
+    // If dest already is the correct symlink, nothing to do.
+    if dest.is_symlink() {
+        if std::fs::read_link(dest).ok().as_deref() == Some(source_file) {
+            println!("Symlink already in place: {}", dest.display());
+            return Ok(());
+        }
+    }
+
+    // Back up the existing file before replacing it.
+    if dest.exists() || dest.is_symlink() {
+        let backup_name = format!(
+            "{}.bak",
+            dest.file_name().unwrap_or_default().to_string_lossy()
+        );
+        let backup = dest.with_file_name(backup_name);
+        std::fs::rename(dest, &backup)
+            .with_context(|| format!("Cannot back up {} → {}", dest.display(), backup.display()))?;
+        println!("  backed up {} → {}", dest.display(), backup.display());
+    }
+
+    symlink(source_file, dest)
+        .with_context(|| format!("Cannot create symlink {} → {}", dest.display(), source_file.display()))?;
+
+    println!(
+        "  linked {} → {}",
+        dest.display(),
+        source_file.display(),
+    );
     Ok(())
 }
 

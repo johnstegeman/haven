@@ -240,6 +240,11 @@ enum Commands {
         /// instead of copied. Use for files that apps manage themselves (e.g. VS Code settings).
         #[arg(long)]
         link: bool,
+
+        /// Immediately install after adding: replace the original file with a symlink
+        /// back into source/. Only valid with --link.
+        #[arg(long, requires = "link")]
+        apply: bool,
     },
 
     /// Apply tracked files and packages to this machine.
@@ -557,8 +562,8 @@ fn run() -> Result<()> {
             })?;
         }
 
-        Commands::Add { file, link } => {
-            commands::add::run(&repo, file, *link)?;
+        Commands::Add { file, link, apply } => {
+            commands::add::run(&repo, file, *link, *apply)?;
         }
 
         Commands::Apply {

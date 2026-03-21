@@ -39,6 +39,8 @@ use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
+use crate::ignore::IgnoreList;
+
 // ─── Public types ─────────────────────────────────────────────────────────────
 
 /// Flags decoded from a magic-name path component.
@@ -84,7 +86,10 @@ pub struct SourceDir {
 ///
 /// Hidden entries (names starting with `.`) are skipped — they are git
 /// artefacts, not tracked files. Tracked dotfiles use the `dot_` prefix.
-pub fn scan(source_dir: &Path) -> Result<Vec<SourceEntry>> {
+///
+/// Entries whose decoded destination path matches a pattern in `ignore` are
+/// excluded from the result.
+pub fn scan(source_dir: &Path, ignore: &IgnoreList) -> Result<Vec<SourceEntry>> {
     if !source_dir.exists() {
         return Ok(Vec::new());
     }
@@ -109,7 +114,10 @@ pub fn scan(source_dir: &Path) -> Result<Vec<SourceEntry>> {
             .path()
             .strip_prefix(source_dir)
             .with_context(|| format!("Cannot strip prefix from {}", dent.path().display()))?;
-        entries.push(decode_path(dent.path().to_path_buf(), rel));
+        let entry = decode_path(dent.path().to_path_buf(), rel);
+        if !ignore.is_ignored(&entry.dest_tilde) {
+            entries.push(entry);
+        }
     }
 
     entries.sort_by(|a, b| a.src.cmp(&b.src));

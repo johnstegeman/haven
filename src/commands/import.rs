@@ -28,6 +28,10 @@ pub struct ImportOptions<'a> {
     /// Override for the chezmoi source directory (--source flag).
     pub source_dir: Option<&'a Path>,
     pub dry_run: bool,
+    /// When true, import files that match `.chezmoiignore` patterns instead of skipping them.
+    /// The ignore patterns are still written to `config/ignore`, so `dfiles apply/status/diff`
+    /// will continue to exclude those files.
+    pub include_ignored_files: bool,
 }
 
 pub fn run(opts: &ImportOptions<'_>) -> Result<()> {
@@ -62,10 +66,10 @@ pub fn run(opts: &ImportOptions<'_>) -> Result<()> {
     println!("Chezmoi source: {}", source_dir.display());
     println!();
 
-    let (keeps, externals, skips) = chezmoi::scan(&source_dir)?;
+    let (keeps, externals, skips) = chezmoi::scan(&source_dir, opts.include_ignored_files)?;
 
     if opts.dry_run {
-        print_dry_run_plan(&keeps, &externals, &skips);
+        print_dry_run_plan(&source_dir, &keeps, &externals, &skips);
         return Ok(());
     }
 
@@ -75,12 +79,12 @@ pub fn run(opts: &ImportOptions<'_>) -> Result<()> {
         return Ok(());
     }
 
-    execute(opts, &keeps, &externals, &skips)
+    execute(opts, &source_dir, &keeps, &externals, &skips)
 }
 
 // ─── Dry-run output ───────────────────────────────────────────────────────────
 
-fn print_dry_run_plan(keeps: &[ChezmoiEntry], externals: &[ChezmoiExternalEntry], skips: &[SkippedEntry]) {
+fn print_dry_run_plan(chezmoi_source_dir: &std::path::Path, keeps: &[ChezmoiEntry], externals: &[ChezmoiExternalEntry], skips: &[SkippedEntry]) {
     if keeps.is_empty() && externals.is_empty() {
         println!("Would import 0 files.");
     } else {
@@ -121,13 +125,17 @@ fn print_dry_run_plan(keeps: &[ChezmoiEntry], externals: &[ChezmoiExternalEntry]
             println!();
         }
     }
+    // Show ignore file import in dry-run.
+    let ignore_src = chezmoi_source_dir.join(".chezmoiignore");
+    if ignore_src.exists() {
+        println!("Would import: .chezmoiignore  →  config/ignore");
+    }
     print_skip_table(skips);
 }
 
 // ─── Real run ────────────────────────────────────────────────────────────────
 
-fn execute(opts: &ImportOptions<'_>, keeps: &[ChezmoiEntry], externals: &[ChezmoiExternalEntry], skips: &[SkippedEntry]) -> Result<()> {
-    let source_dir = chezmoi::detect_source_dir(opts.source_dir)?;
+fn execute(opts: &ImportOptions<'_>, source_dir: &std::path::Path, keeps: &[ChezmoiEntry], externals: &[ChezmoiExternalEntry], skips: &[SkippedEntry]) -> Result<()> {
     let repo_source = opts.repo_root.join("source");
     std::fs::create_dir_all(&repo_source)?;
 
@@ -238,6 +246,12 @@ fn execute(opts: &ImportOptions<'_>, keeps: &[ChezmoiEntry], externals: &[Chezmo
         );
     }
 
+    // ── Import .chezmoiignore → config/ignore ─────────────────────────────────
+    let ignore_warnings = import_chezmoiignore(source_dir, opts.repo_root)?;
+    for w in &ignore_warnings {
+        eprintln!("    warning (ignore): {}", w);
+    }
+
     println!();
     println!(
         "Imported {} file(s) and {} external(s). Skipped {} item(s).",
@@ -250,6 +264,75 @@ fn execute(opts: &ImportOptions<'_>, keeps: &[ChezmoiEntry], externals: &[Chezmo
     print_skip_table(skips);
 
     Ok(())
+}
+
+/// Read `.chezmoiignore` from `chezmoi_source_dir`, strip Go template directives,
+/// and write the resulting plain patterns to `<repo_root>/config/ignore`.
+///
+/// Returns a list of warnings for any lines that were skipped due to template syntax.
+/// Does nothing (returns empty warnings) if `.chezmoiignore` does not exist.
+fn import_chezmoiignore(chezmoi_source_dir: &std::path::Path, repo_root: &std::path::Path) -> Result<Vec<String>> {
+    let src = chezmoi_source_dir.join(".chezmoiignore");
+    if !src.exists() {
+        return Ok(Vec::new());
+    }
+
+    let content = std::fs::read_to_string(&src)
+        .with_context(|| format!("Cannot read {}", src.display()))?;
+
+    let mut out_lines: Vec<String> = Vec::new();
+    let mut warnings: Vec<String> = Vec::new();
+
+    for line in content.lines() {
+        let trimmed = line.trim();
+        // Blank lines and comments pass through unchanged.
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            out_lines.push(line.to_string());
+            continue;
+        }
+        // Lines containing Go template directives ({{ ... }}) are skipped with a warning.
+        if trimmed.contains("{{") {
+            warnings.push(format!(
+                "skipped Go template line in .chezmoiignore (not supported): {:?}",
+                trimmed,
+            ));
+            continue;
+        }
+        out_lines.push(line.to_string());
+    }
+
+    // Only write the file if there are actual patterns (non-blank, non-comment lines).
+    let has_patterns = out_lines.iter().any(|l| {
+        let t = l.trim();
+        !t.is_empty() && !t.starts_with('#')
+    });
+
+    let dest = repo_root.join("config").join("ignore");
+    if dest.exists() {
+        println!("  ~ config/ignore already exists — skipped");
+        return Ok(warnings);
+    }
+
+    if has_patterns || !out_lines.is_empty() {
+        if let Some(parent) = dest.parent() {
+            std::fs::create_dir_all(parent)
+                .with_context(|| format!("Cannot create {}", parent.display()))?;
+        }
+        let mut file_content = out_lines.join("\n");
+        if !file_content.ends_with('\n') {
+            file_content.push('\n');
+        }
+        std::fs::write(&dest, &file_content)
+            .with_context(|| format!("Cannot write {}", dest.display()))?;
+
+        let pattern_count = out_lines.iter().filter(|l| {
+            let t = l.trim();
+            !t.is_empty() && !t.starts_with('#')
+        }).count();
+        println!("  ✓  .chezmoiignore  →  config/ignore  ({} pattern(s))", pattern_count);
+    }
+
+    Ok(warnings)
 }
 
 // ─── Shared output helpers ────────────────────────────────────────────────────

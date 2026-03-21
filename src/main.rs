@@ -8,6 +8,7 @@ mod drift;
 mod fs;
 mod github;
 mod homebrew;
+mod ignore;
 mod lock;
 mod manifest;
 mod mise;
@@ -301,10 +302,12 @@ enum Commands {
     ///   run_* / once_* / run_once_*  — install scripts
     ///   exact_* / create_* / modify_*  — unsupported chezmoi attributes
     ///   .chezmoi* / chezmoistate.*   — chezmoi-internal files
+    ///   .chezmoiignore patterns       — unless --include-ignored-files is given
     ///
     /// Examples:
     ///   dfiles import --from chezmoi
     ///   dfiles import --from chezmoi --source ~/my-chezmoi-dir --dry-run
+    ///   dfiles import --from chezmoi --include-ignored-files
     Import {
         /// Source format to import from. Currently only `chezmoi` is supported.
         #[arg(long)]
@@ -318,6 +321,12 @@ enum Commands {
         /// Print what would be imported without writing any files.
         #[arg(long)]
         dry_run: bool,
+
+        /// Import files that match `.chezmoiignore` patterns instead of skipping them.
+        /// The patterns are still written to `config/ignore`, so `dfiles apply`,
+        /// `status`, and `diff` will continue to exclude those files.
+        #[arg(long)]
+        include_ignored_files: bool,
     },
 }
 
@@ -505,7 +514,7 @@ fn run() -> Result<()> {
             }
         },
 
-        Commands::Import { from, source, dry_run } => {
+        Commands::Import { from, source, dry_run, include_ignored_files } => {
             if from != "chezmoi" {
                 anyhow::bail!(
                     "Unknown import source '{}'. Only 'chezmoi' is supported in v1.",
@@ -516,6 +525,7 @@ fn run() -> Result<()> {
                 repo_root: &repo,
                 source_dir: source.as_deref(),
                 dry_run: *dry_run,
+                include_ignored_files: *include_ignored_files,
             })?;
         }
     }

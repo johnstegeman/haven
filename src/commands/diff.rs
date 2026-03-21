@@ -33,6 +33,7 @@ use crate::config::{sort_modules, DfilesConfig, ModuleConfig};
 use crate::config::module::expand_tilde;
 use crate::diff_util::{colorize_diff, stat_line, unified_diff};
 use crate::drift::{check_drift, check_drift_link, check_drift_link_template, check_drift_template, DriftKind};
+use crate::ignore::IgnoreList;
 use crate::source::scan;
 use crate::template::TemplateContext;
 
@@ -83,7 +84,8 @@ pub fn run(opts: &DiffOptions<'_>) -> Result<bool> {
     // ── Files ─────────────────────────────────────────────────────────────────
     if opts.diff_files {
         let source_dir = opts.repo_root.join("source");
-        let entries = scan(&source_dir)?;
+        let ignore = IgnoreList::load(opts.repo_root);
+        let entries = scan(&source_dir, &ignore)?;
         let mut section_lines: Vec<String> = Vec::new();
 
         for entry in &entries {

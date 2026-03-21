@@ -21,6 +21,7 @@ use std::path::{Path, PathBuf};
 use crate::config::{sort_modules, DfilesConfig, ModuleConfig};
 use crate::config::module::expand_tilde;
 use crate::fs::{apply_permissions, backup_file, copy_to_dest, write_to_dest};
+use crate::ignore::IgnoreList;
 use crate::source::{scan, SourceEntry};
 use crate::state::{ModuleState, State};
 use crate::template::TemplateContext;
@@ -58,7 +59,8 @@ pub fn run(opts: &ApplyOptions<'_>) -> Result<()> {
     let source_dir = opts.repo_root.join("source");
 
     // ── 1. Scan and apply all source files ───────────────────────────────────
-    let entries = scan(&source_dir)?;
+    let ignore = IgnoreList::load(opts.repo_root);
+    let entries = scan(&source_dir, &ignore)?;
 
     if opts.dry_run {
         let mut sections = Vec::new();

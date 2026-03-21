@@ -2720,3 +2720,180 @@ fn diff_exits_1_when_drift() {
         .assert()
         .failure(); // exit code 1
 }
+
+// ─── .chezmoiignore import tests ──────────────────────────────────────────────
+
+#[test]
+fn import_chezmoiignore_writes_config_ignore() {
+    let repo = TempDir::new().unwrap();
+    let chezmoi_src = TempDir::new().unwrap();
+    make_chezmoi_dir(&chezmoi_src);
+
+    // Add a .chezmoiignore file.
+    fs::write(
+        chezmoi_src.path().join(".chezmoiignore"),
+        "# ignored patterns\n.ssh/id_*\n.local/share/app/**\n",
+    )
+    .unwrap();
+
+    cmd(&repo).arg("init").assert().success();
+
+    cmd(&repo)
+        .args(["import", "--from", "chezmoi", "--source"])
+        .arg(chezmoi_src.path())
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("config/ignore"));
+
+    let ignore_path = repo.path().join("config").join("ignore");
+    assert!(ignore_path.exists(), "config/ignore should have been created");
+    let content = fs::read_to_string(&ignore_path).unwrap();
+    assert!(content.contains(".ssh/id_*"), "should contain .ssh/id_* pattern");
+    assert!(content.contains(".local/share/app/**"), "should contain .local/share/app/** pattern");
+    assert!(content.contains("# ignored patterns"), "should preserve comments");
+}
+
+#[test]
+fn import_chezmoiignore_skips_ignored_files_by_default() {
+    let repo = TempDir::new().unwrap();
+    let chezmoi_src = TempDir::new().unwrap();
+    make_chezmoi_dir(&chezmoi_src);
+
+    // .chezmoiignore ignores dot_zshrc.
+    fs::write(
+        chezmoi_src.path().join(".chezmoiignore"),
+        ".zshrc\n",
+    )
+    .unwrap();
+
+    cmd(&repo).arg("init").assert().success();
+
+    cmd(&repo)
+        .args(["import", "--from", "chezmoi", "--source"])
+        .arg(chezmoi_src.path())
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("ignored by .chezmoiignore"));
+
+    // The ignored file should NOT be in source/.
+    assert!(
+        !repo.path().join("source").join("dot_zshrc").exists(),
+        "dot_zshrc should have been skipped due to .chezmoiignore"
+    );
+    // Other files should still be imported.
+    assert!(
+        repo.path().join("source").join("Justfile").exists(),
+        "Justfile should still be imported"
+    );
+}
+
+#[test]
+fn import_chezmoiignore_include_ignored_files_flag_imports_all() {
+    let repo = TempDir::new().unwrap();
+    let chezmoi_src = TempDir::new().unwrap();
+    make_chezmoi_dir(&chezmoi_src);
+
+    fs::write(
+        chezmoi_src.path().join(".chezmoiignore"),
+        ".zshrc\n",
+    )
+    .unwrap();
+
+    cmd(&repo).arg("init").assert().success();
+
+    cmd(&repo)
+        .args(["import", "--from", "chezmoi", "--source"])
+        .arg(chezmoi_src.path())
+        .arg("--include-ignored-files")
+        .assert()
+        .success();
+
+    // With --include-ignored-files, dot_zshrc should be imported.
+    assert!(
+        repo.path().join("source").join("dot_zshrc").exists(),
+        "dot_zshrc should be imported with --include-ignored-files"
+    );
+    // config/ignore should still be written.
+    assert!(
+        repo.path().join("config").join("ignore").exists(),
+        "config/ignore should still be created even with --include-ignored-files"
+    );
+}
+
+#[test]
+fn import_chezmoiignore_strips_go_template_lines_with_warning() {
+    let repo = TempDir::new().unwrap();
+    let chezmoi_src = TempDir::new().unwrap();
+    make_chezmoi_dir(&chezmoi_src);
+
+    fs::write(
+        chezmoi_src.path().join(".chezmoiignore"),
+        "# always ignored\n.ssh/id_rsa\n{{ if ne .chezmoi.os \"darwin\" }}\n.Brewfile\n{{ end }}\n",
+    )
+    .unwrap();
+
+    cmd(&repo).arg("init").assert().success();
+
+    cmd(&repo)
+        .args(["import", "--from", "chezmoi", "--source"])
+        .arg(chezmoi_src.path())
+        .assert()
+        .success();
+
+    let ignore_path = repo.path().join("config").join("ignore");
+    let content = fs::read_to_string(&ignore_path).unwrap();
+    // Plain patterns should be preserved.
+    assert!(content.contains(".ssh/id_rsa"), "plain patterns should be kept");
+    // Go template lines should be stripped.
+    assert!(!content.contains("{{"), "Go template lines should be stripped");
+}
+
+#[test]
+fn import_chezmoiignore_dry_run_shows_ignore_import() {
+    let repo = TempDir::new().unwrap();
+    let chezmoi_src = TempDir::new().unwrap();
+    make_chezmoi_dir(&chezmoi_src);
+
+    fs::write(
+        chezmoi_src.path().join(".chezmoiignore"),
+        ".zshrc\n",
+    )
+    .unwrap();
+
+    cmd(&repo).arg("init").assert().success();
+
+    cmd(&repo)
+        .args(["import", "--from", "chezmoi", "--source"])
+        .arg(chezmoi_src.path())
+        .arg("--dry-run")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("config/ignore"));
+
+    // Dry run: config/ignore should NOT have been written.
+    assert!(
+        !repo.path().join("config").join("ignore").exists(),
+        "dry-run should not write config/ignore"
+    );
+}
+
+#[test]
+fn import_no_chezmoiignore_does_not_create_config_ignore() {
+    let repo = TempDir::new().unwrap();
+    let chezmoi_src = TempDir::new().unwrap();
+    make_chezmoi_dir(&chezmoi_src);
+    // No .chezmoiignore in chezmoi source.
+
+    cmd(&repo).arg("init").assert().success();
+
+    cmd(&repo)
+        .args(["import", "--from", "chezmoi", "--source"])
+        .arg(chezmoi_src.path())
+        .assert()
+        .success();
+
+    assert!(
+        !repo.path().join("config").join("ignore").exists(),
+        "config/ignore should not be created when .chezmoiignore is absent"
+    );
+}

@@ -87,6 +87,9 @@ pub enum SkipReason {
     Script,
     /// chezmoi-internal files (`.chezmoi*`, `chezmoistate.boltdb`) — silently skipped.
     Internal,
+    /// Destination matched a pattern in `.chezmoiignore` — skipped unless
+    /// `--include-ignored-files` is passed.
+    Ignored,
 }
 
 impl SkipReason {
@@ -99,6 +102,7 @@ impl SkipReason {
             SkipReason::Template => Some("Go template — could not read file (manual migration required)"),
             SkipReason::Script => Some("install/run script (P1)"),
             SkipReason::Internal => None, // silent
+            SkipReason::Ignored => Some("ignored by .chezmoiignore (use --include-ignored-files to import anyway)"),
         }
     }
 }
@@ -217,13 +221,16 @@ fn chezmoi_managed_paths(source_dir: &Path) -> Option<std::collections::HashSet<
 /// Walk `source_dir` and decode every file into a Keep or Skip entry.
 /// Also parses `.chezmoiexternal.toml` (if present) into external entries.
 ///
-/// Files that chezmoi ignores (via `.chezmoiignore`) are excluded by
-/// cross-referencing `chezmoi managed --include=files,symlinks`. If chezmoi is
-/// not on PATH the filter is skipped and everything is imported.
+/// Files that chezmoi ignores (via `.chezmoiignore`) are moved to skips with
+/// `SkipReason::Ignored`. When chezmoi is on PATH, its `managed` list is used;
+/// otherwise `.chezmoiignore` is parsed directly (Go template lines are stripped).
+///
+/// Pass `include_ignored = true` to skip this filtering entirely — all files will
+/// be in keeps regardless of `.chezmoiignore`.
 ///
 /// Directories starting with `.` are skipped entirely (they are chezmoi-internal
 /// or system directories — legitimate dotfile dirs use the `dot_` prefix).
-pub fn scan(source_dir: &Path) -> Result<(Vec<ChezmoiEntry>, Vec<ChezmoiExternalEntry>, Vec<SkippedEntry>)> {
+pub fn scan(source_dir: &Path, include_ignored: bool) -> Result<(Vec<ChezmoiEntry>, Vec<ChezmoiExternalEntry>, Vec<SkippedEntry>)> {
     let managed = chezmoi_managed_paths(source_dir);
 
     let mut keeps: Vec<ChezmoiEntry> = Vec::new();
@@ -300,13 +307,37 @@ pub fn scan(source_dir: &Path) -> Result<(Vec<ChezmoiEntry>, Vec<ChezmoiExternal
         }
     }
 
-    // Filter keeps to only files that chezmoi actually manages on this system.
-    // This respects .chezmoiignore without needing to parse its Go template syntax.
-    // Paths from chezmoi managed --path-style source-relative match chezmoi_path directly.
-    if let Some(ref managed_paths) = managed {
-        keeps.retain(|e| {
-            managed_paths.contains(&e.chezmoi_path.to_string_lossy().into_owned())
-        });
+    // Filter keeps to only files that chezmoi actually manages on this system,
+    // moving ignored entries to skips so --include-ignored-files can surface them.
+    if !include_ignored {
+        if let Some(ref managed_paths) = managed {
+            // chezmoi is on PATH — use its output to determine what is managed.
+            let (kept, ignored): (Vec<_>, Vec<_>) = keeps
+                .into_iter()
+                .partition(|e| managed_paths.contains(&e.chezmoi_path.to_string_lossy().into_owned()));
+            keeps = kept;
+            for e in ignored {
+                skips.push(SkippedEntry { chezmoi_path: e.chezmoi_path, reason: SkipReason::Ignored });
+            }
+        } else {
+            // chezmoi not on PATH — parse .chezmoiignore directly (strip Go template lines).
+            let ignore_file = source_dir.join(".chezmoiignore");
+            if ignore_file.exists() {
+                if let Ok(content) = std::fs::read_to_string(&ignore_file) {
+                    let ignore = crate::ignore::IgnoreList::from_chezmoi_ignore(&content);
+                    let (kept, ignored): (Vec<_>, Vec<_>) = keeps
+                        .into_iter()
+                        .partition(|e| !ignore.is_ignored(&e.dest_tilde));
+                    keeps = kept;
+                    for e in ignored {
+                        skips.push(SkippedEntry {
+                            chezmoi_path: e.chezmoi_path,
+                            reason: SkipReason::Ignored,
+                        });
+                    }
+                }
+            }
+        }
     }
 
     let externals = parse_chezmoiexternal(source_dir)?;

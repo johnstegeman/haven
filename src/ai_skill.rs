@@ -201,29 +201,6 @@ impl SkillsConfig {
         Ok(Some(SkillsConfig { skills }))
     }
 
-    /// Path to the snippet file for a skill on a given platform.
-    ///
-    /// Checks `ai/skills/<name>/<platform_id>.md` first,
-    /// then `ai/skills/<name>/all.md`.
-    /// Returns None if neither exists or is non-empty.
-    pub fn snippet_path(repo_root: &Path, skill_name: &str, platform_id: &str) -> Option<PathBuf> {
-        let skill_dir = repo_root.join("ai").join("skills").join(skill_name);
-        let platform_specific = skill_dir.join(format!("{}.md", platform_id));
-        if platform_specific.exists() {
-            return Some(platform_specific);
-        }
-        None
-    }
-
-    /// Path to the `all.md` snippet file for a skill (applies to every platform).
-    pub fn all_snippet_path(repo_root: &Path, skill_name: &str) -> Option<PathBuf> {
-        let path = repo_root
-            .join("ai")
-            .join("skills")
-            .join(skill_name)
-            .join("all.md");
-        if path.exists() { Some(path) } else { None }
-    }
 }
 
 // ─── Deploy ───────────────────────────────────────────────────────────────────

@@ -63,7 +63,7 @@ in one place.
 | Dotfiles | Copied (or symlinked) to their destinations; flags encoded in the source filename |
 | Homebrew packages | Brewfile-driven; `dfiles brew install` keeps Brewfiles in sync |
 | Language runtimes | Via [mise](https://mise.jdx.dev/) config files |
-| Claude Code skills | Declared in `ai/skills.toml`, fetched from `gh:owner/repo[@ref]`, pinned in `dfiles.lock` |
+| Claude Code skills | Declared in `ai/skills/<name>/skill.toml`, fetched from `gh:owner/repo[@ref]`, pinned in `dfiles.lock` |
 | Secrets | Read from 1Password at apply time via `{{ op(path="...") }}` templates |
 | External git repos | Cloned/pulled to a destination directory via `extdir_` markers |
 
@@ -114,6 +114,7 @@ dfiles apply --dry-run         # preview without writing anything
 dfiles apply --dest ~/staging  # apply to a staging directory (for testing)
 dfiles status                  # show drift between source and live files
 dfiles diff                    # show file-level diff between source and live
+dfiles source-path             # print the path to the dfiles repo
 dfiles brew install <formula>  # brew install + update Brewfile
 dfiles brew uninstall <formula># brew uninstall + remove from Brewfile
 dfiles import --from chezmoi   # migrate from chezmoi
@@ -152,20 +153,29 @@ source/dot_gitconfig.tmpl              →  ~/.gitconfig            (Tera templa
 
 ## AI skills
 
-Skills are declared in `ai/skills.toml` and deployed to the appropriate platform
-directories (`~/.claude/skills/`, etc.) by `dfiles apply`.
+Each skill lives in its own directory under `ai/skills/`. Declare it with
+`dfiles ai add` and then edit the generated `all.md` to add agent instructions.
+
+```
+ai/skills/
+  pdf-processing/
+    skill.toml       ← source, platforms, deploy method
+    all.md           ← snippet injected into every platform's config file
+    claude-code.md   ← snippet injected only into Claude Code's CLAUDE.md
+  my-commands/
+    skill.toml
+    all.md
+```
 
 ```toml
-# ai/skills.toml
-
-[[skill]]
-name     = "pdf-processing"
-source   = "gh:anthropics/skills/pdf-processing@v1.0"
+# ai/skills/pdf-processing/skill.toml
+source    = "gh:anthropics/skills/pdf-processing@v1.0"
 platforms = "all"
+```
 
-[[skill]]
-name     = "my-commands"
-source   = "gh:me/my-commands@main"
+```toml
+# ai/skills/my-commands/skill.toml
+source    = "gh:me/my-commands@main"
 platforms = ["claude-code"]
 ```
 
@@ -173,11 +183,18 @@ Fetched skills are pinned by SHA in `dfiles.lock` — a mismatch between the fet
 content and the recorded SHA is treated as an error (supply chain protection). Use
 `dfiles ai update` to accept an intentional upgrade.
 
+`dfiles apply` automatically injects skill snippets (from `all.md` /
+`<platform>.md`) into platform config files (e.g. `~/.claude/CLAUDE.md`) using
+HTML comment markers. The markers are added to your source file once and kept
+up to date on every subsequent apply.
+
 ```sh
 dfiles ai discover          # detect installed AI platforms
-dfiles ai add gh:owner/repo # add a skill declaration to ai/skills.toml
+dfiles ai add gh:owner/repo # add a skill to ai/skills/<name>/
 dfiles ai fetch             # download skills to cache without deploying
 dfiles ai update            # re-fetch + update lock SHAs
+dfiles ai search <query>    # search skills.sh registry
+dfiles ai scan ~/.claude/skills  # import existing unmanaged skills
 ```
 
 ---
@@ -218,11 +235,11 @@ modules = ["shell"]
 ## Repo layout
 
 ```
-~/dfiles/
-├── dfiles.toml          # profiles — which modules each profile activates
-├── dfiles.lock          # pinned SHA for every fetched GitHub source
+~/.local/share/dfiles/       # default repo location (XDG); ~/dfiles also works
+├── dfiles.toml              # profiles — which modules each profile activates
+├── dfiles.lock              # pinned SHA for every fetched GitHub source
 │
-├── source/              # dotfiles with magic-name encoded filenames
+├── source/                  # dotfiles with magic-name encoded filenames
 │   ├── dot_zshrc
 │   ├── dot_gitconfig.tmpl          # .tmpl → rendered by Tera before writing
 │   ├── private_dot_ssh/
@@ -231,15 +248,22 @@ modules = ["shell"]
 │       ├── git/config
 │       └── extdir_nvim             # extdir_ → git clone into ~/.config/nvim
 │
-├── ai/                  # AI skill declarations
-│   ├── skills.toml                 # [[skill]] entries
-│   └── platforms.toml             # active AI platforms
+├── ai/                      # AI skill declarations and snippets
+│   ├── platforms.toml              # active AI platforms
+│   └── skills/
+│       ├── pdf-processing/
+│       │   ├── skill.toml          # source, platforms, deploy
+│       │   ├── all.md              # snippet → every platform's config file
+│       │   └── claude-code.md      # snippet → Claude Code only
+│       └── my-commands/
+│           ├── skill.toml
+│           └── all.md
 │
-├── brew/                # Homebrew Brewfiles
+├── brew/                    # Homebrew Brewfiles
 │   ├── Brewfile                    # master
 │   └── Brewfile.shell              # module-specific
 │
-└── modules/             # per-module package config
+└── modules/                 # per-module package config
     ├── shell.toml
     ├── git.toml
     └── packages.toml

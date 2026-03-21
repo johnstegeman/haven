@@ -264,7 +264,7 @@ fn create_stub(dest: &Path, platform_name: &str) -> Result<()> {
 // ─── Marker insertion ─────────────────────────────────────────────────────────
 
 /// Where to insert the managed section markers when adding to an existing file.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum MarkerPosition {
     Beginning,
     End,
@@ -444,14 +444,16 @@ pub fn inject_managed_sections(
                                 // Find the corresponding source file and add markers there.
                                 let source_path = find_source_path(repo_root, config_path);
                                 if let Some(sp) = source_path {
-                                    insert_markers(&sp, position)?;
+                                    insert_markers(&sp, position.clone())?;
                                     println!(
                                         "Added managed section markers to source/{}",
                                         sp.strip_prefix(repo_root.join("source"))
                                             .unwrap_or(&sp)
                                             .display()
                                     );
-                                    // Now inject into the destination.
+                                    // Also insert markers into the live destination so
+                                    // injection takes effect on this run (not just next apply).
+                                    insert_markers(config_path, position)?;
                                     let updated = std::fs::read_to_string(config_path)?;
                                     if let Ok(Some((is, ie))) = find_markers(&updated) {
                                         let new_content = replace_managed_section(

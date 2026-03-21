@@ -14,6 +14,7 @@ dfiles diff  [--profile <p>] [--module <m>]
             [--files] [--brews] [--ai]
             [--stat] [--color always|never|auto]
 dfiles status [--profile <p>] [--files] [--brews] [--ai]
+dfiles source-path
 dfiles brew install <name> [--cask] [--module <m>]
 dfiles brew uninstall <name> [--cask]
 dfiles import --from chezmoi [--source <dir>] [--dry-run]
@@ -24,7 +25,7 @@ dfiles ai fetch [<name>]
 dfiles ai update [<name>]
 dfiles ai remove <name> [--yes]
 dfiles ai search <query> [--limit <n>]
-dfiles ai scan <dir> [--dry-run]
+dfiles ai scan <path> [--dry-run]
 ```
 
 ---
@@ -33,7 +34,24 @@ dfiles ai scan <dir> [--dry-run]
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--dir <path>` | `~/dfiles` | dfiles repo directory. Also read from `DFILES_DIR` env var. |
+| `--dir <path>` | `~/.local/share/dfiles` (XDG default; `~/dfiles` if it exists) | dfiles repo directory. Also read from `DFILES_DIR` env var. |
+
+---
+
+## `dfiles source-path`
+
+Print the absolute path to the dfiles repo directory and exit. Useful in scripts
+and shell aliases.
+
+```
+dfiles source-path
+```
+
+```sh
+# Examples:
+cd $(dfiles source-path)
+alias dfiles-edit='$EDITOR $(dfiles source-path)/dfiles.toml'
+```
 
 ---
 
@@ -118,8 +136,9 @@ dfiles apply [--profile <p>] [--module <m>] [--dry-run]
 | `--dry-run` | Print the plan without writing any files. |
 | `--files` | Apply dotfile copies/symlinks. |
 | `--brews` | Run `brew bundle install`. |
-| `--ai` | Deploy AI skills from `ai/skills.toml`. |
+| `--ai` | Deploy AI skills from `ai/skills/*/skill.toml`. |
 | `--apply-externals` | Pull (update) existing `extdir_` git clones in addition to cloning missing ones. Without this, existing clones are left as-is. |
+| *(AI injection)* | When `--ai` is active, skill snippets from `ai/skills/<name>/all.md` and `ai/skills/<name>/<platform>.md` are injected into platform config files (e.g. `~/.claude/CLAUDE.md`) between `<!-- dfiles managed start -->` / `<!-- dfiles managed end -->` markers. If the config file has no markers and the session is interactive, you are prompted to add them. |
 | `--remove-unreferenced-brews` | After installing, uninstall any leaf formula/cask not referenced by any active Brewfile. |
 | `--interactive` | Like `--remove-unreferenced-brews` but prompts for confirmation before removing. Implies `--remove-unreferenced-brews`. |
 
@@ -243,8 +262,9 @@ dfiles import --from chezmoi [--source <dir>] [--dry-run] [--include-ignored-fil
 
 ## `dfiles ai`
 
-Manage AI agent skills across platforms. Skills are declared in `ai/skills.toml` and
-deployed to platform skill directories (e.g. `~/.claude/skills/`) on `dfiles apply`.
+Manage AI agent skills across platforms. Skills are declared as directories under
+`ai/skills/<name>/` (one `skill.toml` per skill) and deployed to platform skill
+directories (e.g. `~/.claude/skills/`) on `dfiles apply`.
 
 ### `dfiles ai discover`
 
@@ -256,8 +276,9 @@ dfiles ai discover
 
 ### `dfiles ai add`
 
-Add a skill declaration to `ai/skills.toml`. Does **not** deploy the skill;
-run `dfiles apply --ai` afterward to deploy.
+Add a skill declaration to `ai/skills/<name>/skill.toml` and create a blank
+`all.md` snippet stub. Does **not** deploy the skill; run `dfiles apply --ai`
+afterward to deploy.
 
 ```
 dfiles ai add <source> [--name <n>] [--platforms <p>] [--deploy symlink|copy]
@@ -301,8 +322,8 @@ dfiles ai update [<name>]
 
 ### `dfiles ai remove`
 
-Remove a skill from `ai/skills.toml` and optionally remove it from platform skill
-directories.
+Remove a skill directory (`ai/skills/<name>/`) and optionally remove it from
+platform skill directories.
 
 ```
 dfiles ai remove <name> [--yes]
@@ -310,7 +331,7 @@ dfiles ai remove <name> [--yes]
 
 | Argument/Option | Description |
 |-----------------|-------------|
-| `name` | Skill name as declared in `ai/skills.toml`. |
+| `name` | Skill name (directory name under `ai/skills/`). |
 | `--yes` | Skip confirmation prompts. |
 
 ### `dfiles ai search`
@@ -335,12 +356,12 @@ Interactively scan an existing skills directory and offer to add any unmanaged
 skills to `ai/skills.toml`.
 
 ```
-dfiles ai scan <dir> [--dry-run]
+dfiles ai scan <path> [--dry-run]
 ```
 
 | Argument/Option | Description |
 |-----------------|-------------|
-| `dir` | Path to a skills directory to scan (e.g. `~/.claude/skills`). |
+| `path` | Path to a skills directory to scan (e.g. `~/.claude/skills`). |
 | `--dry-run` | Show what would be added without modifying `ai/skills.toml`. |
 
 For each unmanaged skill found, dfiles tries to identify its GitHub source via:
@@ -368,7 +389,7 @@ Three commands — `apply`, `diff`, and `status` — operate on sections:
 |---------|---------------|
 | `--files` | Dotfiles in `source/` and external git clones (`extdir_*`) |
 | `--brews` | Homebrew packages declared in Brewfiles |
-| `--ai` | Skills declared in `ai/skills.toml` |
+| `--ai` | Skills declared in `ai/skills/*/skill.toml` |
 
 ### Modules
 
@@ -408,6 +429,6 @@ hard error — run `dfiles ai update <name>` to explicitly accept the changed co
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `DFILES_DIR` | `~/dfiles` | Repo root directory |
+| `DFILES_DIR` | `~/.local/share/dfiles` (XDG; `~/dfiles` if it exists) | Repo root directory |
 | `DFILES_CLAUDE_DIR` | `~/.claude` | Claude Code directory (skills, CLAUDE.md) |
 | `DFILES_TELEMETRY` | unset | `1` to enable local telemetry, `0` to force-disable |

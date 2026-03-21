@@ -166,6 +166,20 @@ pub fn extract_tarball(bytes: &[u8], subpath: Option<&str>, dest: &Path) -> Resu
             dest.join(&stripped)
         };
 
+        // Guard against path traversal: reject any entry whose relative path
+        // contains a `..` component. A malicious tarball could otherwise write
+        // files outside `dest` (e.g. `../../etc/cron.d/evil`).
+        if dest_path
+            .components()
+            .any(|c| c == std::path::Component::ParentDir)
+        {
+            eprintln!(
+                "warning: skipping tarball entry with path traversal attempt: {}",
+                dest_path.display()
+            );
+            continue;
+        }
+
         if entry.header().entry_type().is_dir() {
             std::fs::create_dir_all(&dest_path)?;
         } else {

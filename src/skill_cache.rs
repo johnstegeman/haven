@@ -58,24 +58,50 @@ impl SkillCache {
     /// On fetch failure this returns an error; the caller is expected to
     /// print the error and continue with other skills (per-skill atomicity).
     pub fn ensure(&self, source: &GhSource, lock: &mut LockFile) -> Result<String> {
-        let cache_path = self.cache_path(source);
         let lock_key = source.source_key();
         let lock_sha = lock.skill_sha(&lock_key).map(str::to_string);
 
         // Cache hit: cache dir exists and SHA matches lock.
-        if cache_path.exists() {
-            if let Some(ref lsha) = lock_sha {
-                if let Ok(cached_sha) = read_sha_file(&cache_path) {
-                    if &cached_sha == lsha {
-                        return Ok(cached_sha);
-                    }
-                    // SHA mismatch: lock was updated (e.g. by `dfiles ai update`).
-                    // Re-fetch to bring cache in sync.
+        if let Some(ref lsha) = lock_sha {
+            if let Some(ref cached_sha) = self.cached_sha(source) {
+                if cached_sha == lsha {
+                    return Ok(cached_sha.clone());
                 }
+                // SHA mismatch: lock was updated (e.g. by `dfiles ai update`).
+                // Fall through to re-fetch.
             }
         }
 
-        // Cache miss or stale: fetch from source.
+        // Cache miss or stale: fetch and verify, then update the lock.
+        let sha = self.fetch_and_verify(source, lock_sha.as_deref())?;
+        lock.pin_skill(&lock_key, &sha);
+        Ok(sha)
+    }
+
+    /// Return the SHA stored in the local cache for `source`, or `None` if the
+    /// cache dir does not exist or has no `.dfiles-sha` file.
+    ///
+    /// Used by the parallel fetch path to check for cache hits before spawning
+    /// threads, so the check can happen without holding a `&mut LockFile`.
+    pub fn cached_sha(&self, source: &GhSource) -> Option<String> {
+        read_sha_file(&self.cache_path(source)).ok()
+    }
+
+    /// Fetch `source` into the local cache, verify the SHA against
+    /// `expected_sha` if provided, write `.dfiles-sha`, and return the SHA.
+    ///
+    /// Does **not** read or update the lock file — the caller is responsible
+    /// for recording the new SHA in the lock after a successful fetch.
+    ///
+    /// Used by the parallel fetch path so multiple `gh:` skills can be fetched
+    /// concurrently; lock updates are applied sequentially after all threads join.
+    pub fn fetch_and_verify(
+        &self,
+        source: &GhSource,
+        expected_sha: Option<&str>,
+    ) -> Result<String> {
+        let cache_path = self.cache_path(source);
+
         // Remove stale cache dir before writing a fresh copy.
         if cache_path.exists() {
             std::fs::remove_dir_all(&cache_path)
@@ -90,8 +116,8 @@ impl SkillCache {
         // freshly-fetched content must match. A mismatch means the remote
         // content changed since the lock was recorded — which could indicate a
         // supply chain attack or an unpinned ref being silently updated.
-        if let Some(ref expected) = lock_sha {
-            if sha != *expected {
+        if let Some(expected) = expected_sha {
+            if sha != expected {
                 // Remove the directory we just wrote before bailing.
                 let _ = std::fs::remove_dir_all(&cache_path);
                 anyhow::bail!(
@@ -108,8 +134,6 @@ impl SkillCache {
         }
 
         write_sha_file(&cache_path, &sha)?;
-        lock.pin_skill(&lock_key, &sha);
-
         Ok(sha)
     }
 }

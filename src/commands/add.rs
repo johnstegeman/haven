@@ -60,14 +60,24 @@ pub fn run(repo_root: &Path, file: &Path, link: bool, apply: bool, update: bool)
             .with_context(|| format!("Cannot create {}", parent.display()))?;
     }
 
-    // Copy the file into source/ with the encoded name.
-    std::fs::copy(&file, &source_dest).with_context(|| {
-        format!(
-            "Cannot copy {} → {}",
-            file.display(),
-            source_dest.display()
-        )
-    })?;
+    // Copy the file into source/ with the encoded name, stripping any managed
+    // section content so the repo always stores empty markers.
+    let file_content = std::fs::read_to_string(&file).ok();
+    if let Some(content) = file_content {
+        let stripped = crate::config_injection::strip_managed_content(&content);
+        std::fs::write(&source_dest, &stripped).with_context(|| {
+            format!("Cannot write {}", source_dest.display())
+        })?;
+    } else {
+        // Binary file — copy as-is (managed sections only apply to text files).
+        std::fs::copy(&file, &source_dest).with_context(|| {
+            format!(
+                "Cannot copy {} → {}",
+                file.display(),
+                source_dest.display()
+            )
+        })?;
+    }
 
     let dest_tilde = tilde_path(&file);
     println!("Added: {} → source/{}", dest_tilde, encoded.display());

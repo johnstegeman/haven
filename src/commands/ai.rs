@@ -189,7 +189,7 @@ pub struct AddOptions<'a> {
     pub deploy: &'a str,
 }
 
-/// Add a new `[[skill]]` entry to `ai/skills.toml`.
+/// Add a new skill to `ai/skills/<name>/skill.toml` and create a blank snippet stub.
 pub fn add(opts: &AddOptions<'_>) -> Result<()> {
     // Validate source.
     let parsed = SkillSource::parse(opts.source)
@@ -201,11 +201,11 @@ pub fn add(opts: &AddOptions<'_>) -> Result<()> {
         None => infer_name_from_source(&parsed),
     };
 
-    // Check for name conflicts in existing skills.toml.
+    // Check for name conflicts in existing skills.
     if let Some(existing) = SkillsConfig::load(opts.repo_root)? {
         if existing.skills.iter().any(|s| s.name == name) {
             anyhow::bail!(
-                "A skill named '{}' already exists in ai/skills.toml.\n\
+                "A skill named '{}' already exists in ai/skills/.\n\
                  Use --name to specify a different name.",
                 name
             );
@@ -215,10 +215,11 @@ pub fn add(opts: &AddOptions<'_>) -> Result<()> {
     // Validate deploy method.
     let _ = parse_deploy_method(opts.deploy)?;
 
-    // Build the TOML entry and append it.
-    append_skill_entry(opts.repo_root, &name, opts.source, opts.platforms, opts.deploy)?;
+    // Write ai/skills/<name>/skill.toml and create blank all.md stub.
+    write_skill_dir(opts.repo_root, &name, opts.source, opts.platforms, opts.deploy)?;
 
-    println!("Added skill '{}' to ai/skills.toml.", name);
+    println!("Added skill '{}'.", name);
+    println!("  → snippet: ai/skills/{}/all.md (edit to add agent instructions)", name);
     println!();
     println!("Run `dfiles apply --ai` to deploy it, or `dfiles ai fetch` to pre-warm the cache.");
     Ok(())
@@ -251,74 +252,49 @@ fn parse_deploy_method(s: &str) -> Result<DeployMethod> {
     }
 }
 
-/// Append a `[[skill]]` entry to `ai/skills.toml` using toml_edit
-/// (preserves existing content and formatting).
-fn append_skill_entry(
+/// Write `ai/skills/<name>/skill.toml` and create a blank `all.md` snippet stub.
+///
+/// The skill directory is created if it does not exist.
+/// If `all.md` already exists, it is left unchanged (user may have edited it).
+fn write_skill_dir(
     repo_root: &Path,
     name: &str,
     source: &str,
     platforms: &str,
     deploy: &str,
 ) -> Result<()> {
-    let ai_dir = repo_root.join("ai");
-    std::fs::create_dir_all(&ai_dir).context("Cannot create ai/ directory")?;
-    let path = ai_dir.join("skills.toml");
+    let skill_dir = repo_root.join("ai").join("skills").join(name);
+    std::fs::create_dir_all(&skill_dir)
+        .with_context(|| format!("Cannot create {}", skill_dir.display()))?;
 
-    let text = if path.exists() {
-        std::fs::read_to_string(&path)
-            .with_context(|| format!("Cannot read {}", path.display()))?
-    } else {
-        String::new()
-    };
-
-    let mut doc: toml_edit::DocumentMut = text
-        .parse()
-        .context("ai/skills.toml contains invalid TOML")?;
-
-    // Build the new [[skill]] table.
-    let mut table = toml_edit::Table::new();
-    table.insert("name", toml_edit::value(name));
-    table.insert("source", toml_edit::value(source));
-
-    // `platforms` is either a named string ("all", "cross-client") or a
-    // comma-separated list of IDs ("claude-code,codex").
-    if platforms == "all" || platforms == "cross-client" {
-        table.insert("platforms", toml_edit::value(platforms));
+    // Build skill.toml content.
+    let platforms_toml = if platforms == "all" || platforms == "cross-client" {
+        format!("\"{}\"", platforms)
     } else {
         let ids: Vec<&str> = platforms.split(',').map(str::trim).collect();
-        if ids.len() == 1 {
-            // Single platform ID — still store as an array for consistency.
-            let mut arr = toml_edit::Array::new();
-            arr.push(ids[0]);
-            table.insert("platforms", toml_edit::value(arr));
-        } else {
-            let mut arr = toml_edit::Array::new();
-            for id in &ids {
-                arr.push(*id);
-            }
-            table.insert("platforms", toml_edit::value(arr));
-        }
-    }
+        format!(
+            "[{}]",
+            ids.iter().map(|id| format!("\"{}\"", id)).collect::<Vec<_>>().join(", ")
+        )
+    };
 
-    // Only write `deploy` when it's not the default ("symlink").
+    let mut toml = format!("source    = \"{}\"\nplatforms = {}\n", source, platforms_toml);
     if deploy != "symlink" {
-        table.insert("deploy", toml_edit::value(deploy));
+        toml.push_str(&format!("deploy    = \"{}\"\n", deploy));
     }
 
-    // Get or create the `[[skill]]` array of tables.
-    if !doc.contains_key("skill") {
-        doc.insert(
-            "skill",
-            toml_edit::Item::ArrayOfTables(toml_edit::ArrayOfTables::new()),
-        );
-    }
-    doc["skill"]
-        .as_array_of_tables_mut()
-        .context("'skill' in ai/skills.toml is not an array of tables")?
-        .push(table);
+    let skill_toml_path = skill_dir.join("skill.toml");
+    std::fs::write(&skill_toml_path, &toml)
+        .with_context(|| format!("Cannot write {}", skill_toml_path.display()))?;
 
-    std::fs::write(&path, doc.to_string())
-        .with_context(|| format!("Cannot write {}", path.display()))
+    // Create blank all.md stub only if it doesn't already exist.
+    let all_md_path = skill_dir.join("all.md");
+    if !all_md_path.exists() {
+        std::fs::write(&all_md_path, "")
+            .with_context(|| format!("Cannot write {}", all_md_path.display()))?;
+    }
+
+    Ok(())
 }
 
 // ─── fetch ────────────────────────────────────────────────────────────────────
@@ -480,7 +456,7 @@ pub fn remove(opts: &RemoveOptions<'_>) -> Result<()> {
     // Confirm removal from config.
     if !opts.yes {
         print!(
-            "Remove skill '{}' ({}) from ai/skills.toml? [y/N] ",
+            "Remove skill '{}' ({})? [y/N] ",
             opts.name, source_str
         );
         io::stdout().flush()?;
@@ -492,9 +468,9 @@ pub fn remove(opts: &RemoveOptions<'_>) -> Result<()> {
         }
     }
 
-    // Remove from ai/skills.toml.
+    // Remove the skill directory.
     remove_skill_entry(opts.repo_root, opts.name)?;
-    println!("Removed '{}' from ai/skills.toml.", opts.name);
+    println!("Removed skill directory ai/skills/{}.", opts.name);
 
     // Remove from lock file (only for gh: sources).
     if let Ok(SkillSource::Gh(gh)) = SkillSource::parse(&source_str) {
@@ -546,29 +522,14 @@ pub fn remove(opts: &RemoveOptions<'_>) -> Result<()> {
     Ok(())
 }
 
-/// Remove the `[[skill]]` entry with the given `name` from `ai/skills.toml`.
+/// Remove the `ai/skills/<name>/` directory.
 fn remove_skill_entry(repo_root: &Path, name: &str) -> Result<()> {
-    let path = repo_root.join("ai").join("skills.toml");
-    let text = std::fs::read_to_string(&path)
-        .with_context(|| format!("Cannot read {}", path.display()))?;
-
-    let mut doc: toml_edit::DocumentMut = text
-        .parse()
-        .context("ai/skills.toml contains invalid TOML")?;
-
-    let aot = doc["skill"]
-        .as_array_of_tables_mut()
-        .context("'skill' in ai/skills.toml is not an array of tables")?;
-
-    let idx = aot
-        .iter()
-        .position(|t| t.get("name").and_then(|v| v.as_str()) == Some(name))
-        .with_context(|| format!("Skill '{}' not found in ai/skills.toml", name))?;
-
-    aot.remove(idx);
-
-    std::fs::write(&path, doc.to_string())
-        .with_context(|| format!("Cannot write {}", path.display()))
+    let skill_dir = repo_root.join("ai").join("skills").join(name);
+    if skill_dir.exists() {
+        std::fs::remove_dir_all(&skill_dir)
+            .with_context(|| format!("Cannot remove {}", skill_dir.display()))?;
+    }
+    Ok(())
 }
 
 /// Return all `(platform_id, target_path)` pairs from state.json for a given
@@ -791,8 +752,9 @@ pub fn scan(opts: &ScanOptions<'_>) -> Result<()> {
                     if opts.dry_run {
                         println!("  (dry-run) Would add: {}", proposed);
                     } else {
-                        append_skill_entry(opts.repo_root, name, &proposed, "all", "symlink")?;
+                        write_skill_dir(opts.repo_root, name, &proposed, "all", "symlink")?;
                         println!("  Added {}.", proposed);
+                        println!("  → snippet: ai/skills/{}/all.md (edit to add agent instructions)", name);
                     }
                     added += 1;
                     break;
@@ -821,8 +783,9 @@ pub fn scan(opts: &ScanOptions<'_>) -> Result<()> {
                             if opts.dry_run {
                                 println!("  (dry-run) Would add: {}", src);
                             } else {
-                                append_skill_entry(opts.repo_root, name, &src, "all", "symlink")?;
+                                write_skill_dir(opts.repo_root, name, &src, "all", "symlink")?;
                                 println!("  Added {}.", src);
+                                println!("  → snippet: ai/skills/{}/all.md (edit to add agent instructions)", name);
                             }
                             added += 1;
                             break;
@@ -848,8 +811,9 @@ pub fn scan(opts: &ScanOptions<'_>) -> Result<()> {
                                 if opts.dry_run {
                                     println!("  (dry-run) Would add: {}", chosen);
                                 } else {
-                                    append_skill_entry(opts.repo_root, name, &chosen, "all", "symlink")?;
+                                    write_skill_dir(opts.repo_root, name, &chosen, "all", "symlink")?;
                                     println!("  Added {}.", chosen);
+                                    println!("  → snippet: ai/skills/{}/all.md (edit to add agent instructions)", name);
                                 }
                                 added += 1;
                                 break;
@@ -875,7 +839,7 @@ pub fn scan(opts: &ScanOptions<'_>) -> Result<()> {
     if opts.dry_run {
         println!("Dry run — {} skill(s) would be added.", added);
     } else if added > 0 {
-        println!("{} skill(s) added to ai/skills.toml.", added);
+        println!("{} skill(s) added.", added);
         println!("Run `dfiles apply --ai` to deploy.");
     } else {
         println!("No skills added.");
@@ -1002,10 +966,10 @@ fn expand_dir(dir: &str) -> Result<PathBuf> {
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
-/// Load `ai/skills.toml` and return an error if it doesn't exist.
+/// Load skills and return an error if no skills are declared.
 fn load_skills_required(repo_root: &Path) -> Result<SkillsConfig> {
     SkillsConfig::load(repo_root)?
-        .context("ai/skills.toml not found. Use `dfiles ai add` to declare skills first.")
+        .context("No skills found in ai/skills/. Use `dfiles ai add` to declare skills first.")
 }
 
 /// Filter skill declarations to just the named skill (if specified) or all.
@@ -1026,16 +990,21 @@ mod tests {
     use super::*;
     use tempfile::TempDir;
 
-    fn write_skills(dir: &TempDir, content: &str) {
-        let ai = dir.path().join("ai");
-        std::fs::create_dir_all(&ai).unwrap();
-        std::fs::write(ai.join("skills.toml"), content).unwrap();
+    /// Helper to create a skill directory with skill.toml (new per-dir format).
+    fn write_skill_dir_test(dir: &TempDir, name: &str, source: &str) {
+        let skill_dir = dir.path().join("ai").join("skills").join(name);
+        std::fs::create_dir_all(&skill_dir).unwrap();
+        std::fs::write(
+            skill_dir.join("skill.toml"),
+            format!("source    = \"{}\"\nplatforms = \"all\"\n", source),
+        )
+        .unwrap();
     }
 
     // ── add ──────────────────────────────────────────────────────────────────
 
     #[test]
-    fn add_creates_skills_toml_when_absent() {
+    fn add_creates_skill_dir_when_absent() {
         let dir = TempDir::new().unwrap();
         add(&AddOptions {
             repo_root: dir.path(),
@@ -1046,26 +1015,20 @@ mod tests {
         })
         .unwrap();
 
-        let text = std::fs::read_to_string(dir.path().join("ai/skills.toml")).unwrap();
-        assert!(text.contains("pdf-processing"));
+        let skill_toml = dir.path().join("ai/skills/pdf-processing/skill.toml");
+        let text = std::fs::read_to_string(&skill_toml).unwrap();
         assert!(text.contains("gh:anthropics/skills/pdf-processing"));
         assert!(text.contains(r#"platforms = "all""#));
         // Default deploy method (symlink) is omitted.
         assert!(!text.contains("deploy"));
+        // Blank all.md stub should also be created.
+        assert!(dir.path().join("ai/skills/pdf-processing/all.md").exists());
     }
 
     #[test]
-    fn add_appends_to_existing_skills_toml() {
+    fn add_second_skill_creates_separate_dir() {
         let dir = TempDir::new().unwrap();
-        write_skills(
-            &dir,
-            r#"
-[[skill]]
-name = "existing"
-source = "gh:owner/existing"
-platforms = "all"
-"#,
-        );
+        write_skill_dir_test(&dir, "existing", "gh:owner/existing");
 
         add(&AddOptions {
             repo_root: dir.path(),
@@ -1076,24 +1039,20 @@ platforms = "all"
         })
         .unwrap();
 
-        let text = std::fs::read_to_string(dir.path().join("ai/skills.toml")).unwrap();
-        assert!(text.contains("existing"));
-        assert!(text.contains("new-skill"));
-        assert!(text.contains("deploy = \"copy\""));
+        // Both skill dirs should exist.
+        assert!(dir.path().join("ai/skills/existing/skill.toml").exists());
+        let text = std::fs::read_to_string(
+            dir.path().join("ai/skills/new-skill/skill.toml"),
+        )
+        .unwrap();
+        assert!(text.contains("gh:owner/new-skill"));
+        assert!(text.contains("deploy"));
     }
 
     #[test]
     fn add_rejects_duplicate_name() {
         let dir = TempDir::new().unwrap();
-        write_skills(
-            &dir,
-            r#"
-[[skill]]
-name = "pdf-processing"
-source = "gh:owner/pdf"
-platforms = "all"
-"#,
-        );
+        write_skill_dir_test(&dir, "pdf-processing", "gh:owner/pdf");
 
         let err = add(&AddOptions {
             repo_root: dir.path(),
@@ -1117,8 +1076,7 @@ platforms = "all"
             deploy: "symlink",
         })
         .unwrap();
-        let text = std::fs::read_to_string(dir.path().join("ai/skills.toml")).unwrap();
-        assert!(text.contains(r#"name = "pdf-processing""#));
+        assert!(dir.path().join("ai/skills/pdf-processing/skill.toml").exists());
     }
 
     #[test]
@@ -1132,12 +1090,11 @@ platforms = "all"
             deploy: "symlink",
         })
         .unwrap();
-        let text = std::fs::read_to_string(dir.path().join("ai/skills.toml")).unwrap();
-        assert!(text.contains(r#"name = "my-skill-repo""#));
+        assert!(dir.path().join("ai/skills/my-skill-repo/skill.toml").exists());
     }
 
     #[test]
-    fn add_platforms_list_stored_as_array() {
+    fn add_platforms_list_stored_in_skill_toml() {
         let dir = TempDir::new().unwrap();
         add(&AddOptions {
             repo_root: dir.path(),
@@ -1147,34 +1104,28 @@ platforms = "all"
             deploy: "symlink",
         })
         .unwrap();
-        let text = std::fs::read_to_string(dir.path().join("ai/skills.toml")).unwrap();
-        // Should be an array, not a string.
+        let text = std::fs::read_to_string(
+            dir.path().join("ai/skills/my-skill/skill.toml"),
+        )
+        .unwrap();
         assert!(text.contains("claude-code"));
         assert!(text.contains("codex"));
-        assert!(!text.contains(r#"platforms = "claude-code"#));
     }
 
     // ── remove_skill_entry ───────────────────────────────────────────────────
 
     #[test]
-    fn remove_entry_deletes_named_skill() {
+    fn remove_entry_deletes_named_skill_dir() {
         let dir = TempDir::new().unwrap();
-        write_skills(
-            &dir,
-            r#"
-[[skill]]
-name = "keep-me"
-source = "gh:owner/keep"
-platforms = "all"
-
-[[skill]]
-name = "delete-me"
-source = "gh:owner/delete"
-platforms = "all"
-"#,
-        );
+        write_skill_dir_test(&dir, "keep-me", "gh:owner/keep");
+        write_skill_dir_test(&dir, "delete-me", "gh:owner/delete");
 
         remove_skill_entry(dir.path(), "delete-me").unwrap();
+
+        // delete-me dir should be gone.
+        assert!(!dir.path().join("ai/skills/delete-me").exists());
+        // keep-me dir should remain.
+        assert!(dir.path().join("ai/skills/keep-me/skill.toml").exists());
 
         let cfg = SkillsConfig::load(dir.path()).unwrap().unwrap();
         assert_eq!(cfg.skills.len(), 1);
@@ -1221,20 +1172,9 @@ platforms = "all"
     #[test]
     fn filter_skills_returns_all_when_name_is_none() {
         let dir = TempDir::new().unwrap();
-        write_skills(
-            &dir,
-            r#"
-[[skill]]
-name = "a"
-source = "gh:owner/a"
-platforms = "all"
+        write_skill_dir_test(&dir, "a", "gh:owner/a");
+        write_skill_dir_test(&dir, "b", "gh:owner/b");
 
-[[skill]]
-name = "b"
-source = "gh:owner/b"
-platforms = "all"
-"#,
-        );
         let cfg = SkillsConfig::load(dir.path()).unwrap().unwrap();
         let filtered = filter_skills(&cfg.skills, None);
         assert_eq!(filtered.len(), 2);
@@ -1243,20 +1183,9 @@ platforms = "all"
     #[test]
     fn filter_skills_returns_named_only() {
         let dir = TempDir::new().unwrap();
-        write_skills(
-            &dir,
-            r#"
-[[skill]]
-name = "a"
-source = "gh:owner/a"
-platforms = "all"
+        write_skill_dir_test(&dir, "a", "gh:owner/a");
+        write_skill_dir_test(&dir, "b", "gh:owner/b");
 
-[[skill]]
-name = "b"
-source = "gh:owner/b"
-platforms = "all"
-"#,
-        );
         let cfg = SkillsConfig::load(dir.path()).unwrap().unwrap();
         let filtered = filter_skills(&cfg.skills, Some("a"));
         assert_eq!(filtered.len(), 1);

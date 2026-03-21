@@ -1467,18 +1467,19 @@ fn apply_requires_op_module_skipped_without_op_not_a_hard_error() {
 
 /// Write ai/skills.toml with two skill entries (both gh: sources).
 fn write_ai_module(repo: &TempDir) {
-    let ai_dir = repo.path().join("ai");
-    fs::create_dir_all(&ai_dir).unwrap();
-    let skills_toml = "[[skill]]\n\
-                       name = \"my-skills\"\n\
-                       source = \"gh:alice/my-skills@v1.0\"\n\
-                       platforms = \"all\"\n\
-                       \n\
-                       [[skill]]\n\
-                       name = \"my-commands\"\n\
-                       source = \"gh:alice/my-commands@main\"\n\
-                       platforms = \"all\"\n";
-    fs::write(ai_dir.join("skills.toml"), skills_toml).unwrap();
+    // New per-directory structure: ai/skills/<name>/skill.toml
+    for (name, source) in [
+        ("my-skills", "gh:alice/my-skills@v1.0"),
+        ("my-commands", "gh:alice/my-commands@main"),
+    ] {
+        let skill_dir = repo.path().join("ai").join("skills").join(name);
+        fs::create_dir_all(&skill_dir).unwrap();
+        fs::write(
+            skill_dir.join("skill.toml"),
+            format!("source    = \"{}\"\nplatforms = \"all\"\n", source),
+        )
+        .unwrap();
+    }
     fs::write(
         repo.path().join("dfiles.toml"),
         "[profile.default]\nmodules = []\n",

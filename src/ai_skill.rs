@@ -1,24 +1,26 @@
-/// AI skill declarations: parsing `ai/skills.toml` and deploying skills
-/// to platform skill directories.
+/// AI skill declarations: parsing `ai/skills/<name>/skill.toml` and deploying
+/// skills to platform skill directories.
+///
+/// Each skill lives in its own directory under `ai/skills/`:
+///
+/// ```
+/// ai/
+///   skills/
+///     pdf-processing/
+///       skill.toml        ← source, platforms, deploy
+///       all.md            ← injected into every platform's config_file
+///       claude-code.md    ← injected only into claude-code's config_file
+///     find-skills/
+///       skill.toml
+///       all.md
+/// ```
+///
+/// `skill.toml` format (the directory name is the skill name):
 ///
 /// ```toml
-/// # ai/skills.toml
-/// [[skill]]
-/// name     = "pdf-processing"
 /// source   = "gh:anthropics/skills/pdf-processing"
 /// platforms = ["claude-code"]
 /// deploy   = "symlink"
-///
-/// [[skill]]
-/// name     = "find-skills"
-/// source   = "gh:vercel-labs/skills/find-skills"
-/// platforms = "all"      # all active platforms except cross-client
-///
-/// [[skill]]
-/// name     = "my-local"
-/// source   = "dir:~/projects/my-skill"
-/// platforms = "cross-client"
-/// deploy   = "copy"
 /// ```
 use anyhow::{Context, Result};
 use serde::Deserialize;
@@ -131,42 +133,96 @@ impl SkillDeclaration {
     }
 }
 
+// ─── Per-directory skill.toml ─────────────────────────────────────────────────
+
+/// The contents of a per-skill `ai/skills/<name>/skill.toml`.
+/// The skill's name comes from the directory name, not from this file.
+#[derive(Debug, Deserialize)]
+struct SkillDirToml {
+    pub source: String,
+    pub platforms: SkillPlatforms,
+    #[serde(default)]
+    pub deploy: DeployMethod,
+}
+
 // ─── Config ───────────────────────────────────────────────────────────────────
 
-/// The full contents of `ai/skills.toml`.
-#[derive(Debug, Deserialize, Default)]
+/// The resolved set of skill declarations from `ai/skills/`.
+#[derive(Debug, Default)]
 pub struct SkillsConfig {
-    #[serde(default, rename = "skill")]
     pub skills: Vec<SkillDeclaration>,
 }
 
 impl SkillsConfig {
-    /// Load `ai/skills.toml` from `repo_root`.
-    /// Returns `Ok(None)` if the file doesn't exist.
-    /// Returns an error if any two skills share a name.
+    /// Load skill declarations by scanning `ai/skills/*/skill.toml`.
+    ///
+    /// Returns `Ok(None)` if `ai/skills/` does not exist.
+    /// Each subdirectory with a `skill.toml` becomes a `SkillDeclaration`
+    /// whose name is the directory name.
     pub fn load(repo_root: &Path) -> Result<Option<Self>> {
-        let path = repo_root.join("ai").join("skills.toml");
-        if !path.exists() {
+        let skills_dir = repo_root.join("ai").join("skills");
+        if !skills_dir.exists() {
             return Ok(None);
         }
-        let text = std::fs::read_to_string(&path)
-            .with_context(|| format!("Cannot read {}", path.display()))?;
-        let config: Self = toml::from_str(&text)
-            .with_context(|| format!("Invalid TOML in {}", path.display()))?;
 
-        // Validate: skill names must be unique within this file.
-        let mut seen = HashSet::new();
-        for skill in &config.skills {
-            if !seen.insert(skill.name.as_str()) {
-                anyhow::bail!(
-                    "Duplicate skill name '{}' in ai/skills.toml. \
-                     Each [[skill]] entry must have a unique name.",
-                    skill.name
-                );
+        let mut skills = Vec::new();
+
+        let entries = std::fs::read_dir(&skills_dir)
+            .with_context(|| format!("Cannot read {}", skills_dir.display()))?;
+
+        for entry in entries {
+            let entry = entry.with_context(|| format!("Cannot read entry in {}", skills_dir.display()))?;
+            if !entry.file_type()?.is_dir() {
+                continue;
             }
+
+            let name = entry.file_name().to_string_lossy().into_owned();
+            let skill_toml_path = entry.path().join("skill.toml");
+            if !skill_toml_path.exists() {
+                continue;
+            }
+
+            let text = std::fs::read_to_string(&skill_toml_path)
+                .with_context(|| format!("Cannot read {}", skill_toml_path.display()))?;
+            let dir_entry: SkillDirToml = toml::from_str(&text)
+                .with_context(|| format!("Invalid TOML in {}", skill_toml_path.display()))?;
+
+            skills.push(SkillDeclaration {
+                name,
+                source: dir_entry.source,
+                platforms: dir_entry.platforms,
+                deploy: dir_entry.deploy,
+            });
         }
 
-        Ok(Some(config))
+        // Sort by name for deterministic ordering.
+        skills.sort_by(|a, b| a.name.cmp(&b.name));
+
+        Ok(Some(SkillsConfig { skills }))
+    }
+
+    /// Path to the snippet file for a skill on a given platform.
+    ///
+    /// Checks `ai/skills/<name>/<platform_id>.md` first,
+    /// then `ai/skills/<name>/all.md`.
+    /// Returns None if neither exists or is non-empty.
+    pub fn snippet_path(repo_root: &Path, skill_name: &str, platform_id: &str) -> Option<PathBuf> {
+        let skill_dir = repo_root.join("ai").join("skills").join(skill_name);
+        let platform_specific = skill_dir.join(format!("{}.md", platform_id));
+        if platform_specific.exists() {
+            return Some(platform_specific);
+        }
+        None
+    }
+
+    /// Path to the `all.md` snippet file for a skill (applies to every platform).
+    pub fn all_snippet_path(repo_root: &Path, skill_name: &str) -> Option<PathBuf> {
+        let path = repo_root
+            .join("ai")
+            .join("skills")
+            .join(skill_name)
+            .join("all.md");
+        if path.exists() { Some(path) } else { None }
     }
 }
 
@@ -266,10 +322,11 @@ mod tests {
     use super::*;
     use tempfile::TempDir;
 
-    fn write_skills_toml(dir: &TempDir, content: &str) {
-        let ai_dir = dir.path().join("ai");
-        std::fs::create_dir_all(&ai_dir).unwrap();
-        std::fs::write(ai_dir.join("skills.toml"), content).unwrap();
+    /// Write a skill directory with `skill.toml` into `ai/skills/<name>/`.
+    fn write_skill_dir(dir: &TempDir, name: &str, content: &str) {
+        let skill_dir = dir.path().join("ai").join("skills").join(name);
+        std::fs::create_dir_all(&skill_dir).unwrap();
+        std::fs::write(skill_dir.join("skill.toml"), content).unwrap();
     }
 
     // ── SkillSource::parse ───────────────────────────────────────────────────
@@ -298,25 +355,33 @@ mod tests {
     // ── SkillsConfig::load ───────────────────────────────────────────────────
 
     #[test]
-    fn returns_none_when_file_absent() {
+    fn returns_none_when_skills_dir_absent() {
         let dir = TempDir::new().unwrap();
         assert!(SkillsConfig::load(dir.path()).unwrap().is_none());
     }
 
     #[test]
+    fn returns_empty_when_skills_dir_exists_but_empty() {
+        let dir = TempDir::new().unwrap();
+        std::fs::create_dir_all(dir.path().join("ai").join("skills")).unwrap();
+        let cfg = SkillsConfig::load(dir.path()).unwrap().unwrap();
+        assert!(cfg.skills.is_empty());
+    }
+
+    #[test]
     fn parses_skill_declarations() {
         let dir = TempDir::new().unwrap();
-        write_skills_toml(
+        write_skill_dir(
             &dir,
-            r#"
-[[skill]]
-name     = "pdf-processing"
-source   = "gh:anthropics/skills/pdf-processing"
+            "pdf-processing",
+            r#"source = "gh:anthropics/skills/pdf-processing"
 platforms = ["claude-code"]
-
-[[skill]]
-name     = "find-skills"
-source   = "gh:vercel-labs/skills/find-skills"
+"#,
+        );
+        write_skill_dir(
+            &dir,
+            "find-skills",
+            r#"source = "gh:vercel-labs/skills/find-skills"
 platforms = "all"
 deploy   = "copy"
 "#,
@@ -325,36 +390,22 @@ deploy   = "copy"
         let cfg = SkillsConfig::load(dir.path()).unwrap().unwrap();
         assert_eq!(cfg.skills.len(), 2);
 
-        let s0 = &cfg.skills[0];
-        assert_eq!(s0.name, "pdf-processing");
-        assert_eq!(s0.deploy, DeployMethod::Symlink); // default
+        // Skills are sorted alphabetically.
+        let find = cfg.skills.iter().find(|s| s.name == "find-skills").unwrap();
+        assert_eq!(find.deploy, DeployMethod::Copy);
 
-        let s1 = &cfg.skills[1];
-        assert_eq!(s1.name, "find-skills");
-        assert_eq!(s1.deploy, DeployMethod::Copy);
+        let pdf = cfg.skills.iter().find(|s| s.name == "pdf-processing").unwrap();
+        assert_eq!(pdf.deploy, DeployMethod::Symlink); // default
     }
 
     #[test]
-    fn duplicate_skill_name_is_error() {
+    fn skills_dir_without_skill_toml_is_skipped() {
         let dir = TempDir::new().unwrap();
-        write_skills_toml(
-            &dir,
-            r#"
-[[skill]]
-name     = "my-skill"
-source   = "gh:owner/repo"
-platforms = "all"
+        // Directory with no skill.toml — should be ignored.
+        std::fs::create_dir_all(dir.path().join("ai").join("skills").join("orphan")).unwrap();
 
-[[skill]]
-name     = "my-skill"
-source   = "gh:owner/other-repo"
-platforms = "all"
-"#,
-        );
-
-        let err = SkillsConfig::load(dir.path()).unwrap_err();
-        let msg = format!("{:#}", err);
-        assert!(msg.contains("Duplicate skill name 'my-skill'"), "error was: {}", msg);
+        let cfg = SkillsConfig::load(dir.path()).unwrap().unwrap();
+        assert!(cfg.skills.is_empty(), "directories without skill.toml must be ignored");
     }
 
     // ── resolve_platforms ────────────────────────────────────────────────────

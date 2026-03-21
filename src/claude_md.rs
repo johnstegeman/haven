@@ -36,15 +36,15 @@ pub fn generate(claude_dir: &Path, profile: &str) -> Result<()> {
 
     if !skills.is_empty() {
         out.push_str("\n## Installed Skills\n");
-        for s in &skills {
-            out.push_str(&format!("- /{}: {}\n", s.name, s.description));
+        for (name, desc) in &skills {
+            out.push_str(&format!("- /{}: {}\n", name, desc));
         }
     }
 
     if !commands.is_empty() {
         out.push_str("\n## Slash Commands\n");
-        for c in &commands {
-            out.push_str(&format!("- /{}: {}\n", c.name, c.description));
+        for (name, desc) in &commands {
+            out.push_str(&format!("- /{}: {}\n", name, desc));
         }
     }
 
@@ -55,7 +55,9 @@ pub fn generate(claude_dir: &Path, profile: &str) -> Result<()> {
 }
 
 /// Scan `skills_dir` for subdirectories containing a `SKILL.md` manifest.
-fn scan_skills(skills_dir: &Path) -> Vec<ItemMeta> {
+///
+/// Returns `(name, description)` pairs sorted alphabetically.
+pub fn scan_skills(skills_dir: &Path) -> Vec<(String, String)> {
     let mut items = Vec::new();
     let entries = match std::fs::read_dir(skills_dir) {
         Ok(e) => e,
@@ -69,7 +71,7 @@ fn scan_skills(skills_dir: &Path) -> Vec<ItemMeta> {
         let skill_md = path.join("SKILL.md");
         if skill_md.exists() {
             if let Some(meta) = read_frontmatter(&skill_md) {
-                items.push(meta);
+                items.push((meta.name, meta.description));
                 continue;
             }
         }
@@ -79,17 +81,16 @@ fn scan_skills(skills_dir: &Path) -> Vec<ItemMeta> {
             .unwrap_or_default()
             .to_string_lossy()
             .into_owned();
-        items.push(ItemMeta {
-            name,
-            description: "(no description)".into(),
-        });
+        items.push((name, "(no description)".into()));
     }
-    items.sort_by(|a, b| a.name.cmp(&b.name));
+    items.sort_by(|a, b| a.0.cmp(&b.0));
     items
 }
 
 /// Scan `commands_dir` for `.md` files (top-level or in subdirectories).
-fn scan_commands(commands_dir: &Path) -> Vec<ItemMeta> {
+///
+/// Returns `(name, description)` pairs sorted alphabetically.
+pub fn scan_commands(commands_dir: &Path) -> Vec<(String, String)> {
     let mut items = Vec::new();
     let entries = match std::fs::read_dir(commands_dir) {
         Ok(e) => e,
@@ -102,7 +103,7 @@ fn scan_commands(commands_dir: &Path) -> Vec<ItemMeta> {
             let cmd_md = path.join("COMMAND.md");
             if cmd_md.exists() {
                 if let Some(meta) = read_frontmatter(&cmd_md) {
-                    items.push(meta);
+                    items.push((meta.name, meta.description));
                     continue;
                 }
             }
@@ -111,28 +112,22 @@ fn scan_commands(commands_dir: &Path) -> Vec<ItemMeta> {
                 .unwrap_or_default()
                 .to_string_lossy()
                 .into_owned();
-            items.push(ItemMeta {
-                name,
-                description: "(no description)".into(),
-            });
+            items.push((name, "(no description)".into()));
         } else if path.extension().is_some_and(|e| e == "md") {
             // Top-level .md file.
             if let Some(meta) = read_frontmatter(&path) {
-                items.push(meta);
+                items.push((meta.name, meta.description));
             } else {
                 let name = path
                     .file_stem()
                     .unwrap_or_default()
                     .to_string_lossy()
                     .into_owned();
-                items.push(ItemMeta {
-                    name,
-                    description: "(no description)".into(),
-                });
+                items.push((name, "(no description)".into()));
             }
         }
     }
-    items.sort_by(|a, b| a.name.cmp(&b.name));
+    items.sort_by(|a, b| a.0.cmp(&b.0));
     items
 }
 

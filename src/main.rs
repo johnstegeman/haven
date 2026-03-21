@@ -5,6 +5,7 @@ mod chezmoi_template;
 mod claude_md;
 mod commands;
 mod config;
+mod config_injection;
 mod diff_util;
 mod drift;
 mod fs;

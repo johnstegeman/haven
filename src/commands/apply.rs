@@ -19,8 +19,9 @@ use chrono::Utc;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
-use crate::ai_platform::PlatformsConfig;
-use crate::ai_skill::{SkillSource, SkillsConfig};
+use crate::ai_platform::{PlatformPlugin, PlatformsConfig};
+use crate::ai_skill::{SkillDeclaration, SkillSource, SkillsConfig};
+use crate::github::GhSource;
 use crate::config::{sort_modules, DfilesConfig, ModuleConfig};
 use crate::config::module::expand_tilde;
 use crate::fs::{apply_permissions, backup_file, copy_to_dest, write_to_dest};
@@ -278,6 +279,28 @@ pub fn run(opts: &ApplyOptions<'_>) -> Result<()> {
                 eprintln!("warning: Could not write dfiles.lock: {}", e);
             }
         }
+        // Inject skill snippets into platform config files (e.g. CLAUDE.md).
+        let inj_skills = SkillsConfig::load(opts.repo_root)
+            .ok()
+            .flatten()
+            .map(|c| c.skills)
+            .unwrap_or_default();
+        let inj_platforms = PlatformsConfig::load(opts.repo_root)
+            .ok()
+            .flatten()
+            .and_then(|c| c.resolve_active_platforms().ok())
+            .unwrap_or_default();
+        if let Err(e) = crate::config_injection::inject_managed_sections(
+            opts.repo_root,
+            &inj_skills,
+            &inj_platforms,
+            &mut state,
+            opts.interactive,
+            false,
+        ) {
+            eprintln!("warning: config injection failed: {}", e);
+        }
+        // Regenerate CLAUDE.md with updated skills/commands listing.
         if let Err(e) = crate::claude_md::generate(opts.claude_dir, opts.profile) {
             eprintln!("warning: CLAUDE.md generation failed: {}", e);
         }
@@ -616,15 +639,11 @@ fn apply_scripts(scripts: &[crate::source::ScriptEntry], state: &mut State) -> R
 
 /// Deploy AI skills from `ai/skills.toml` to the declared platform skill dirs.
 ///
-/// Flow per skill:
-///   1. Resolve which active platforms are targeted.
-///   2. Fetch skill to cache (sparse checkout → tarball fallback).
-///      On failure: print error, continue with next skill.
-///   3. For each unique target path:
-///      - If path exists and not managed by dfiles: warn + skip.
-///      - Deploy (symlink or copy).
-///      - Record in AiState.
-///   4. AiState written to state.json once after all skills complete (atomic).
+/// Three-phase pipeline:
+///   1. Validate each skill, check cache hits. Collect `gh:` cache-miss tasks.
+///   2. Fetch all cache-miss skills in parallel (one thread per skill).
+///      On failure: mark skill as failed, continue with others.
+///   3. Deploy all non-failed skills and write AiState once (atomic).
 fn apply_ai_skills(
     opts: &ApplyOptions<'_>,
     state: &mut State,
@@ -653,7 +672,7 @@ fn apply_ai_skills(
     let mut ai_state = state.ai.clone().unwrap_or_default();
 
     // Build the set of paths currently owned by dfiles (for collision check).
-    let owned_targets: std::collections::HashSet<PathBuf> = ai_state
+    let owned_targets: HashSet<PathBuf> = ai_state
         .deployed_skills
         .values()
         .flat_map(|m| m.values())
@@ -662,17 +681,34 @@ fn apply_ai_skills(
 
     println!("\nDeploying AI skills…");
 
-    let mut skills_applied = 0usize;
     let mut skills_failed = 0usize;
+
+    // ── Phase 1: validate skills, check cache hits ────────────────────────────
+
+    struct SkillPlan<'cfg> {
+        skill: &'cfg SkillDeclaration,
+        source_str: &'cfg str,
+        target_platforms: Vec<&'cfg PlatformPlugin>,
+        path: Option<PathBuf>,
+        sha: Option<String>,
+        failed: bool,
+    }
+
+    // Tasks for cache-miss gh: sources: (plan_idx, source, expected_sha).
+    let mut fetch_tasks: Vec<(usize, GhSource, Option<String>)> = Vec::new();
+    let mut plans: Vec<SkillPlan> = Vec::with_capacity(skills_config.skills.len());
 
     for skill in &skills_config.skills {
         let source_str = &skill.source;
 
-        // Parse the source.
         let skill_source = match SkillSource::parse(source_str) {
             Ok(s) => s,
             Err(e) => {
                 eprintln!("  error: skill '{}' — invalid source: {:#}", skill.name, e);
+                plans.push(SkillPlan {
+                    skill, source_str, target_platforms: vec![],
+                    path: None, sha: None, failed: true,
+                });
                 skills_failed += 1;
                 continue;
             }
@@ -680,47 +716,130 @@ fn apply_ai_skills(
 
         let target_platforms = skill.resolve_platforms(&active_platforms);
         if target_platforms.is_empty() {
-            continue; // no active platforms for this skill
+            continue; // no active platforms for this skill — skip silently
         }
 
-        // Fetch (or verify cache) for gh: sources.
-        let (skill_path, sha) = match &skill_source {
+        match skill_source {
             SkillSource::Gh(gh) => {
-                print!("  Fetching {}… ", skill.name);
-                let _ = std::io::Write::flush(&mut std::io::stdout());
-                match skill_cache.ensure(gh, lock) {
-                    Ok(sha) => {
-                        println!("✓");
-                        (skill_cache.cache_path(gh), Some(sha))
-                    }
-                    Err(e) => {
-                        println!("✗");
-                        eprintln!("  error: skill '{}' — fetch failed: {:#}", skill.name, e);
-                        skills_failed += 1;
+                let lock_sha = lock.skill_sha(&gh.source_key()).map(str::to_string);
+                let cached = skill_cache.cached_sha(&gh);
+
+                // Cache hit: cached SHA exists and matches the lock.
+                if let (Some(ref lsha), Some(ref csha)) = (&lock_sha, &cached) {
+                    if lsha == csha {
+                        plans.push(SkillPlan {
+                            skill, source_str, target_platforms,
+                            path: Some(skill_cache.cache_path(&gh)),
+                            sha: Some(csha.clone()),
+                            failed: false,
+                        });
                         continue;
                     }
                 }
+
+                // Cache miss or stale — schedule a fetch.
+                let plan_idx = plans.len();
+                plans.push(SkillPlan {
+                    skill, source_str, target_platforms,
+                    path: None, sha: None, failed: false,
+                });
+                fetch_tasks.push((plan_idx, gh, lock_sha));
             }
             SkillSource::Dir(path) => {
                 if !path.exists() {
                     eprintln!(
                         "  error: skill '{}' — dir: path not found: {}",
-                        skill.name,
-                        path.display()
+                        skill.name, path.display()
                     );
+                    plans.push(SkillPlan {
+                        skill, source_str, target_platforms,
+                        path: None, sha: None, failed: true,
+                    });
                     skills_failed += 1;
-                    continue;
+                } else {
+                    plans.push(SkillPlan {
+                        skill, source_str, target_platforms,
+                        path: Some(path), sha: None, failed: false,
+                    });
                 }
-                (path.clone(), None)
             }
+        }
+    }
+
+    // ── Phase 2: fetch cache-miss skills in parallel ──────────────────────────
+
+    if !fetch_tasks.is_empty() {
+        let n = fetch_tasks.len();
+        if n == 1 {
+            print!("  Fetching {}… ", plans[fetch_tasks[0].0].skill.name);
+            let _ = std::io::Write::flush(&mut std::io::stdout());
+        } else {
+            println!("  Fetching {} skills in parallel…", n);
+        }
+
+        // Each thread owns its GhSource + expected_sha; borrows &skill_cache
+        // (SkillCache: Sync) via a shared reference within the scope lifetime.
+        let skill_cache_ref = &skill_cache;
+        let results: Vec<(usize, GhSource, Result<String>)> =
+            std::thread::scope(|s| {
+                let handles: Vec<_> = fetch_tasks
+                    .into_iter()
+                    .map(|(plan_idx, gh, expected_sha)| {
+                        s.spawn(move || {
+                            let result = skill_cache_ref
+                                .fetch_and_verify(&gh, expected_sha.as_deref());
+                            (plan_idx, gh, result)
+                        })
+                    })
+                    .collect();
+                handles
+                    .into_iter()
+                    .map(|h| h.join().expect("fetch thread panicked"))
+                    .collect()
+            });
+
+        for (plan_idx, gh, result) in results {
+            match result {
+                Ok(sha) => {
+                    if n == 1 {
+                        println!("✓");
+                    } else {
+                        println!("  ✓ {}", plans[plan_idx].skill.name);
+                    }
+                    plans[plan_idx].path = Some(skill_cache.cache_path(&gh));
+                    plans[plan_idx].sha = Some(sha.clone());
+                    lock.pin_skill(&gh.source_key(), &sha);
+                }
+                Err(e) => {
+                    if n == 1 {
+                        println!("✗");
+                    }
+                    eprintln!("  error: skill '{}' — fetch failed: {:#}", plans[plan_idx].skill.name, e);
+                    plans[plan_idx].failed = true;
+                    skills_failed += 1;
+                }
+            }
+        }
+    }
+
+    // ── Phase 3: deploy ───────────────────────────────────────────────────────
+
+    let mut skills_applied = 0usize;
+
+    for plan in &plans {
+        if plan.failed {
+            continue;
+        }
+        let skill_path = match &plan.path {
+            Some(p) => p,
+            None => continue, // unreachable for non-failed plans
         };
 
         // Deploy to each platform, deduplicating by resolved target path.
-        let mut deployed_targets: std::collections::HashSet<PathBuf> =
-            std::collections::HashSet::new();
+        let mut deployed_targets: HashSet<PathBuf> = HashSet::new();
 
-        for platform in &target_platforms {
-            let target = platform.skills_dir.join(&skill.name);
+        for platform in &plan.target_platforms {
+            let target = platform.skills_dir.join(&plan.skill.name);
 
             // Deduplicate: github-copilot and cross-client both use ~/.agents/skills/.
             if deployed_targets.contains(&target) {
@@ -729,32 +848,27 @@ fn apply_ai_skills(
             deployed_targets.insert(target.clone());
 
             match crate::ai_skill::deploy_skill(
-                &skill_path,
+                skill_path,
                 &target,
-                &skill.deploy,
+                &plan.skill.deploy,
                 &owned_targets,
             ) {
                 Ok(true) => {
-                    // Record in state.
                     let platform_map = ai_state
                         .deployed_skills
                         .entry(platform.id.clone())
                         .or_default();
                     platform_map.insert(
-                        skill.name.clone(),
+                        plan.skill.name.clone(),
                         AiDeployedEntry {
-                            source: source_str.clone(),
-                            deploy: skill.deploy.as_str().to_string(),
+                            source: plan.source_str.to_string(),
+                            deploy: plan.skill.deploy.as_str().to_string(),
                             target: target.clone(),
-                            applied_at: chrono::Utc::now().to_rfc3339(),
-                            sha: sha.clone(),
+                            applied_at: Utc::now().to_rfc3339(),
+                            sha: plan.sha.clone(),
                         },
                     );
-                    println!(
-                        "  ✓ {} → {}",
-                        skill.name,
-                        target.display()
-                    );
+                    println!("  ✓ {} → {}", plan.skill.name, target.display());
                     skills_applied += 1;
                 }
                 Ok(false) => {
@@ -763,9 +877,7 @@ fn apply_ai_skills(
                 Err(e) => {
                     eprintln!(
                         "  error: skill '{}' → {} — deploy failed: {:#}",
-                        skill.name,
-                        target.display(),
-                        e
+                        plan.skill.name, target.display(), e
                     );
                     skills_failed += 1;
                 }
@@ -777,10 +889,7 @@ fn apply_ai_skills(
     state.ai = Some(ai_state);
 
     if skills_failed > 0 {
-        eprintln!(
-            "  {} skill(s) failed — see errors above",
-            skills_failed
-        );
+        eprintln!("  {} skill(s) failed — see errors above", skills_failed);
     }
     if skills_applied > 0 {
         println!("  {} skill(s) deployed", skills_applied);

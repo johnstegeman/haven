@@ -22,6 +22,10 @@ pub struct State {
     /// Absent in old state.json files — defaults to an empty map.
     #[serde(default, skip_serializing_if = "std::collections::HashMap::is_empty")]
     pub scripts_run: std::collections::HashMap<String, String>,
+    /// Platform config files where the user chose [S]kip when prompted to add markers.
+    /// Stored as absolute path strings. Prevents re-prompting on every apply.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub skipped_managed_files: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]

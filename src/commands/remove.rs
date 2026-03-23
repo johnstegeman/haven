@@ -74,6 +74,7 @@ pub fn run(opts: &RemoveOptions<'_>) -> Result<()> {
 mod tests {
     use super::*;
     use std::fs;
+    use std::path::PathBuf;
     use tempfile::TempDir;
 
     fn setup_repo_with_file(dest_name: &str) -> (TempDir, PathBuf) {

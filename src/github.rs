@@ -180,7 +180,19 @@ pub fn extract_tarball(bytes: &[u8], subpath: Option<&str>, dest: &Path) -> Resu
             continue;
         }
 
-        if entry.header().entry_type().is_dir() {
+        // Guard against symlink/hardlink attacks: a malicious tarball could plant a symlink
+        // pointing outside `dest`, then write a file through it using a path that passes the
+        // `..` check above. Skill packages have no legitimate need for symlinks.
+        let entry_type = entry.header().entry_type();
+        if entry_type.is_symlink() || entry_type.is_hard_link() {
+            eprintln!(
+                "warning: skipping symlink/hardlink in tarball: {}",
+                dest_path.display()
+            );
+            continue;
+        }
+
+        if entry_type.is_dir() {
             std::fs::create_dir_all(&dest_path)?;
         } else {
             if let Some(parent) = dest_path.parent() {
@@ -442,5 +454,65 @@ mod tests {
 
         let content = std::fs::read_to_string(dir.path().join("nested.md")).unwrap();
         assert_eq!(content, "# Nested\n");
+    }
+
+    /// Build a tarball containing a symlink entry followed by a regular file entry
+    /// whose path traverses through the symlink. This is the "tar symlink attack"
+    /// (CVE-pattern: plant symlink pointing outside dest, then write through it).
+    fn make_symlink_attack_tarball(link_target: &str) -> Vec<u8> {
+        let buf = Vec::new();
+        let gz = GzEncoder::new(buf, Compression::default());
+        let mut ar = tar::Builder::new(gz);
+
+        // Entry 1: symlink "prefix/link" -> link_target
+        {
+            let mut header = tar::Header::new_gnu();
+            header.set_path("prefix/link").unwrap();
+            header.set_size(0);
+            header.set_mode(0o777);
+            header.set_entry_type(tar::EntryType::Symlink);
+            header.set_link_name(link_target).unwrap();
+            header.set_cksum();
+            ar.append(&header, &[][..]).unwrap();
+        }
+
+        // Entry 2: regular file "prefix/link/pwned" — traverses the symlink
+        {
+            let mut header = tar::Header::new_gnu();
+            header.set_path("prefix/link/pwned").unwrap();
+            header.set_size(6);
+            header.set_mode(0o644);
+            header.set_entry_type(tar::EntryType::Regular);
+            header.set_cksum();
+            ar.append(&header, b"pwned!" as &[u8]).unwrap();
+        }
+
+        let gz = ar.into_inner().unwrap();
+        gz.finish().unwrap()
+    }
+
+    #[test]
+    fn extract_tarball_blocks_symlink_entries() {
+        // A tarball with a symlink entry that points outside `dest` should:
+        //  1. Not create a symlink (the symlink entry is skipped)
+        //  2. Not write any file outside `dest` (traversal blocked)
+        let outside = TempDir::new().unwrap();
+        let dest = TempDir::new().unwrap();
+        let target = outside.path().to_str().unwrap();
+
+        let bytes = make_symlink_attack_tarball(target);
+        // Should not error — just skip the symlink entry and continue.
+        extract_tarball(&bytes, None, dest.path()).unwrap();
+
+        // The path at dest/link must not be a symlink.
+        assert!(
+            !dest.path().join("link").is_symlink(),
+            "symlink entry must not produce a symlink in dest"
+        );
+        // The outside directory must not contain "pwned" (traversal blocked).
+        assert!(
+            !outside.path().join("pwned").exists(),
+            "symlink attack must not have written outside dest"
+        );
     }
 }

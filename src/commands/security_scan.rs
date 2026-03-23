@@ -21,6 +21,7 @@ pub struct ScanOptions<'a> {
 pub enum Severity {
     High,
     Medium,
+    #[allow(dead_code)] // reserved for future low-severity content rules
     Low,
 }
 

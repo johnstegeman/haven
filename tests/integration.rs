@@ -35,8 +35,9 @@ fn cmd_home(repo: &TempDir, home: &TempDir) -> Command {
 
 /// Like `cmd_home` but also pins the state directory to a specific path.
 /// Useful for multi-apply tests that need state to persist between invocations.
+#[allow(dead_code)]
 fn cmd_home_with_state(repo: &TempDir, home: &TempDir, state_dir: &std::path::Path) -> Command {
-    let mut c = cmd_home(repo, home);
+    let c = cmd_home(repo, home);
     // dfiles reads state from <home>/.dfiles by default. Override HOME so it lands
     // in the provided state_dir's parent, but we just set HOME to ensure it's consistent.
     // The state dir is HOME/.dfiles, so as long as HOME is stable between calls, it works.

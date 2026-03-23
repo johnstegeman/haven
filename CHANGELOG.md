@@ -7,7 +7,7 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
-## [Unreleased] → v0.3.0
+## [v0.3.0] — 2026-03-23
 
 ### Security
 

@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cargo test:*)",
+      "Bash(jj desc:*)",
+      "Bash(jj st:*)",
+      "Bash(cargo build:*)",
+      "Bash(jj new:*)",
+      "Bash(jj log:*)",
+      "mcp__memory__write-cypher"
+    ]
+  }
+}

@@ -286,10 +286,20 @@ pub fn brewfile_diff(brew: &Path, brewfile_paths: &[&Path]) -> Result<BrewfileDi
         brew_list_casks(brew)?.into_iter().collect();
 
     // Declared but not installed.
+    //
+    // `brew list --formula` returns short names for tap formulae (e.g. `qmk`
+    // rather than `qmk/qmk/qmk`).  A declared formula is considered installed
+    // if either its full name or its short name appears in the installed set.
     let mut missing_formulas: Vec<String> = declared
         .formulas
         .iter()
-        .filter(|f| !all_installed_formulas.contains(*f))
+        .filter(|f| {
+            if all_installed_formulas.contains(*f) {
+                return false;
+            }
+            let short = f.rsplit('/').next().unwrap_or(f.as_str());
+            !all_installed_formulas.contains(short)
+        })
         .cloned()
         .collect();
     let mut missing_casks: Vec<String> = declared
@@ -300,10 +310,22 @@ pub fn brewfile_diff(brew: &Path, brewfile_paths: &[&Path]) -> Result<BrewfileDi
         .collect();
 
     // Installed but not declared (leaves only for formulas).
+    //
+    // `brew leaves` returns tap-qualified names for non-core formulae
+    // (e.g. `qmk/qmk/qmk`) while Brewfiles often use the short form (`qmk`).
+    // A leaf is considered declared if either the full name or the short name
+    // (segment after the last `/`) appears in the declared set.
     let leaves = brew_leaves(brew)?;
     let mut extra_formulas: Vec<String> = leaves
         .into_iter()
-        .filter(|f| !declared.formulas.contains(f))
+        .filter(|f| {
+            if declared.formulas.contains(f) {
+                return false;
+            }
+            // Also check the short name (e.g. "qmk" for "qmk/qmk/qmk").
+            let short = f.rsplit('/').next().unwrap_or(f.as_str());
+            !declared.formulas.contains(short)
+        })
         .collect();
     let mut extra_casks: Vec<String> = all_installed_casks
         .into_iter()

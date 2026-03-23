@@ -1,2 +1,3 @@
 /target
 .gstack/
+.claude/settings.local.json

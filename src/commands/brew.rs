@@ -127,17 +127,66 @@ fn all_brewfiles(repo_root: &Path) -> Result<Vec<PathBuf>> {
 ///
 /// Resolution:
 ///   `--module <name>` → use `brew/Brewfile.<name>`, update module config
-///   (no module)       → use `brew/Brewfile` (master)
+///   (no module, master exists)   → use `brew/Brewfile`
+///   (no module, no master, one module brewfile) → use that module brewfile
+///   (no module, no master, many module brewfiles) → error with hint
 fn resolve_install_target(repo_root: &Path, module_filter: Option<&str>) -> Result<PathBuf> {
     if let Some(module) = module_filter {
         return resolve_module_brewfile(repo_root, module);
     }
 
-    // No module — write to master brew/Brewfile.
     let brew_dir = repo_root.join("brew");
-    std::fs::create_dir_all(&brew_dir)
-        .with_context(|| format!("Cannot create {}", brew_dir.display()))?;
-    Ok(brew_dir.join("Brewfile"))
+    let master = brew_dir.join("Brewfile");
+
+    if master.exists() {
+        return Ok(master);
+    }
+
+    // No master Brewfile — look for existing module brewfiles.
+    let module_brewfiles: Vec<PathBuf> = if brew_dir.exists() {
+        std::fs::read_dir(&brew_dir)
+            .with_context(|| format!("Cannot read {}", brew_dir.display()))?
+            .filter_map(|e| e.ok())
+            .map(|e| e.path())
+            .filter(|p| {
+                p.file_name()
+                    .and_then(|n| n.to_str())
+                    .map(|n| n.starts_with("Brewfile."))
+                    .unwrap_or(false)
+            })
+            .collect()
+    } else {
+        vec![]
+    };
+
+    match module_brewfiles.len() {
+        0 => {
+            // No brewfiles at all — create the master.
+            std::fs::create_dir_all(&brew_dir)
+                .with_context(|| format!("Cannot create {}", brew_dir.display()))?;
+            Ok(master)
+        }
+        1 => {
+            let path = module_brewfiles.into_iter().next().unwrap();
+            let rel = path.strip_prefix(repo_root).unwrap_or(&path);
+            println!(
+                "note: no brew/Brewfile found; using existing {}",
+                rel.display()
+            );
+            Ok(path)
+        }
+        _ => {
+            let names: Vec<String> = module_brewfiles
+                .iter()
+                .filter_map(|p| p.file_name().and_then(|n| n.to_str()).map(str::to_string))
+                .collect();
+            anyhow::bail!(
+                "Multiple module Brewfiles found ({}) and no master brew/Brewfile.\n\
+                 Use --module <name> to specify which one to update.",
+                names.join(", ")
+            )
+        }
+    }
 }
 
 /// Get (or create) the Brewfile for a named module: `brew/Brewfile.<module>`.

@@ -9,6 +9,7 @@ use crate::config::dfiles::DfilesConfig;
 use crate::config::module::expand_tilde;
 use crate::fs::{is_sensitive, tilde_path};
 use crate::ignore::IgnoreList;
+use crate::template::TemplateContext;
 use crate::source::{encode_filename, extdir_source_path};
 
 pub fn run(repo_root: &Path, file: &Path, link: bool, apply: bool, update: bool) -> Result<()> {
@@ -18,7 +19,8 @@ pub fn run(repo_root: &Path, file: &Path, link: bool, apply: bool, update: bool)
         bail!("File not found: {}", file.display());
     }
 
-    let ignore = IgnoreList::load(repo_root);
+    let ctx = TemplateContext::from_env_for_repo(repo_root);
+    let ignore = IgnoreList::load(repo_root, &ctx);
 
     if file.is_dir() {
         return run_dir(repo_root, &file, &ignore);

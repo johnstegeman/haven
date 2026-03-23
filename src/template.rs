@@ -45,6 +45,25 @@ pub struct TemplateContext {
 }
 
 impl TemplateContext {
+    /// Build from the current machine environment, loading profile and data from
+    /// the dfiles state file and config at `repo_root`.
+    ///
+    /// Used by commands that have a `repo_root` but no pre-loaded config (e.g. `diff`,
+    /// `list`, `add`). Reads `~/.dfiles/state.json` for the active profile and
+    /// `dfiles.toml` for `[data]` variables. Falls back to `"default"` profile and
+    /// empty data on any read error.
+    pub fn from_env_for_repo(repo_root: &Path) -> Self {
+        let config = crate::config::dfiles::DfilesConfig::load(repo_root).unwrap_or_default();
+        let state_dir = dirs::home_dir()
+            .unwrap_or_else(|| std::path::PathBuf::from("/tmp"))
+            .join(".dfiles");
+        let profile = crate::state::State::load(&state_dir)
+            .ok()
+            .and_then(|s| s.profile)
+            .unwrap_or_else(|| "default".to_string());
+        Self::from_env(&profile, repo_root, config.data)
+    }
+
     /// Build from the current machine environment.
     ///
     /// `data` comes from `[data]` in `dfiles.toml` — pass `config.data.clone()`.
@@ -95,6 +114,21 @@ pub fn render(source: &str, ctx: &TemplateContext) -> Result<String> {
     // autoescape=false: dotfiles contain shell syntax, HTML escaping would corrupt them.
     tera.render(TEMPLATE_NAME, &tera_ctx)
         .context("Template rendering failed")
+}
+
+/// Render a Tera template string, returning an empty string on error.
+///
+/// Used for `config/ignore` and other opt-in template files where a render
+/// failure should produce an empty result (ignoring nothing) rather than
+/// crashing the command. Errors are printed to stderr as warnings.
+pub fn render_lenient(source: &str, ctx: &TemplateContext) -> String {
+    match render(source, ctx) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("warning: config/ignore template error (ignoring all patterns): {}", e);
+            String::new()
+        }
+    }
 }
 
 fn detect_os() -> String {
@@ -221,5 +255,18 @@ mod tests {
     fn errors_on_malformed_syntax() {
         let result = render("{{ unclosed", &ctx("default"));
         assert!(result.is_err(), "expected error for malformed template");
+    }
+
+    #[test]
+    fn render_lenient_returns_empty_on_error() {
+        // Malformed template should produce empty string (not panic/error).
+        let result = render_lenient("{{ unclosed", &ctx("default"));
+        assert_eq!(result, "");
+    }
+
+    #[test]
+    fn render_lenient_returns_rendered_on_success() {
+        let result = render_lenient("os={{ os }}", &ctx("default"));
+        assert_eq!(result, "os=macos");
     }
 }

@@ -35,7 +35,7 @@ dfiles collapses that into one.
 | `source/` file tree | `source/` file tree (same magic-name encoding) |
 | `dot_`, `private_`, `executable_`, `symlink_`, `.tmpl` | Identical — same encoding |
 | `extdir_` in `.chezmoiexternal.toml` | `extdir_` marker files in `source/` |
-| `.chezmoiignore` | `config/ignore` (same gitignore-style glob syntax) |
+| `.chezmoiignore` | `config/ignore` (Tera template evaluated at runtime — same behaviour as chezmoi) |
 | `chezmoi apply` | `dfiles apply` |
 | `chezmoi diff` | `dfiles diff` |
 | `chezmoi status` | `dfiles status` |
@@ -91,7 +91,7 @@ dfiles import --from chezmoi --dry-run
 | Dotfiles (`dot_`, `private_`, `executable_`) | Copied to `source/` unchanged |
 | Template files (`.tmpl` suffix) | Copied and Go template syntax converted to Tera |
 | `.chezmoiexternal.toml` git repos | Converted to `extdir_` marker files in `source/` |
-| `.chezmoiignore` | Copied to `config/ignore` |
+| `.chezmoiignore` | Converted to Tera template syntax and written to `config/ignore` |
 | `.chezmoidata.yaml` / `.chezmoidata.toml` | Flat string values written to `[data]` in `dfiles.toml` |
 | `symlink_` + `.tmpl` files | Converted: template renders to symlink target path |
 

@@ -4,6 +4,7 @@ use std::path::Path;
 
 use crate::ignore::IgnoreList;
 use crate::source;
+use crate::template::TemplateContext;
 
 pub struct ListOptions<'a> {
     pub repo_root: &'a Path,
@@ -11,7 +12,8 @@ pub struct ListOptions<'a> {
 
 pub fn run(opts: &ListOptions<'_>) -> Result<()> {
     let source_dir = opts.repo_root.join("source");
-    let ignore = IgnoreList::load(opts.repo_root);
+    let ctx = TemplateContext::from_env_for_repo(opts.repo_root);
+    let ignore = IgnoreList::load(opts.repo_root, &ctx);
     let entries = source::scan(&source_dir, &ignore)?;
 
     if entries.is_empty() {

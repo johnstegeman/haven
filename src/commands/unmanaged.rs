@@ -18,6 +18,7 @@ use std::path::{Path, PathBuf};
 use crate::config::module::expand_tilde;
 use crate::fs::tilde_path;
 use crate::ignore::IgnoreList;
+use crate::template::TemplateContext;
 use crate::source;
 
 pub struct UnmanagedOptions<'a> {
@@ -34,7 +35,8 @@ pub fn run(opts: &UnmanagedOptions<'_>) -> Result<()> {
 
     // Build the set of tracked destination paths (expanded absolute paths).
     let source_dir = opts.repo_root.join("source");
-    let ignore = IgnoreList::load(opts.repo_root);
+    let ctx = TemplateContext::from_env_for_repo(opts.repo_root);
+    let ignore = IgnoreList::load(opts.repo_root, &ctx);
     let entries = source::scan(&source_dir, &ignore)?;
 
     let mut tracked: HashSet<PathBuf> = HashSet::new();

@@ -621,10 +621,14 @@ fn normalize_to_tilde(path: &str) -> String {
     }
 }
 
-/// Read `.chezmoiignore` from `chezmoi_source_dir`, strip Go template directives,
-/// and write the resulting plain patterns to `<repo_root>/config/ignore`.
+/// Read `.chezmoiignore` from `chezmoi_source_dir`, convert Go template syntax
+/// to Tera, and write the result to `<repo_root>/config/ignore`.
 ///
-/// Returns a list of warnings for any lines that were skipped due to template syntax.
+/// The resulting `config/ignore` file is a Tera template — it is rendered at
+/// runtime against the current machine context whenever `dfiles` loads it.
+/// This preserves conditional ignore patterns (e.g. OS-specific patterns).
+///
+/// Returns a list of warnings for any expressions that could not be converted.
 /// Does nothing (returns empty warnings) if `.chezmoiignore` does not exist.
 fn import_chezmoiignore(chezmoi_source_dir: &std::path::Path, repo_root: &std::path::Path) -> Result<Vec<String>> {
     let src = chezmoi_source_dir.join(".chezmoiignore");
@@ -635,55 +639,32 @@ fn import_chezmoiignore(chezmoi_source_dir: &std::path::Path, repo_root: &std::p
     let content = std::fs::read_to_string(&src)
         .with_context(|| format!("Cannot read {}", src.display()))?;
 
-    let mut out_lines: Vec<String> = Vec::new();
-    let mut warnings: Vec<String> = Vec::new();
-
-    for line in content.lines() {
-        let trimmed = line.trim();
-        // Blank lines and comments pass through unchanged.
-        if trimmed.is_empty() || trimmed.starts_with('#') {
-            out_lines.push(line.to_string());
-            continue;
-        }
-        // Lines containing Go template directives ({{ ... }}) are skipped with a warning.
-        if trimmed.contains("{{") {
-            warnings.push(format!(
-                "skipped Go template line in .chezmoiignore (not supported): {:?}",
-                trimmed,
-            ));
-            continue;
-        }
-        out_lines.push(line.to_string());
-    }
-
-    // Only write the file if there are actual patterns (non-blank, non-comment lines).
-    let has_patterns = out_lines.iter().any(|l| {
-        let t = l.trim();
-        !t.is_empty() && !t.starts_with('#')
-    });
-
     let dest = repo_root.join("config").join("ignore");
     if dest.exists() {
         println!("  ~ config/ignore already exists — skipped");
-        return Ok(warnings);
+        return Ok(Vec::new());
     }
 
-    if has_patterns || !out_lines.is_empty() {
+    let (tera_content, warnings) = crate::chezmoi::convert_chezmoiignore_to_tera(&content);
+
+    // Count non-blank, non-comment, non-directive lines as "patterns".
+    let pattern_count = tera_content.lines().filter(|l| {
+        let t = l.trim();
+        !t.is_empty() && !t.starts_with('#') && !t.starts_with("{%")
+    }).count();
+
+    if !tera_content.trim().is_empty() {
         if let Some(parent) = dest.parent() {
             std::fs::create_dir_all(parent)
                 .with_context(|| format!("Cannot create {}", parent.display()))?;
         }
-        let mut file_content = out_lines.join("\n");
+        let mut file_content = tera_content;
         if !file_content.ends_with('\n') {
             file_content.push('\n');
         }
         std::fs::write(&dest, &file_content)
             .with_context(|| format!("Cannot write {}", dest.display()))?;
 
-        let pattern_count = out_lines.iter().filter(|l| {
-            let t = l.trim();
-            !t.is_empty() && !t.starts_with('#')
-        }).count();
         println!("  ✓  .chezmoiignore  →  config/ignore  ({} pattern(s))", pattern_count);
     }
 

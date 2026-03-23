@@ -89,7 +89,7 @@ pub fn run(opts: &DiffOptions<'_>) -> Result<bool> {
     // ── Files ─────────────────────────────────────────────────────────────────
     if opts.diff_files {
         let source_dir = opts.repo_root.join("source");
-        let ignore = IgnoreList::load(opts.repo_root);
+        let ignore = IgnoreList::load(opts.repo_root, &template_ctx);
         let entries = scan(&source_dir, &ignore)?;
         let mut section_lines: Vec<String> = Vec::new();
 

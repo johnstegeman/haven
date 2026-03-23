@@ -27,6 +27,7 @@ use std::path::{Path, PathBuf};
 use crate::ai_platform::PlatformPlugin;
 use crate::ai_skill::SkillDeclaration;
 use crate::state::State;
+use crate::template::TemplateContext;
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -535,7 +536,8 @@ fn source_file_exists_for(repo_root: &Path, config_path: &Path) -> bool {
     if !source_dir.exists() {
         return false;
     }
-    let ignore = crate::ignore::IgnoreList::load(repo_root);
+    let ctx = TemplateContext::from_env_for_repo(repo_root);
+    let ignore = crate::ignore::IgnoreList::load(repo_root, &ctx);
     if let Ok(entries) = crate::source::scan(&source_dir, &ignore) {
         return entries.iter().any(|e| dest_matches(&e.dest_tilde, config_path));
     }
@@ -548,7 +550,8 @@ fn find_source_path(repo_root: &Path, config_path: &Path) -> Option<PathBuf> {
     if !source_dir.exists() {
         return None;
     }
-    let ignore = crate::ignore::IgnoreList::load(repo_root);
+    let ctx = TemplateContext::from_env_for_repo(repo_root);
+    let ignore = crate::ignore::IgnoreList::load(repo_root, &ctx);
     if let Ok(entries) = crate::source::scan(&source_dir, &ignore) {
         return entries
             .iter()

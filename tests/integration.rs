@@ -70,16 +70,17 @@ fn init_creates_scaffold() {
 }
 
 #[test]
-fn init_fails_if_already_initialized() {
+fn init_already_initialized_is_noop() {
     let repo = TempDir::new().unwrap();
 
     cmd(&repo).arg("init").assert().success();
 
+    // Second init should succeed (graceful no-op) with an informative message.
     cmd(&repo)
         .arg("init")
         .assert()
-        .failure()
-        .stderr(predicate::str::contains("already initialized"));
+        .success()
+        .stdout(predicate::str::contains("already initialized"));
 }
 
 // ─── init from source ────────────────────────────────────────────────────────

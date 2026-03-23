@@ -9,6 +9,7 @@ use std::path::Path;
 use crate::config::dfiles::DfilesConfig;
 use crate::fs::is_sensitive_with_rule;
 use crate::ignore::IgnoreList;
+use crate::template::TemplateContext;
 use crate::source;
 
 pub struct ScanOptions<'a> {
@@ -219,7 +220,8 @@ pub fn make_allow_list(patterns: &[String]) -> IgnoreList {
 
 pub fn run(opts: &ScanOptions<'_>) -> Result<()> {
     let source_dir = opts.repo_root.join("source");
-    let ignore = IgnoreList::load(opts.repo_root);
+    let ctx = TemplateContext::from_env_for_repo(opts.repo_root);
+    let ignore = IgnoreList::load(opts.repo_root, &ctx);
     let config = DfilesConfig::load(opts.repo_root).unwrap_or_default();
     let allow_list = make_allow_list(&config.security.allow);
 

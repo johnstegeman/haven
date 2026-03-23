@@ -39,7 +39,7 @@ pub fn run(opts: &StatusOptions<'_>) -> Result<()> {
     // ── File drift ────────────────────────────────────────────────────────────────
     if show_files {
         let source_dir = opts.repo_root.join("source");
-        let ignore = IgnoreList::load(opts.repo_root);
+        let ignore = IgnoreList::load(opts.repo_root, &template_ctx);
         let entries = source::scan(&source_dir, &ignore)?;
 
         let mut file_drift: Vec<(String, DriftKind)> = Vec::new();

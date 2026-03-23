@@ -7,6 +7,28 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- **`config/ignore` is now a Tera template** — the ignore file is rendered against
+  the current machine context (`os`, `hostname`, `username`, `profile`, `data.*`)
+  before patterns are evaluated. This matches how chezmoi treats `.chezmoiignore`:
+  conditional patterns like `{% if os == "macos" %}.DS_Store{% endif %}` work as
+  expected. If rendering fails, dfiles warns and falls back to ignoring nothing.
+  (`dfiles import --from chezmoi` now converts Go template syntax in
+  `.chezmoiignore` to Tera syntax rather than stripping template lines.)
+
+### Fixed
+
+- **`dfiles init` in an already-initialised repo** no longer errors — it prints an
+  informational message and exits 0. The VCS resolution prompt (Jujutsu vs Git) now
+  only runs when a source URL is provided, not during a blank scaffold init.
+- **`dfiles --version`** now shows the full `<semver>+<short-commit>` build identity
+  (e.g. `0.3.0+47625a5`), matching the version field written to telemetry events.
+
+---
+
 ## [v0.3.0] — 2026-03-23
 
 ### Security

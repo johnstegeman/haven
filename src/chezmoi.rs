@@ -338,6 +338,138 @@ fn chezmoi_managed_paths(source_dir: &Path) -> Option<std::collections::HashSet<
     Some(paths)
 }
 
+// ─── Go → Tera converter for .chezmoiignore ──────────────────────────────────
+
+/// Convert a `.chezmoiignore` file (Go template syntax) to a `config/ignore`
+/// file (Tera template syntax).
+///
+/// Supported translations:
+/// - `{{ if eq .chezmoi.os "VALUE" }}`      → `{% if os == "VALUE" %}`
+/// - `{{ if ne .chezmoi.os "VALUE" }}`      → `{% if os != "VALUE" %}`
+/// - `{{ if eq .chezmoi.hostname "VALUE" }}`→ `{% if hostname == "VALUE" %}`
+/// - `{{ if ne .chezmoi.hostname "VALUE" }}`→ `{% if hostname != "VALUE" %}`
+/// - `{{ if eq .chezmoi.username "VALUE" }}`→ `{% if username == "VALUE" %}`
+/// - `{{ if ne .chezmoi.username "VALUE" }}`→ `{% if username != "VALUE" %}`
+/// - `{{ else }}`                           → `{% else %}`
+/// - `{{ end }}`                            → `{% endif %}`
+///
+/// Value normalisation: `"darwin"` → `"macos"` only when the LHS is `.chezmoi.os`,
+/// matching the dfiles OS detection convention.
+///
+/// Unsupported `{{ if ... }}` expressions are suppressed (along with their entire
+/// block) with a warning. Other unrecognised expressions are skipped with a warning.
+/// Plain lines (patterns, comments, blank lines) pass through unchanged.
+///
+/// Returns the converted Tera template source and a list of warning messages.
+pub fn convert_chezmoiignore_to_tera(input: &str) -> (String, Vec<String>) {
+    let mut output = String::new();
+    let mut warnings: Vec<String> = Vec::new();
+    // When > 0, we're inside a block opened by an unsupported `{{ if ... }}`.
+    let mut suppress_depth: u32 = 0;
+
+    for line in input.lines() {
+        let trimmed = line.trim();
+
+        if let Some(directive) = extract_go_directive(trimmed) {
+            if suppress_depth > 0 {
+                // Inside a suppressed block — track depth for nested ifs.
+                if directive.starts_with("if ") || directive == "if" {
+                    suppress_depth += 1;
+                } else if directive == "end" {
+                    suppress_depth -= 1;
+                    // When depth returns to 0 the suppressed block ends; emit nothing.
+                }
+                // `else` inside suppressed block: nothing to emit.
+                continue;
+            }
+
+            if directive == "else" {
+                output.push_str("{% else %}\n");
+            } else if directive == "end" {
+                output.push_str("{% endif %}\n");
+            } else if let Some(tera_if) = try_convert_if_directive(&directive) {
+                output.push_str(&tera_if);
+                output.push('\n');
+            } else if directive.starts_with("if ") || directive == "if" {
+                // Unrecognised `if` block — suppress its contents.
+                warnings.push(format!(
+                    "unsupported Go template expression suppressed: {:?}",
+                    trimmed
+                ));
+                suppress_depth = 1;
+            } else {
+                // Other unrecognised expression — skip the single line.
+                warnings.push(format!(
+                    "unsupported Go template expression skipped: {:?}",
+                    trimmed
+                ));
+            }
+        } else if suppress_depth > 0 {
+            // Plain line inside a suppressed block — skip.
+            continue;
+        } else {
+            // Plain line (pattern, comment, blank) — pass through.
+            output.push_str(line);
+            output.push('\n');
+        }
+    }
+
+    (output, warnings)
+}
+
+/// Extract the inner expression from a Go template directive line.
+///
+/// Handles `{{ ... }}`, `{{- ... }}`, `{{ ... -}}`, and `{{- ... -}}`.
+/// Returns `None` if the trimmed line is not a standalone `{{ }}` directive.
+fn extract_go_directive(trimmed: &str) -> Option<String> {
+    if !trimmed.starts_with("{{") || !trimmed.ends_with("}}") {
+        return None;
+    }
+    let inner = &trimmed[2..trimmed.len() - 2];
+    // Strip optional whitespace-trimming dashes: {{- ... -}}
+    let inner = inner.trim_start_matches('-').trim_end_matches('-');
+    Some(inner.trim().to_string())
+}
+
+/// Try to convert a Go `if` directive to a Tera `{% if ... %}` expression.
+///
+/// Returns `Some("{% if ... %}")` for recognised patterns, `None` otherwise.
+fn try_convert_if_directive(directive: &str) -> Option<String> {
+    let rest = directive.strip_prefix("if ")?;
+
+    let (op_str, rest) = if let Some(r) = rest.strip_prefix("eq ") {
+        ("==", r)
+    } else if let Some(r) = rest.strip_prefix("ne ") {
+        ("!=", r)
+    } else {
+        return None;
+    };
+
+    let (field, value_quoted) = if let Some(r) = rest.strip_prefix(".chezmoi.os ") {
+        ("os", r.trim())
+    } else if let Some(r) = rest.strip_prefix(".chezmoi.hostname ") {
+        ("hostname", r.trim())
+    } else if let Some(r) = rest.strip_prefix(".chezmoi.username ") {
+        ("username", r.trim())
+    } else {
+        return None;
+    };
+
+    // Value must be a Go string literal: "VALUE"
+    let value = value_quoted.strip_prefix('"')?.strip_suffix('"')?;
+
+    // Normalise OS values: chezmoi uses "darwin", dfiles uses "macos".
+    let value = if field == "os" && value == "darwin" {
+        "macos"
+    } else {
+        value
+    };
+
+    Some(format!("{{% if {} {} \"{}\" %}}", field, op_str, value))
+}
+
+// ─── Scan ─────────────────────────────────────────────────────────────────────
+
 /// Walk `source_dir` and decode every file into a Keep or Skip entry.
 /// Also parses `.chezmoiexternal.toml` (if present) into external entries.
 ///
@@ -473,11 +605,20 @@ pub fn scan(source_dir: &Path, include_ignored: bool) -> Result<(Vec<ChezmoiEntr
                 skips.push(SkippedEntry { chezmoi_path: e.chezmoi_path, reason: SkipReason::Ignored });
             }
         } else {
-            // chezmoi not on PATH — parse .chezmoiignore directly (strip Go template lines).
+            // chezmoi not on PATH — convert .chezmoiignore to Tera, render against
+            // the current machine context, then parse the result as patterns.
             let ignore_file = source_dir.join(".chezmoiignore");
             if ignore_file.exists() {
                 if let Ok(content) = std::fs::read_to_string(&ignore_file) {
-                    let ignore = crate::ignore::IgnoreList::from_chezmoi_ignore(&content);
+                    let (tera_content, _warnings) = convert_chezmoiignore_to_tera(&content);
+                    // Build a minimal context for rendering (no dfiles repo yet).
+                    let ctx = crate::template::TemplateContext::from_env(
+                        "default",
+                        std::path::Path::new("."),
+                        std::collections::HashMap::new(),
+                    );
+                    let rendered = crate::template::render_lenient(&tera_content, &ctx);
+                    let ignore = crate::ignore::IgnoreList::from_str(&rendered);
                     let (kept, ignored): (Vec<_>, Vec<_>) = keeps
                         .into_iter()
                         .partition(|e| !ignore.is_ignored(&e.dest_tilde));
@@ -1536,5 +1677,132 @@ mod tests {
         let rel = Path::new("symlink_dot_gitconfig");
         let result = try_resolve_symlink(&p, rel);
         assert!(result.is_none(), "expected None for symlink without .tmpl but template content");
+    }
+
+    // ─── convert_chezmoiignore_to_tera ────────────────────────────────────────
+
+    fn convert(input: &str) -> String {
+        convert_chezmoiignore_to_tera(input).0
+    }
+
+    fn warnings(input: &str) -> Vec<String> {
+        convert_chezmoiignore_to_tera(input).1
+    }
+
+    #[test]
+    fn plain_patterns_pass_through() {
+        let input = ".zshrc\n.ssh/**\n# comment\n\n.config/nvim/**\n";
+        assert_eq!(convert(input), input);
+    }
+
+    #[test]
+    fn eq_os_darwin_becomes_macos() {
+        let input = "{{ if eq .chezmoi.os \"darwin\" }}\n.DS_Store\n{{ end }}\n";
+        let out = convert(input);
+        assert!(out.contains("{% if os == \"macos\" %}"), "got: {}", out);
+        assert!(out.contains(".DS_Store"));
+        assert!(out.contains("{% endif %}"));
+        assert!(!out.contains("{{"), "raw Go template leaked: {}", out);
+    }
+
+    #[test]
+    fn ne_os_darwin_becomes_ne_macos() {
+        let input = "{{ if ne .chezmoi.os \"darwin\" }}\n.linux-file\n{{ end }}\n";
+        let out = convert(input);
+        assert!(out.contains("{% if os != \"macos\" %}"), "got: {}", out);
+    }
+
+    #[test]
+    fn eq_os_linux_no_remap() {
+        let input = "{{ if eq .chezmoi.os \"linux\" }}\n.linux-only\n{{ end }}\n";
+        let out = convert(input);
+        assert!(out.contains("{% if os == \"linux\" %}"), "got: {}", out);
+    }
+
+    #[test]
+    fn eq_hostname_passes_through() {
+        let input = "{{ if eq .chezmoi.hostname \"myhost\" }}\n.hostspecific\n{{ end }}\n";
+        let out = convert(input);
+        assert!(out.contains("{% if hostname == \"myhost\" %}"), "got: {}", out);
+    }
+
+    #[test]
+    fn eq_username_passes_through() {
+        let input = "{{ if eq .chezmoi.username \"alice\" }}\n.private\n{{ end }}\n";
+        let out = convert(input);
+        assert!(out.contains("{% if username == \"alice\" %}"), "got: {}", out);
+    }
+
+    #[test]
+    fn else_converted() {
+        let input = "{{ if eq .chezmoi.os \"darwin\" }}\n.osx\n{{ else }}\n.other\n{{ end }}\n";
+        let out = convert(input);
+        assert!(out.contains("{% else %}"), "got: {}", out);
+        assert!(out.contains(".osx"));
+        assert!(out.contains(".other"));
+    }
+
+    #[test]
+    fn dash_trimming_directive_handled() {
+        // {{- end }} and {{ end -}} should both work
+        let input = "{{ if eq .chezmoi.os \"darwin\" }}\n.foo\n{{- end }}\n";
+        let out = convert(input);
+        assert!(out.contains("{% endif %}"), "got: {}", out);
+    }
+
+    #[test]
+    fn unsupported_if_block_suppressed_with_warning() {
+        let input = "{{ if .chezmoi.kernel }}\n.kernel-file\n{{ end }}\n";
+        let out = convert(input);
+        // The whole block should be suppressed
+        assert!(!out.contains(".kernel-file"), "block not suppressed: {}", out);
+        assert!(!out.contains("{% if"), "directive leaked: {}", out);
+        assert!(!out.contains("{% endif %}"), "endif for suppressed block: {}", out);
+        let w = warnings(input);
+        assert!(!w.is_empty(), "expected warning for unsupported expression");
+    }
+
+    #[test]
+    fn unsupported_nested_if_depth_tracked() {
+        // Supported outer `if`, unsupported inner `if` — only inner suppressed.
+        let input = "\
+{{ if eq .chezmoi.os \"darwin\" }}\n\
+.osx\n\
+{{ if .chezmoi.unknown }}\n\
+.never\n\
+{{ end }}\n\
+{{ end }}\n";
+        let out = convert(input);
+        assert!(out.contains(".osx"), "outer block should be kept: {}", out);
+        assert!(!out.contains(".never"), "inner block should be suppressed: {}", out);
+    }
+
+    #[test]
+    fn suppressed_block_nested_ifs_depth_tracked_correctly() {
+        // Unsupported outer block with a nested if/end inside — both suppressed.
+        let input = "\
+{{ if .chezmoi.kernel }}\n\
+.outer\n\
+{{ if eq .chezmoi.os \"linux\" }}\n\
+.inner\n\
+{{ end }}\n\
+{{ end }}\n\
+.after\n";
+        let out = convert(input);
+        assert!(!out.contains(".outer"), "outer should be suppressed: {}", out);
+        assert!(!out.contains(".inner"), "inner should be suppressed: {}", out);
+        assert!(out.contains(".after"), "content after suppressed block: {}", out);
+    }
+
+    #[test]
+    fn no_warnings_for_clean_input() {
+        let input = "{{ if eq .chezmoi.os \"darwin\" }}\n.foo\n{{ end }}\n";
+        assert!(warnings(input).is_empty());
+    }
+
+    #[test]
+    fn comments_and_blanks_pass_through() {
+        let input = "# This is a comment\n\n.zshrc\n";
+        assert_eq!(convert(input), input);
     }
 }

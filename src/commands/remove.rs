@@ -7,6 +7,7 @@ use std::path::Path;
 
 use crate::config::module::expand_tilde;
 use crate::ignore::IgnoreList;
+use crate::template::TemplateContext;
 use crate::source;
 
 pub struct RemoveOptions<'a> {
@@ -19,7 +20,8 @@ pub struct RemoveOptions<'a> {
 
 pub fn run(opts: &RemoveOptions<'_>) -> Result<()> {
     let source_dir = opts.repo_root.join("source");
-    let ignore = IgnoreList::load(opts.repo_root);
+    let ctx = TemplateContext::from_env_for_repo(opts.repo_root);
+    let ignore = IgnoreList::load(opts.repo_root, &ctx);
     let entries = source::scan(&source_dir, &ignore)?;
 
     // Normalise the requested path so we can compare against dest_tilde.

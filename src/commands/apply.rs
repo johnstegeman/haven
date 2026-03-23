@@ -125,7 +125,7 @@ pub fn run(opts: &ApplyOptions<'_>) -> Result<()> {
     let source_dir = opts.repo_root.join("source");
 
     // ── 1. Scan and apply all source files ───────────────────────────────────
-    let ignore = IgnoreList::load(opts.repo_root);
+    let ignore = IgnoreList::load(opts.repo_root, &template_ctx);
     let entries = scan(&source_dir, &ignore)?;
 
     if opts.dry_run {

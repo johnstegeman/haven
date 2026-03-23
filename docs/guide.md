@@ -208,6 +208,24 @@ Files stored in the repo can be excluded from `apply`, `status`, and `diff` usin
 | Pattern with no `/` | Matches the **basename** only (last path component) |
 | Pattern with `/` | Matches the **full path** from the home root |
 
+**`config/ignore` is a Tera template.** You can use the same template variables and
+`{% if %}` conditionals available in `.tmpl` files to make ignore patterns conditional:
+
+```
+# config/ignore — with conditional patterns
+
+{% if os == "macos" %}
+.DS_Store
+{% endif %}
+
+# Always ignored
+.ssh/id_*
+```
+
+The template is evaluated at runtime on every command that loads it (same as how
+chezmoi treats `.chezmoiignore`). If the template fails to render (syntax error),
+dfiles warns and falls back to ignoring nothing.
+
 Ignored files are committed to the repo like any other file — they just aren't
 applied to the destination. This is useful for machine-specific files that you
 want to keep in the repo for reference but not deploy everywhere.

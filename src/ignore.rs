@@ -34,6 +34,8 @@
 use std::fs;
 use std::path::Path;
 
+use crate::template::{render_lenient, TemplateContext};
+
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 /// A compiled list of ignore patterns loaded from `config/ignore`.
@@ -53,27 +55,23 @@ struct CompiledPattern {
 impl IgnoreList {
     /// Load patterns from `<repo_root>/config/ignore`.
     ///
-    /// Returns an empty list (ignores nothing) if the file does not exist.
-    pub fn load(repo_root: &Path) -> Self {
+    /// The file is treated as a Tera template: it is rendered against the current
+    /// machine context before the patterns are parsed. This allows the ignore file
+    /// to use `{% if os == "macos" %}` and similar conditionals, matching how
+    /// chezmoi treats `.chezmoiignore`.
+    ///
+    /// Returns an empty list (ignores nothing) if the file does not exist or if
+    /// template rendering fails (failure is printed as a warning).
+    pub fn load(repo_root: &Path, ctx: &TemplateContext) -> Self {
         let path = repo_root.join("config").join("ignore");
-        let content = match fs::read_to_string(&path) {
+        let raw = match fs::read_to_string(&path) {
             Ok(c) => c,
             Err(_) => return Self::default(),
         };
-        Self::from_str(&content)
-    }
-
-    /// Parse patterns from a `.chezmoiignore` file.
-    ///
-    /// Same as [`from_str`] but silently skips lines that contain Go template
-    /// expressions (`{{ ... }}`), which cannot be statically evaluated during import.
-    pub fn from_chezmoi_ignore(content: &str) -> Self {
-        let filtered: String = content
-            .lines()
-            .filter(|line| !line.contains("{{"))
-            .map(|line| format!("{}\n", line))
-            .collect();
-        Self::from_str(&filtered)
+        // Render the file as a Tera template. render_lenient returns "" on error,
+        // which produces an empty IgnoreList (ignore nothing — safe failure mode).
+        let rendered = render_lenient(&raw, ctx);
+        Self::from_str(&rendered)
     }
 
     /// Parse patterns from a string (used in tests and for load).
@@ -287,5 +285,60 @@ mod tests {
     fn leading_slash_stripped_and_treated_as_anchored() {
         assert!(ignored("/.ssh/id_rsa", "~/.ssh/id_rsa"));
         assert!(!ignored("/.ssh/id_rsa", "~/.ssh/config"));
+    }
+
+    // ── IgnoreList::load with template context ─────────────────────────────────
+
+    use tempfile::TempDir;
+    use crate::template::TemplateContext;
+    use std::collections::HashMap;
+
+    fn test_ctx(os: &str) -> TemplateContext {
+        TemplateContext {
+            os: os.to_string(),
+            hostname: "testhost".to_string(),
+            username: "testuser".to_string(),
+            profile: "default".to_string(),
+            home_dir: "/home/testuser".to_string(),
+            source_dir: "/home/testuser/dfiles".to_string(),
+            data: HashMap::new(),
+        }
+    }
+
+    #[test]
+    fn load_returns_empty_when_no_file() {
+        let dir = TempDir::new().unwrap();
+        let ctx = test_ctx("macos");
+        let list = IgnoreList::load(dir.path(), &ctx);
+        assert!(!list.is_ignored("~/.zshrc"));
+    }
+
+    #[test]
+    fn load_renders_os_conditional() {
+        let dir = TempDir::new().unwrap();
+        let config_dir = dir.path().join("config");
+        std::fs::create_dir_all(&config_dir).unwrap();
+        let content = "{% if os == \"macos\" %}\n.DS_Store\n{% endif %}\n";
+        std::fs::write(config_dir.join("ignore"), content).unwrap();
+
+        // On macos: .DS_Store should be ignored.
+        let list = IgnoreList::load(dir.path(), &test_ctx("macos"));
+        assert!(list.is_ignored("~/.DS_Store"));
+
+        // On linux: .DS_Store should not be ignored.
+        let list = IgnoreList::load(dir.path(), &test_ctx("linux"));
+        assert!(!list.is_ignored("~/.DS_Store"));
+    }
+
+    #[test]
+    fn load_returns_empty_on_render_error() {
+        let dir = TempDir::new().unwrap();
+        let config_dir = dir.path().join("config");
+        std::fs::create_dir_all(&config_dir).unwrap();
+        // Malformed template — should degrade gracefully (no patterns, no crash).
+        std::fs::write(config_dir.join("ignore"), "{% unclosed %}").unwrap();
+        let ctx = test_ctx("macos");
+        let list = IgnoreList::load(dir.path(), &ctx);
+        assert!(!list.is_ignored("~/.zshrc"), "should ignore nothing on render error");
     }
 }

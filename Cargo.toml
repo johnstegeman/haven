@@ -38,6 +38,7 @@ is-terminal = "0.4"
 regex = "1"
 flate2 = "1"
 tar = "0.4"
+serde_yaml = "0.9"
 
 [dependencies.tempfile]
 version = "3"

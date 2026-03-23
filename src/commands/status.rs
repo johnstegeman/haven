@@ -33,7 +33,7 @@ pub fn run(opts: &StatusOptions<'_>) -> Result<()> {
     let modules = config.resolve_modules(opts.profile)?;
     let sorted = sort_modules(&modules);
 
-    let template_ctx = TemplateContext::from_env(opts.profile, opts.repo_root);
+    let template_ctx = TemplateContext::from_env(opts.profile, opts.repo_root, config.data.clone());
     let mut any_drift = false;
 
     // ── File drift ────────────────────────────────────────────────────────────────

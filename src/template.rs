@@ -11,6 +11,11 @@
 ///   {{ get_env(name="VAR") }}         # read an environment variable (Tera built-in)
 ///   {{ get_env(name="VAR", default="fallback") }}
 ///
+/// Custom variables from `[data]` in `dfiles.toml` are available under the `data` namespace:
+///
+///   {{ data.host }}                   # from [data] host = "my-laptop"
+///   {{ data.kanata_path }}            # from [data] kanata_path = "/usr/local/bin/kanata"
+///
 /// Tera also provides the full Jinja2-style control flow:
 ///   {% if os == "macos" %}...{% endif %}
 ///   {% for item in list %}...{% endfor %}
@@ -19,6 +24,7 @@
 /// Files with `template = false` (the default) are copied verbatim — `{{ }}`
 /// inside them is never interpreted.
 use anyhow::{Context, Result};
+use std::collections::HashMap;
 use std::path::Path;
 use tera::{Context as TeraContext, Tera};
 
@@ -33,11 +39,16 @@ pub struct TemplateContext {
     pub profile: String,
     pub home_dir: String,
     pub source_dir: String,
+    /// Custom variables from `[data]` in `dfiles.toml`.
+    /// Accessible in templates as `{{ data.key }}`.
+    pub data: HashMap<String, String>,
 }
 
 impl TemplateContext {
     /// Build from the current machine environment.
-    pub fn from_env(profile: &str, repo_root: &Path) -> Self {
+    ///
+    /// `data` comes from `[data]` in `dfiles.toml` — pass `config.data.clone()`.
+    pub fn from_env(profile: &str, repo_root: &Path, data: HashMap<String, String>) -> Self {
         Self {
             os: detect_os(),
             hostname: detect_hostname(),
@@ -48,6 +59,7 @@ impl TemplateContext {
                 .to_string_lossy()
                 .into_owned(),
             source_dir: repo_root.to_string_lossy().into_owned(),
+            data,
         }
     }
 
@@ -59,6 +71,8 @@ impl TemplateContext {
         ctx.insert("profile", &self.profile);
         ctx.insert("home_dir", &self.home_dir);
         ctx.insert("source_dir", &self.source_dir);
+        // Custom [data] variables are nested under a `data` object.
+        ctx.insert("data", &self.data);
         ctx
     }
 }
@@ -120,6 +134,7 @@ mod tests {
             profile: profile.to_string(),
             home_dir: "/home/testuser".to_string(),
             source_dir: "/home/testuser/dfiles".to_string(),
+            data: HashMap::new(),
         }
     }
 
@@ -183,6 +198,16 @@ mod tests {
         )
         .unwrap();
         assert_eq!(out, "fallback");
+    }
+
+    #[test]
+    fn renders_custom_data_variable() {
+        let mut data = HashMap::new();
+        data.insert("myhost".to_string(), "desktop".to_string());
+        let mut ctx = ctx("default");
+        ctx.data = data;
+        let out = render("machine={{ data.myhost }}", &ctx).unwrap();
+        assert_eq!(out, "machine=desktop");
     }
 
     #[test]

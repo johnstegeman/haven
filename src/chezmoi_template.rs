@@ -206,9 +206,9 @@ fn convert_elif(condition: &str, warnings: &mut Vec<String>) -> Cow<'static, str
 ///
 /// Returns `None` for unsupported conditions.
 fn convert_condition(cond: &str) -> Option<String> {
-    // `(index . "key")` → `key`  (truthy check for a custom data variable)
+    // `(index . "key")` → `data.key`  (truthy check for a custom data variable)
     if let Some(inner) = cond.strip_prefix("(index . \"").and_then(|s| s.strip_suffix("\")")) {
-        return Some(inner.to_string());
+        return Some(format!("data.{}", inner));
     }
 
     // `eq .chezmoi.os "linux"` → `os == "linux"`
@@ -278,9 +278,9 @@ fn go_var_to_tera(var: &str) -> Option<String> {
         ".chezmoi.sourceDir" => Some("source_dir".into()),
         ".chezmoi.sourcedir" => Some("source_dir".into()), // lowercase variant
         _ => {
-            // `.someVar` (custom data variable, not a chezmoi built-in) → `someVar`
+            // `.someVar` (custom data variable, not a chezmoi built-in) → `data.someVar`
             if var.starts_with('.') && !var.starts_with(".chezmoi") {
-                return Some(var[1..].to_string());
+                return Some(format!("data.{}", &var[1..]));
             }
             None
         }
@@ -468,19 +468,19 @@ mod tests {
 
     #[test]
     fn converts_index_dot_key_condition() {
-        // `(index . "host")` → truthy check `host`
+        // `(index . "host")` → truthy check `data.host`
         assert_eq!(
             convert_clean("{{ if (index . \"host\") }}yes{{ end }}"),
-            "{% if host %}yes{% endif %}"
+            "{% if data.host %}yes{% endif %}"
         );
     }
 
     #[test]
     fn converts_custom_data_variable() {
-        // `.host` (not a chezmoi built-in) → `host`
+        // `.host` (not a chezmoi built-in) → `data.host`
         assert_eq!(
             convert_clean("export host={{ .host }}"),
-            "export host={{ host }}"
+            "export host={{ data.host }}"
         );
     }
 
@@ -490,8 +490,8 @@ mod tests {
         let input = "{{- if (index . \"host\") }}\nexport host={{ .host }}\n{% else %}\nexport host=`hostname`\n{% endif %}";
         let result = convert(input);
         assert!(result.warnings.is_empty(), "warnings: {:?}", result.warnings);
-        assert!(result.text.contains("{% if host %}"));
-        assert!(result.text.contains("{{ host }}"));
+        assert!(result.text.contains("{% if data.host %}"));
+        assert!(result.text.contains("{{ data.host }}"));
         assert!(result.text.contains("{% else %}"));
         assert!(result.text.contains("{% endif %}"));
     }

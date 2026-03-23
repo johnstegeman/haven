@@ -194,6 +194,19 @@ fn print_dry_run_plan(chezmoi_source_dir: &std::path::Path, keeps: &[ChezmoiEntr
     if ignore_src.exists() {
         println!("Would import: .chezmoiignore  →  config/ignore");
     }
+
+    // Show data file import in dry-run.
+    if let Ok(data_vars) = chezmoi::scan_data_file(chezmoi_source_dir) {
+        if !data_vars.is_empty() {
+            let mut keys: Vec<&String> = data_vars.keys().collect();
+            keys.sort();
+            println!("Would add {} [data] variable(s) to dfiles.toml:", data_vars.len());
+            for k in keys {
+                println!("  data.{} = {:?}", k, data_vars[k]);
+            }
+        }
+    }
+
     print_skip_table(skips);
 }
 
@@ -332,6 +345,12 @@ fn execute(opts: &ImportOptions<'_>, source_dir: &std::path::Path, keeps: &[Chez
         println!("  ✓  wrote dfiles.toml  (edit profiles to customise)");
     }
 
+    // ── Import .chezmoidata.yaml / .chezmoidata.toml → [data] in dfiles.toml ──
+    let data_vars = chezmoi::scan_data_file(&source_dir)?;
+    if !data_vars.is_empty() {
+        import_data_vars(opts.repo_root, &data_vars)?;
+    }
+
     println!();
     println!(
         "Imported {} file(s), {} external(s), {} Brewfile(s), {} script migration(s). Skipped {} item(s).",
@@ -341,6 +360,9 @@ fn execute(opts: &ImportOptions<'_>, source_dir: &std::path::Path, keeps: &[Chez
         scripts.len(),
         skips.iter().filter(|s| s.reason.display().is_some()).count(),
     );
+    if !data_vars.is_empty() {
+        println!("  [data] {} custom variable(s) added to dfiles.toml", data_vars.len());
+    }
     println!("Run `dfiles apply` to deploy.");
 
     print_skip_table(skips);
@@ -666,6 +688,61 @@ fn import_chezmoiignore(chezmoi_source_dir: &std::path::Path, repo_root: &std::p
     }
 
     Ok(warnings)
+}
+
+/// Write custom data variables into the `[data]` section of `dfiles.toml` using
+/// `toml_edit` so existing formatting and comments are preserved.
+///
+/// Keys that already exist are skipped (idempotent).
+fn import_data_vars(
+    repo_root: &Path,
+    data_vars: &std::collections::HashMap<String, String>,
+) -> Result<()> {
+    let path = repo_root.join("dfiles.toml");
+    let text = if path.exists() {
+        std::fs::read_to_string(&path)
+            .with_context(|| format!("Cannot read {}", path.display()))?
+    } else {
+        String::new()
+    };
+
+    let mut doc: toml_edit::DocumentMut = text
+        .parse()
+        .context("dfiles.toml contains invalid TOML")?;
+
+    let mut added = 0usize;
+    let mut skipped = 0usize;
+
+    let mut keys: Vec<&String> = data_vars.keys().collect();
+    keys.sort();
+
+    for key in keys {
+        let val = &data_vars[key];
+        // Skip keys that already exist in [data].
+        if doc["data"][key.as_str()].is_str() {
+            skipped += 1;
+            continue;
+        }
+        doc["data"][key.as_str()] = toml_edit::value(val.clone());
+        added += 1;
+    }
+
+    if added > 0 {
+        std::fs::write(&path, doc.to_string())
+            .with_context(|| format!("Cannot write {}", path.display()))?;
+        println!(
+            "  ✓  .chezmoidata  →  [data] in dfiles.toml  ({} variable(s) added{})",
+            added,
+            if skipped > 0 { format!(", {} already present", skipped) } else { String::new() },
+        );
+    } else if skipped > 0 {
+        println!(
+            "  ~ [data] variables already present in dfiles.toml — skipped ({} key(s))",
+            skipped,
+        );
+    }
+
+    Ok(())
 }
 
 // ─── Shared output helpers ────────────────────────────────────────────────────

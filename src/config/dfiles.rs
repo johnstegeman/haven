@@ -20,6 +20,18 @@ pub struct DfilesConfig {
     /// Security scanning settings.
     #[serde(default)]
     pub security: SecurityConfig,
+
+    /// Custom template variables available in all `.tmpl` files.
+    ///
+    /// ```toml
+    /// [data]
+    /// host = "my-laptop"
+    /// kanata_path = "/usr/local/bin/kanata"
+    /// ```
+    ///
+    /// In templates: `{{ data.host }}` or `{{ data.kanata_path }}`
+    #[serde(default)]
+    pub data: HashMap<String, String>,
 }
 
 /// Security settings in `dfiles.toml`.

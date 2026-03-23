@@ -550,6 +550,18 @@ enum Commands {
     ///   dfiles vcs
     Vcs,
 
+    /// Show all template variables available in `.tmpl` files.
+    ///
+    /// Prints built-in variables (os, hostname, username, etc.) and custom
+    /// variables from the `[data]` section of `dfiles.toml`.
+    ///
+    /// Useful for debugging templates or verifying that custom data variables
+    /// are correctly set before running `dfiles apply`.
+    ///
+    /// Examples:
+    ///   dfiles data
+    Data,
+
     /// Scan tracked source files for secrets, sensitive filenames, and credentials.
     ///
     /// Checks each tracked file for:
@@ -1054,6 +1066,30 @@ fn run() -> Result<()> {
                 None => {
                     // User aborted the detection prompt — nothing to print.
                     return Ok(());
+                }
+            }
+        }
+
+        Commands::Data => {
+            let config = DfilesConfig::load(&repo).unwrap_or_default();
+            let ctx = template::TemplateContext::from_env("default", &repo, config.data);
+            println!("os        = {}", ctx.os);
+            println!("hostname  = {}", ctx.hostname);
+            println!("username  = {}", ctx.username);
+            println!("home_dir  = {}", ctx.home_dir);
+            println!("source_dir = {}", ctx.source_dir);
+            if ctx.data.is_empty() {
+                println!();
+                println!("No [data] variables set in dfiles.toml.");
+                println!("Add them like:");
+                println!("  [data]");
+                println!("  host = \"my-laptop\"");
+            } else {
+                println!();
+                let mut keys: Vec<&String> = ctx.data.keys().collect();
+                keys.sort();
+                for k in keys {
+                    println!("data.{:<20} = {}", k, ctx.data[k]);
                 }
             }
         }

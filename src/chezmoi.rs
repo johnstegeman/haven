@@ -31,6 +31,7 @@ use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 use serde::Deserialize;
+use serde_yaml;
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
@@ -236,6 +237,67 @@ fn try_chezmoi_source_path() -> Option<PathBuf> {
     let path_str = String::from_utf8(output.stdout).ok()?;
     let path = PathBuf::from(path_str.trim());
     if path.exists() { Some(path) } else { None }
+}
+
+// ─── Data file detection ──────────────────────────────────────────────────────
+
+/// Read custom template variables from `.chezmoidata.yaml` or `.chezmoidata.toml`.
+///
+/// Only flat string values are extracted. Nested objects and non-string values
+/// (booleans, numbers, lists) are silently skipped — they have no direct equivalent
+/// in `dfiles.toml [data]`.
+///
+/// Returns an empty map if neither file exists or they cannot be parsed.
+pub fn scan_data_file(source_dir: &Path) -> Result<std::collections::HashMap<String, String>> {
+    // YAML takes precedence (more common in chezmoi setups).
+    let yaml_path = source_dir.join(".chezmoidata.yaml");
+    if yaml_path.exists() {
+        let text = std::fs::read_to_string(&yaml_path)
+            .with_context(|| format!("Cannot read {}", yaml_path.display()))?;
+        return parse_chezmoidata_yaml(&text);
+    }
+
+    // TOML fallback.
+    let toml_path = source_dir.join(".chezmoidata.toml");
+    if toml_path.exists() {
+        let text = std::fs::read_to_string(&toml_path)
+            .with_context(|| format!("Cannot read {}", toml_path.display()))?;
+        return parse_chezmoidata_toml(&text);
+    }
+
+    Ok(std::collections::HashMap::new())
+}
+
+/// Parse flat string values from a YAML chezmoidata file.
+fn parse_chezmoidata_yaml(text: &str) -> Result<std::collections::HashMap<String, String>> {
+    let value: serde_yaml::Value = serde_yaml::from_str(text)
+        .context("Cannot parse .chezmoidata.yaml")?;
+
+    let mut out = std::collections::HashMap::new();
+    if let serde_yaml::Value::Mapping(map) = value {
+        for (k, v) in map {
+            if let (serde_yaml::Value::String(key), serde_yaml::Value::String(val)) = (k, v) {
+                out.insert(key, val);
+            }
+        }
+    }
+    Ok(out)
+}
+
+/// Parse flat string values from a TOML chezmoidata file.
+fn parse_chezmoidata_toml(text: &str) -> Result<std::collections::HashMap<String, String>> {
+    let value: toml::Value = toml::from_str(text)
+        .context("Cannot parse .chezmoidata.toml")?;
+
+    let mut out = std::collections::HashMap::new();
+    if let toml::Value::Table(table) = value {
+        for (k, v) in table {
+            if let toml::Value::String(val) = v {
+                out.insert(k, val);
+            }
+        }
+    }
+    Ok(out)
 }
 
 // ─── Scanner ──────────────────────────────────────────────────────────────────

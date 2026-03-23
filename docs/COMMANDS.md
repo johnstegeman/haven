@@ -27,6 +27,7 @@ dfiles ai update [<name>]
 dfiles ai remove <name> [--yes]
 dfiles ai search <query> [--limit <n>]
 dfiles ai scan <path> [--dry-run]
+dfiles data
 dfiles upgrade [--check] [--force]
 dfiles telemetry [--enable] [--disable] [--note "<message>"]
 dfiles security-scan [--entropy]
@@ -114,6 +115,45 @@ present.
 | `exact` | Untracked files in destination directory are removed on apply |
 
 Files matching patterns in `config/ignore` are excluded from the list.
+
+---
+
+## `dfiles data`
+
+Show all template variables available in `.tmpl` files.
+
+```
+dfiles data
+```
+
+Prints built-in variables (os, hostname, username, etc.) and custom variables
+from the `[data]` section of `dfiles.toml`:
+
+```
+os         = macos
+hostname   = my-laptop
+username   = alice
+home_dir   = /Users/alice
+source_dir = /Users/alice/.local/share/dfiles
+
+data.host                = my-laptop
+data.kanata_path         = /usr/local/bin/kanata
+```
+
+Custom variables are defined in `dfiles.toml`:
+
+```toml
+[data]
+host = "my-laptop"
+kanata_path = "/usr/local/bin/kanata"
+```
+
+And used in `.tmpl` files:
+
+```
+export HOST={{ data.host }}
+{{ if data.host }}# host-specific config{% endif %}
+```
 
 ---
 

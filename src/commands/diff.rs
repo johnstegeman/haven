@@ -82,7 +82,8 @@ pub fn run(opts: &DiffOptions<'_>) -> Result<bool> {
         }
     };
 
-    let template_ctx = TemplateContext::from_env(opts.profile, opts.repo_root);
+    let config = DfilesConfig::load(opts.repo_root).unwrap_or_default();
+    let template_ctx = TemplateContext::from_env(opts.profile, opts.repo_root, config.data);
     let mut any_drift = false;
 
     // ── Files ─────────────────────────────────────────────────────────────────

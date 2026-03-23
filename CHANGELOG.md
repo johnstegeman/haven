@@ -53,6 +53,14 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `DFILES_VCS=jj` env var, or `[vcs] backend = "jj"` in `dfiles.toml`. On
   first use without a config, dfiles detects whether jj is on your PATH and
   prompts once. `dfiles vcs` shows the active backend and how it was resolved.
+- **`[data]` custom template variables** — define arbitrary string variables
+  in `dfiles.toml` under `[data]` (e.g. `host = "my-laptop"`). Available in all
+  `.tmpl` files as `{{ data.host }}`. `dfiles import --from chezmoi` automatically
+  migrates `.chezmoidata.yaml` / `.chezmoidata.toml` into `[data]` entries.
+  `dfiles data` prints all resolved variables.
+- **`dfiles data`** — show all template variables in scope: built-in variables
+  (`os`, `hostname`, `username`, `home_dir`, `source_dir`) and custom `[data]`
+  entries from `dfiles.toml`. Useful for debugging templates.
 - **`config/ignore` warning on `dfiles add`** — if a file being added matches
   an ignore pattern, the add is skipped with a clear message explaining how to
   remove the pattern.

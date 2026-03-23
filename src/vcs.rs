@@ -3,7 +3,7 @@
 /// Resolution order (first match wins):
 ///   1. `--vcs` CLI flag
 ///   2. `DFILES_VCS` env var
-///   3. `vcs.backend` in `dfiles.toml`
+///   3. `vcs.backend` in `haven.toml`
 ///   4. Interactive detection prompt (jj on PATH, nothing set)
 ///   5. Default: git
 ///
@@ -22,14 +22,14 @@ pub enum VcsBackend {
     Jj,
 }
 
-/// How the active backend was determined (for `dfiles vcs` display).
+/// How the active backend was determined (for `haven vcs` display).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VcsResolutionSource {
     /// `--vcs` CLI flag
     CliFlag,
     /// `DFILES_VCS` environment variable
     EnvVar,
-    /// `vcs.backend` in `dfiles.toml`
+    /// `vcs.backend` in `haven.toml`
     Config,
     /// jj detected on PATH, user chose via interactive prompt
     Detected,
@@ -41,7 +41,7 @@ pub enum VcsResolutionSource {
 pub struct ResolvedVcs {
     pub backend: VcsBackend,
     pub source: VcsResolutionSource,
-    /// When true the caller should persist `backend` to `dfiles.toml`.
+    /// When true the caller should persist `backend` to `haven.toml`.
     pub save_to_config: bool,
 }
 
@@ -52,9 +52,9 @@ pub enum VcsPromptResult {
     UseJj,
     /// Use git for this command only.
     UseGit,
-    /// Use jj and save `vcs.backend = "jj"` to `dfiles.toml`.
+    /// Use jj and save `vcs.backend = "jj"` to `haven.toml`.
     SaveJj,
-    /// Use git and save `vcs.backend = "git"` to `dfiles.toml`.
+    /// Use git and save `vcs.backend = "git"` to `haven.toml`.
     SaveGit,
     /// Abort — user will set config manually.
     Abort,
@@ -103,7 +103,7 @@ pub fn resolve_from_parts(
 pub fn resolve(
     cli_flag: Option<VcsBackend>,
     config_backend: Option<VcsBackend>,
-    repo_root: Option<&Path>, // None during `dfiles init` (config not yet written)
+    repo_root: Option<&Path>, // None during `haven init` (config not yet written)
 ) -> Result<Option<ResolvedVcs>> {
     let env_var = parse_vcs_env()?;
     let on_path = jj_on_path();
@@ -121,7 +121,7 @@ pub fn resolve(
 
     let resolved = resolve_from_parts(cli_flag, env_var, config_backend, on_path, prompt_result);
 
-    // If user chose to save, persist the choice to dfiles.toml.
+    // If user chose to save, persist the choice to haven.toml.
     if let Some(ref r) = resolved {
         if r.save_to_config {
             if let Some(root) = repo_root {
@@ -135,11 +135,11 @@ pub fn resolve(
 
 /// Parse the `DFILES_VCS` environment variable.
 fn parse_vcs_env() -> Result<Option<VcsBackend>> {
-    match std::env::var("DFILES_VCS") {
+    match std::env::var("HAVEN_VCS") {
         Ok(v) => match v.to_lowercase().as_str() {
             "jj" => Ok(Some(VcsBackend::Jj)),
             "git" => Ok(Some(VcsBackend::Git)),
-            other => bail!("DFILES_VCS: unknown value '{}'; use 'git' or 'jj'", other),
+            other => bail!("HAVEN_VCS: unknown value '{}'; use 'git' or 'jj'", other),
         },
         Err(_) => Ok(None),
     }
@@ -163,7 +163,7 @@ pub fn check_jj_installed() -> Result<()> {
         bail!(
             "vcs backend is set to 'jj' but jj is not installed or not on PATH.\n\
              Install jj (https://jj-vcs.github.io/jj/latest/install-and-setup/) or \
-             set vcs.backend = \"git\" in dfiles.toml."
+             set vcs.backend = \"git\" in haven.toml."
         );
     }
     Ok(())
@@ -179,13 +179,13 @@ pub fn check_jj_installed() -> Result<()> {
 fn prompt_vcs_backend() -> Result<VcsPromptResult> {
     println!("jj (Jujutsu) is installed but no VCS backend is configured.");
     println!();
-    println!("Which VCS should dfiles use for new repos and clones?");
+    println!("Which VCS should haven use for new repos and clones?");
     println!();
     println!("  j) Use jj this time");
     println!("  g) Use git this time");
-    println!("  J) Use jj and save to dfiles.toml  (vcs.backend = \"jj\")");
-    println!("  G) Use git and save to dfiles.toml (vcs.backend = \"git\")");
-    println!("  q) Abort — I'll set vcs.backend in dfiles.toml manually");
+    println!("  J) Use jj and save to haven.toml  (vcs.backend = \"jj\")");
+    println!("  G) Use git and save to haven.toml (vcs.backend = \"git\")");
+    println!("  q) Abort — I'll set vcs.backend in haven.toml manually");
     println!();
 
     loop {
@@ -207,10 +207,10 @@ fn prompt_vcs_backend() -> Result<VcsPromptResult> {
     }
 }
 
-/// Write `vcs.backend = "<backend>"` into `dfiles.toml`.
+/// Write `vcs.backend = "<backend>"` into `haven.toml`.
 /// Appends a `[vcs]` section if one doesn't already exist; updates in-place if it does.
 fn save_vcs_to_config(repo_root: &Path, backend: VcsBackend) -> Result<()> {
-    let path = repo_root.join("dfiles.toml");
+    let path = repo_root.join("haven.toml");
     if !path.exists() {
         // Config doesn't exist yet (init case) — nothing to save.
         return Ok(());
@@ -258,12 +258,12 @@ fn save_vcs_to_config(repo_root: &Path, backend: VcsBackend) -> Result<()> {
     std::fs::write(&path, updated)
         .with_context(|| format!("Cannot write {}", path.display()))?;
 
-    println!("  Saved vcs.backend = \"{}\" to dfiles.toml", value);
+    println!("  Saved vcs.backend = \"{}\" to haven.toml", value);
     Ok(())
 }
 
 fn in_vcs_section_backend_line(line: &str) -> bool {
-    // This is a simple heuristic — good enough for the well-structured toml dfiles writes.
+    // This is a simple heuristic — good enough for the well-structured toml haven writes.
     line.trim_start().starts_with("backend")
 }
 
@@ -408,7 +408,7 @@ pub fn ensure_colocated(dir: &Path, migrate_all: bool) -> Result<MigrateOutcome>
 
 // ─── Status display ───────────────────────────────────────────────────────────
 
-/// Print a summary of the active VCS backend for `dfiles vcs`.
+/// Print a summary of the active VCS backend for `haven vcs`.
 pub fn print_status(resolved: &ResolvedVcs, repo_root: &Path) {
     let backend_str = match resolved.backend {
         VcsBackend::Git => "git",
@@ -416,8 +416,8 @@ pub fn print_status(resolved: &ResolvedVcs, repo_root: &Path) {
     };
     let source_str = match resolved.source {
         VcsResolutionSource::CliFlag  => "  (set via --vcs flag)",
-        VcsResolutionSource::EnvVar   => "  (set via DFILES_VCS env var)",
-        VcsResolutionSource::Config   => "  (set in dfiles.toml [vcs])",
+        VcsResolutionSource::EnvVar   => "  (set via HAVEN_VCS env var)",
+        VcsResolutionSource::Config   => "  (set in haven.toml [vcs])",
         VcsResolutionSource::Detected => "  (detected — jj on PATH)",
         VcsResolutionSource::Default  => "  (default)",
     };
@@ -426,9 +426,9 @@ pub fn print_status(resolved: &ResolvedVcs, repo_root: &Path) {
     let jj_str = if jj_on_path() { "installed" } else { "not found" };
     println!("jj:          {}", jj_str);
 
-    let config_path = repo_root.join("dfiles.toml");
+    let config_path = repo_root.join("haven.toml");
     if config_path.exists() {
-        println!("dfiles.toml: {}", config_path.display());
+        println!("haven.toml: {}", config_path.display());
     }
 }
 

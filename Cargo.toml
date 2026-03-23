@@ -1,22 +1,22 @@
 [package]
-name = "dfiles"
-version = "0.3.0"
+name = "haven"
+version = "0.4.0"
 edition = "2021"
 description = "AI-first dotfiles & environment manager"
 license = "MIT"
-repository = "https://github.com/johnstegeman/dfiles"
-homepage = "https://github.com/johnstegeman/dfiles"
+repository = "https://github.com/johnstegeman/haven"
+homepage = "https://github.com/johnstegeman/haven"
 keywords = ["dotfiles", "cli", "ai", "devtools"]
 categories = ["command-line-utilities"]
 
 [[bin]]
-name = "dfiles"
+name = "haven"
 path = "src/main.rs"
 
 [features]
 # Enable telemetry by default in special distribution builds.
-# Normal builds have telemetry off by default; users opt in via dfiles.toml or
-# the DFILES_TELEMETRY environment variable.
+# Normal builds have telemetry off by default; users opt in via haven.toml or
+# the HAVEN_TELEMETRY environment variable.
 telemetry-default-on = []
 
 [dependencies]

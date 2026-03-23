@@ -1,7 +1,7 @@
 use anyhow::Result;
 use std::path::{Path, PathBuf};
 
-use crate::config::{sort_modules, DfilesConfig, ModuleConfig};
+use crate::config::{sort_modules, HavenConfig, ModuleConfig};
 use crate::config::module::expand_tilde;
 use crate::drift::{check_drift, check_drift_link, check_drift_link_template, check_drift_template, drift_marker, DriftKind};
 use crate::ignore::IgnoreList;
@@ -29,7 +29,7 @@ pub fn run(opts: &StatusOptions<'_>) -> Result<()> {
     let show_brews = opts.show_brews || none_specified;
     let show_ai    = opts.show_ai   || none_specified;
 
-    let config = DfilesConfig::load(opts.repo_root)?;
+    let config = HavenConfig::load(opts.repo_root)?;
     let modules = config.resolve_modules(opts.profile)?;
     let sorted = sort_modules(&modules);
 

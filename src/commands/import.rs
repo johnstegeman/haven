@@ -1,4 +1,4 @@
-/// `dfiles import --from chezmoi` — migrate a chezmoi source dir into dfiles format.
+/// `haven import --from chezmoi` — migrate a chezmoi source dir into haven format.
 ///
 /// Pipeline:
 ///
@@ -20,7 +20,7 @@ use anyhow::{Context, Result};
 use std::path::Path;
 
 use crate::chezmoi::{self, ChezmoiBrewfileEntry, ChezmoiEntry, ChezmoiExternalEntry, ChezmoiScriptEntry, ScriptMigration, ScriptWhen, SkippedEntry};
-use crate::config::dfiles::DfilesConfig;
+use crate::config::haven::HavenConfig;
 use crate::config::module::{expand_tilde, HomebrewConfig, MiseConfig, ModuleConfig};
 use crate::fs::copy_to_dest;
 use crate::source::extdir_source_path;
@@ -31,7 +31,7 @@ pub struct ImportOptions<'a> {
     pub source_dir: Option<&'a Path>,
     pub dry_run: bool,
     /// When true, import files that match `.chezmoiignore` patterns instead of skipping them.
-    /// The ignore patterns are still written to `config/ignore`, so `dfiles apply/status/diff`
+    /// The ignore patterns are still written to `config/ignore`, so `haven apply/status/diff`
     /// will continue to exclude those files.
     pub include_ignored_files: bool,
 }
@@ -200,7 +200,7 @@ fn print_dry_run_plan(chezmoi_source_dir: &std::path::Path, keeps: &[ChezmoiEntr
         if !data_vars.is_empty() {
             let mut keys: Vec<&String> = data_vars.keys().collect();
             keys.sort();
-            println!("Would add {} [data] variable(s) to dfiles.toml:", data_vars.len());
+            println!("Would add {} [data] variable(s) to haven.toml:", data_vars.len());
             for k in keys {
                 println!("  data.{} = {:?}", k, data_vars[k]);
             }
@@ -338,14 +338,14 @@ fn execute(opts: &ImportOptions<'_>, source_dir: &std::path::Path, keeps: &[Chez
         eprintln!("    warning (ignore): {}", w);
     }
 
-    // ── Write dfiles.toml if not already present ──────────────────────────────
-    let dfiles_toml = opts.repo_root.join("dfiles.toml");
-    if !dfiles_toml.exists() {
-        DfilesConfig::write_scaffold(opts.repo_root)?;
-        println!("  ✓  wrote dfiles.toml  (edit profiles to customise)");
+    // ── Write haven.toml if not already present ──────────────────────────────
+    let haven_toml = opts.repo_root.join("haven.toml");
+    if !haven_toml.exists() {
+        HavenConfig::write_scaffold(opts.repo_root)?;
+        println!("  ✓  wrote haven.toml  (edit profiles to customise)");
     }
 
-    // ── Import .chezmoidata.yaml / .chezmoidata.toml → [data] in dfiles.toml ──
+    // ── Import .chezmoidata.yaml / .chezmoidata.toml → [data] in haven.toml ──
     let data_vars = chezmoi::scan_data_file(&source_dir)?;
     if !data_vars.is_empty() {
         import_data_vars(opts.repo_root, &data_vars)?;
@@ -361,9 +361,9 @@ fn execute(opts: &ImportOptions<'_>, source_dir: &std::path::Path, keeps: &[Chez
         skips.iter().filter(|s| s.reason.display().is_some()).count(),
     );
     if !data_vars.is_empty() {
-        println!("  [data] {} custom variable(s) added to dfiles.toml", data_vars.len());
+        println!("  [data] {} custom variable(s) added to haven.toml", data_vars.len());
     }
-    println!("Run `dfiles apply` to deploy.");
+    println!("Run `haven apply` to deploy.");
 
     print_skip_table(skips);
 
@@ -415,7 +415,7 @@ fn emit_script_migrations(repo_root: &Path, scripts: &[ChezmoiScriptEntry]) -> R
 }
 
 /// Copy all detected scripts into `source/scripts/` so they can be executed
-/// by `dfiles apply --run-scripts`.
+/// by `haven apply --run-scripts`.
 ///
 /// Each script is stored under its original filename. Existing files are skipped
 /// (idempotent — same behaviour as regular source file import).
@@ -625,7 +625,7 @@ fn normalize_to_tilde(path: &str) -> String {
 /// to Tera, and write the result to `<repo_root>/config/ignore`.
 ///
 /// The resulting `config/ignore` file is a Tera template — it is rendered at
-/// runtime against the current machine context whenever `dfiles` loads it.
+/// runtime against the current machine context whenever `haven` loads it.
 /// This preserves conditional ignore patterns (e.g. OS-specific patterns).
 ///
 /// Returns a list of warnings for any expressions that could not be converted.
@@ -671,7 +671,7 @@ fn import_chezmoiignore(chezmoi_source_dir: &std::path::Path, repo_root: &std::p
     Ok(warnings)
 }
 
-/// Write custom data variables into the `[data]` section of `dfiles.toml` using
+/// Write custom data variables into the `[data]` section of `haven.toml` using
 /// `toml_edit` so existing formatting and comments are preserved.
 ///
 /// Keys that already exist are skipped (idempotent).
@@ -679,7 +679,7 @@ fn import_data_vars(
     repo_root: &Path,
     data_vars: &std::collections::HashMap<String, String>,
 ) -> Result<()> {
-    let path = repo_root.join("dfiles.toml");
+    let path = repo_root.join("haven.toml");
     let text = if path.exists() {
         std::fs::read_to_string(&path)
             .with_context(|| format!("Cannot read {}", path.display()))?
@@ -689,7 +689,7 @@ fn import_data_vars(
 
     let mut doc: toml_edit::DocumentMut = text
         .parse()
-        .context("dfiles.toml contains invalid TOML")?;
+        .context("haven.toml contains invalid TOML")?;
 
     let mut added = 0usize;
     let mut skipped = 0usize;
@@ -712,13 +712,13 @@ fn import_data_vars(
         std::fs::write(&path, doc.to_string())
             .with_context(|| format!("Cannot write {}", path.display()))?;
         println!(
-            "  ✓  .chezmoidata  →  [data] in dfiles.toml  ({} variable(s) added{})",
+            "  ✓  .chezmoidata  →  [data] in haven.toml  ({} variable(s) added{})",
             added,
             if skipped > 0 { format!(", {} already present", skipped) } else { String::new() },
         );
     } else if skipped > 0 {
         println!(
-            "  ~ [data] variables already present in dfiles.toml — skipped ({} key(s))",
+            "  ~ [data] variables already present in haven.toml — skipped ({} key(s))",
             skipped,
         );
     }

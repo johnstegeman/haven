@@ -3,9 +3,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-/// Root config: `dfiles.toml` in the repo root.
+/// Root config: `haven.toml` in the repo root.
 #[derive(Debug, Deserialize, Serialize, Default)]
-pub struct DfilesConfig {
+pub struct HavenConfig {
     #[serde(default)]
     pub profile: HashMap<String, ProfileConfig>,
 
@@ -34,7 +34,7 @@ pub struct DfilesConfig {
     pub data: HashMap<String, String>,
 }
 
-/// Security settings in `dfiles.toml`.
+/// Security settings in `haven.toml`.
 ///
 /// ```toml
 /// [security]
@@ -47,7 +47,7 @@ pub struct SecurityConfig {
     pub allow: Vec<String>,
 }
 
-/// VCS settings in `dfiles.toml`.
+/// VCS settings in `haven.toml`.
 ///
 /// ```toml
 /// [vcs]
@@ -56,11 +56,11 @@ pub struct SecurityConfig {
 #[derive(Debug, Deserialize, Serialize, Default)]
 pub struct VcsConfig {
     /// VCS backend: "git" (default) or "jj" (Jujutsu colocated).
-    /// Can also be set via `--vcs` CLI flag or `DFILES_VCS` env var.
+    /// Can also be set via `--vcs` CLI flag or `HAVEN_VCS` env var.
     pub backend: Option<String>,
 }
 
-/// Telemetry settings in `dfiles.toml`.
+/// Telemetry settings in `haven.toml`.
 ///
 /// ```toml
 /// [telemetry]
@@ -69,7 +69,7 @@ pub struct VcsConfig {
 #[derive(Debug, Deserialize, Serialize, Default)]
 pub struct TelemetryConfig {
     /// Enable local telemetry. Defaults to false.
-    /// Can also be enabled via the `DFILES_TELEMETRY=1` environment variable,
+    /// Can also be enabled via the `HAVEN_TELEMETRY=1` environment variable,
     /// or at compile time with the `telemetry-default-on` Cargo feature.
     #[serde(default)]
     pub enabled: bool,
@@ -86,12 +86,12 @@ pub struct ProfileConfig {
     pub extends: Option<String>,
 }
 
-impl DfilesConfig {
+impl HavenConfig {
     pub fn load(repo_root: &Path) -> Result<Self> {
-        let path = repo_root.join("dfiles.toml");
+        let path = repo_root.join("haven.toml");
         if !path.exists() {
-            // No dfiles.toml yet — auto-discover modules from modules/*.toml
-            // so that `dfiles apply` works on a freshly-imported repo.
+            // No haven.toml yet — auto-discover modules from modules/*.toml
+            // so that `haven apply` works on a freshly-imported repo.
             return Self::discover(repo_root);
         }
         let text = std::fs::read_to_string(&path)
@@ -102,7 +102,7 @@ impl DfilesConfig {
     }
 
     /// Build a config from whatever module TOML files exist in `modules/`.
-    /// Used as a fallback when `dfiles.toml` hasn't been created yet.
+    /// Used as a fallback when `haven.toml` hasn't been created yet.
     fn discover(repo_root: &Path) -> Result<Self> {
         let modules_dir = repo_root.join("modules");
         let mut modules: Vec<String> = Vec::new();
@@ -121,7 +121,7 @@ impl DfilesConfig {
             modules.sort();
         }
         eprintln!(
-            "note: dfiles.toml not found — applying all discovered modules: {}",
+            "note: haven.toml not found — applying all discovered modules: {}",
             if modules.is_empty() { "(none)".to_string() } else { modules.join(", ") }
         );
         let mut profile = HashMap::new();
@@ -151,7 +151,7 @@ impl DfilesConfig {
         let profile = self
             .profile
             .get(name)
-            .with_context(|| format!("Profile '{}' not found in dfiles.toml", name))?;
+            .with_context(|| format!("Profile '{}' not found in haven.toml", name))?;
 
         // Apply parent first, then override with this profile's modules.
         if let Some(parent) = &profile.extends {
@@ -166,11 +166,11 @@ impl DfilesConfig {
         Ok(())
     }
 
-    /// Write a fresh dfiles.toml scaffold.
+    /// Write a fresh haven.toml scaffold.
     pub fn write_scaffold(repo_root: &Path) -> Result<()> {
-        let path = repo_root.join("dfiles.toml");
-        let scaffold = r#"# dfiles configuration
-# Run `dfiles help` for usage.
+        let path = repo_root.join("haven.toml");
+        let scaffold = r#"# haven configuration
+# Run `haven help` for usage.
 
 [profile.default]
 modules = ["shell"]
@@ -192,30 +192,30 @@ modules = []
     }
 }
 
-/// Canonical path of the dfiles repo root.
+/// Canonical path of the haven repo root.
 ///
 /// Resolution order (first match wins):
-/// 1. `$DFILES_DIR` env var (explicit override)
-/// 2. `~/dfiles` if it contains a dfiles repo (backward-compatible migration path)
-/// 3. `$XDG_DATA_HOME/dfiles` if `$XDG_DATA_HOME` is set
-/// 4. `~/.local/share/dfiles` (XDG default — same convention as chezmoi)
+/// 1. `$HAVEN_DIR` env var (explicit override)
+/// 2. `~/haven` if it contains a haven repo (backward-compatible migration path)
+/// 3. `$XDG_DATA_HOME/haven` if `$XDG_DATA_HOME` is set
+/// 4. `~/.local/share/haven` (XDG default — same convention as chezmoi)
 ///
-/// Use `dfiles source-path` to print the resolved path.
+/// Use `haven source-path` to print the resolved path.
 pub fn repo_root() -> Result<PathBuf> {
-    if let Ok(dir) = std::env::var("DFILES_DIR") {
+    if let Ok(dir) = std::env::var("HAVEN_DIR") {
         return Ok(PathBuf::from(dir));
     }
     let home = dirs::home_dir().context("Cannot determine home directory")?;
 
-    // Migration: honour ~/dfiles if it already contains a dfiles repo.
-    let legacy = home.join("dfiles");
-    if legacy.join("dfiles.toml").exists() || legacy.join("source").exists() {
+    // Migration: honour ~/haven if it already contains a haven repo.
+    let legacy = home.join("haven");
+    if legacy.join("haven.toml").exists() || legacy.join("source").exists() {
         return Ok(legacy);
     }
 
-    // XDG Data Home: $XDG_DATA_HOME/dfiles or ~/.local/share/dfiles.
+    // XDG Data Home: $XDG_DATA_HOME/haven or ~/.local/share/haven.
     let xdg_data = std::env::var("XDG_DATA_HOME")
         .map(PathBuf::from)
         .unwrap_or_else(|_| home.join(".local").join("share"));
-    Ok(xdg_data.join("dfiles"))
+    Ok(xdg_data.join("haven"))
 }

@@ -22,7 +22,7 @@ use std::path::{Path, PathBuf};
 use crate::ai_platform::{PlatformPlugin, PlatformsConfig};
 use crate::ai_skill::{SkillDeclaration, SkillSource, SkillsConfig};
 use crate::github::GhSource;
-use crate::config::{sort_modules, DfilesConfig, ModuleConfig};
+use crate::config::{sort_modules, HavenConfig, ModuleConfig};
 use crate::vcs::{self, MigrateOutcome, VcsBackend};
 use crate::config::module::expand_tilde;
 use crate::fs::{apply_permissions, backup_file, copy_to_dest, write_to_dest};
@@ -67,7 +67,7 @@ pub struct ApplyOptions<'a> {
     pub vcs_backend: VcsBackend,
 }
 
-/// RAII guard that holds `~/.dfiles/apply.lock` for the duration of apply.
+/// RAII guard that holds `~/.haven/apply.lock` for the duration of apply.
 struct ApplyLock {
     path: PathBuf,
 }
@@ -89,7 +89,7 @@ impl ApplyLock {
                     };
                 if alive {
                     bail!(
-                        "dfiles apply is already running (PID {}). \
+                        "haven apply is already running (PID {}). \
                          If this is wrong, delete {}",
                         pid,
                         path.display()
@@ -113,14 +113,14 @@ impl Drop for ApplyLock {
 }
 
 pub fn run(opts: &ApplyOptions<'_>) -> Result<()> {
-    // Prevent two simultaneous `dfiles apply` runs from racing on state.json.
+    // Prevent two simultaneous `haven apply` runs from racing on state.json.
     let _lock = if !opts.dry_run {
         Some(ApplyLock::acquire(opts.state_dir)?)
     } else {
         None
     };
 
-    let config = DfilesConfig::load(opts.repo_root).unwrap_or_default();
+    let config = HavenConfig::load(opts.repo_root).unwrap_or_default();
     let template_ctx = TemplateContext::from_env(opts.profile, opts.repo_root, config.data);
     let source_dir = opts.repo_root.join("source");
 
@@ -177,7 +177,7 @@ pub fn run(opts: &ApplyOptions<'_>) -> Result<()> {
     // ── 2. Apply module brew / AI / mise / externals ─────────────────────────
     let modules_to_apply: Vec<String> = match opts.module_filter {
         Some(m) => vec![m.to_string()],
-        None => DfilesConfig::load(opts.repo_root)?.resolve_modules(opts.profile)
+        None => HavenConfig::load(opts.repo_root)?.resolve_modules(opts.profile)
             .unwrap_or_default(),
     };
     let sorted = sort_modules(&modules_to_apply);
@@ -283,7 +283,7 @@ pub fn run(opts: &ApplyOptions<'_>) -> Result<()> {
     if !opts.dry_run {
         if !lock.sources.is_empty() || !lock.skill.is_empty() {
             if let Err(e) = lock.save(opts.repo_root) {
-                eprintln!("warning: Could not write dfiles.lock: {}", e);
+                eprintln!("warning: Could not write haven.lock: {}", e);
             }
         }
         // Inject skill snippets into platform config files (e.g. CLAUDE.md).
@@ -811,7 +811,7 @@ fn apply_ai_skills(
     // Collect existing deployed state so we can check ownership.
     let mut ai_state = state.ai.clone().unwrap_or_default();
 
-    // Build the set of paths currently owned by dfiles (for collision check).
+    // Build the set of paths currently owned by haven (for collision check).
     let owned_targets: HashSet<PathBuf> = ai_state
         .deployed_skills
         .values()

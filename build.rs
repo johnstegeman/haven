@@ -5,7 +5,7 @@
 /// (e.g. a clean source tarball).
 fn main() {
     let hash = git_short_hash().unwrap_or_else(|| "unknown".to_string());
-    println!("cargo:rustc-env=DFILES_GIT_COMMIT={}", hash);
+    println!("cargo:rustc-env=HAVEN_GIT_COMMIT={}", hash);
 
     // Re-run whenever HEAD changes (new commit, branch switch).
     println!("cargo:rerun-if-changed=.git/HEAD");

@@ -1,11 +1,11 @@
-/// Self-update: download the latest dfiles binary from GitHub releases.
+/// Self-update: download the latest haven binary from GitHub releases.
 ///
 /// Workflow:
 ///   1. Query the GitHub releases API for the latest tag.
 ///   2. Compare to the current binary's version (`CARGO_PKG_VERSION`).
 ///   3. Download the platform-specific tarball + SHA256SUMS.
 ///   4. Verify the checksum.
-///   5. Extract the `dfiles` binary, write to a sibling temp file, and atomically
+///   5. Extract the `haven` binary, write to a sibling temp file, and atomically
 ///      rename it over the current executable.
 use anyhow::{Context, Result};
 use sha2::{Digest, Sha256};
@@ -19,13 +19,13 @@ pub struct UpgradeOptions {
     pub force: bool,
 }
 
-const REPO: &str = "johnstegeman/dfiles";
+const REPO: &str = "johnstegeman/haven";
 const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Return the target triple for the current binary at compile time.
 ///
 /// Must match the filenames produced by the release workflow (e.g.
-/// `dfiles-v0.3.0-aarch64-apple-darwin.tar.gz`).
+/// `haven-v0.3.0-aarch64-apple-darwin.tar.gz`).
 fn current_target() -> &'static str {
     if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
         "aarch64-apple-darwin"
@@ -50,7 +50,7 @@ fn fetch_latest_version() -> Result<String> {
     let resp = ureq::get(&url)
         .set(
             "User-Agent",
-            "dfiles/0.1 (+https://github.com/dfiles-sh/dfiles)",
+            "haven/0.1 (+https://github.com/johnstegeman/haven)",
         )
         .set("Accept", "application/vnd.github+json")
         .call()
@@ -75,7 +75,7 @@ fn download_bytes(url: &str) -> Result<Vec<u8>> {
     let resp = ureq::get(url)
         .set(
             "User-Agent",
-            "dfiles/0.1 (+https://github.com/dfiles-sh/dfiles)",
+            "haven/0.1 (+https://github.com/johnstegeman/haven)",
         )
         .call()
         .with_context(|| format!("HTTP download failed: {}", url))?;
@@ -104,7 +104,7 @@ fn verify_sha256(bytes: &[u8], shasums: &str, filename: &str) -> Result<()> {
 
     // Find the matching line in SHA256SUMS.
     for line in shasums.lines() {
-        // Lines look like: "abc123...  dfiles-v0.3.0-aarch64-apple-darwin.tar.gz"
+        // Lines look like: "abc123...  haven-v0.3.0-aarch64-apple-darwin.tar.gz"
         // (two spaces between hash and filename, per sha256sum convention)
         let Some((expected_hex, name)) = line.split_once("  ") else {
             continue;
@@ -129,7 +129,7 @@ fn verify_sha256(bytes: &[u8], shasums: &str, filename: &str) -> Result<()> {
     )
 }
 
-/// Extract the `dfiles` binary from a `.tar.gz` archive and write it to `dest`.
+/// Extract the `haven` binary from a `.tar.gz` archive and write it to `dest`.
 ///
 /// The binary may be at the archive root or one level deep (depending on how
 /// the release tarball is structured). The file is made executable on Unix.
@@ -150,7 +150,7 @@ fn extract_binary(tarball: &[u8], dest: &std::path::Path) -> Result<()> {
         let is_binary = path
             .file_name()
             .and_then(|n| n.to_str())
-            .map(|n| n == "dfiles")
+            .map(|n| n == "haven")
             .unwrap_or(false);
 
         if is_binary && entry_type.is_file() {
@@ -180,7 +180,7 @@ fn extract_binary(tarball: &[u8], dest: &std::path::Path) -> Result<()> {
     }
 
     anyhow::bail!(
-        "Could not find a 'dfiles' binary inside the release archive. \
+        "Could not find a 'haven' binary inside the release archive. \
          The archive may be malformed or for the wrong platform."
     )
 }
@@ -204,7 +204,7 @@ pub fn run(opts: &UpgradeOptions) -> Result<()> {
     // --check: report availability and exit without installing.
     if opts.check_only {
         if current == latest {
-            println!("dfiles v{} is up to date.", current);
+            println!("haven v{} is up to date.", current);
         } else {
             println!("Update available: v{} → v{}", current, latest);
             std::process::exit(1);
@@ -217,9 +217,9 @@ pub fn run(opts: &UpgradeOptions) -> Result<()> {
         return Ok(());
     }
 
-    println!("Upgrading dfiles v{} → v{}...", current, latest);
+    println!("Upgrading haven v{} → v{}...", current, latest);
 
-    let archive_name = format!("dfiles-v{}-{}.tar.gz", latest, target);
+    let archive_name = format!("haven-v{}-{}.tar.gz", latest, target);
     let base_url = format!(
         "https://github.com/{}/releases/download/v{}",
         REPO, latest
@@ -260,7 +260,7 @@ pub fn run(opts: &UpgradeOptions) -> Result<()> {
         )
     })?;
 
-    println!("dfiles upgraded to v{}.", latest);
+    println!("haven upgraded to v{}.", latest);
     Ok(())
 }
 
@@ -270,26 +270,26 @@ mod tests {
 
     #[test]
     fn verify_sha256_passes_for_matching_hash() {
-        let data = b"hello dfiles";
+        let data = b"hello haven";
         let mut hasher = Sha256::new();
         hasher.update(data);
         let hex: String = hasher.finalize().iter().map(|b| format!("{:02x}", b)).collect();
-        let shasums = format!("{}  dfiles-test.tar.gz\n", hex);
-        assert!(verify_sha256(data, &shasums, "dfiles-test.tar.gz").is_ok());
+        let shasums = format!("{}  haven-test.tar.gz\n", hex);
+        assert!(verify_sha256(data, &shasums, "haven-test.tar.gz").is_ok());
     }
 
     #[test]
     fn verify_sha256_rejects_wrong_hash() {
-        let data = b"hello dfiles";
-        let shasums = "0000000000000000000000000000000000000000000000000000000000000000  dfiles-test.tar.gz\n";
-        assert!(verify_sha256(data, shasums, "dfiles-test.tar.gz").is_err());
+        let data = b"hello haven";
+        let shasums = "0000000000000000000000000000000000000000000000000000000000000000  haven-test.tar.gz\n";
+        assert!(verify_sha256(data, shasums, "haven-test.tar.gz").is_err());
     }
 
     #[test]
     fn verify_sha256_errors_when_filename_missing() {
-        let data = b"hello dfiles";
+        let data = b"hello haven";
         let shasums = "abc123  other-file.tar.gz\n";
-        let err = verify_sha256(data, shasums, "dfiles-test.tar.gz").unwrap_err();
+        let err = verify_sha256(data, shasums, "haven-test.tar.gz").unwrap_err();
         assert!(err.to_string().contains("does not contain an entry for"));
     }
 

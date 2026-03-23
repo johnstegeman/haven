@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-/// Written to `~/.dfiles/state.json` after every successful apply.
-/// Used by `dfiles status`, `dfiles diff`, and the future web dashboard.
+/// Written to `~/.haven/state.json` after every successful apply.
+/// Used by `haven status`, `haven diff`, and the future web dashboard.
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct State {
     pub version: String,
@@ -34,7 +34,7 @@ pub struct ModuleState {
     pub files: usize,
 }
 
-/// Tracks which skills dfiles has deployed to which platforms.
+/// Tracks which skills haven has deployed to which platforms.
 ///
 /// Written as the `"ai"` key in state.json. Old state files that lack this key
 /// deserialize fine thanks to `#[serde(default)]` on `State::ai`.

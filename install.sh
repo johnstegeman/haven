@@ -1,8 +1,8 @@
 #!/bin/sh
-# dfiles installer
+# haven installer
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/johnstegeman/dfiles/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/johnstegeman/haven/main/install.sh | sh
 #
 # The installer:
 #   1. Detects your OS and CPU architecture
@@ -12,8 +12,8 @@
 #
 set -eu
 
-REPO="johnstegeman/dfiles"
-BINARY="dfiles"
+REPO="johnstegeman/haven"
+BINARY="haven"
 
 # ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -47,7 +47,7 @@ detect_os() {
     case "$os" in
         Darwin) echo "darwin" ;;
         Linux)  echo "linux"  ;;
-        *)      die "Unsupported OS: $os. dfiles supports macOS and Linux." ;;
+        *)      die "Unsupported OS: $os. haven supports macOS and Linux." ;;
     esac
 }
 
@@ -160,11 +160,11 @@ main() {
     TARGET="$(build_target "$OS" "$ARCH")"
 
     VERSION="${VERSION:-$(latest_version)}"
-    info "Installing dfiles ${VERSION} for ${OS}/${ARCH} (${TARGET})"
+    info "Installing haven ${VERSION} for ${OS}/${ARCH} (${TARGET})"
 
     BASE_URL="https://github.com/${REPO}/releases/download/${VERSION}"
-    ARCHIVE="dfiles-${VERSION}-${TARGET}.tar.gz"
-    SUMS="dfiles-${VERSION}-SHA256SUMS"
+    ARCHIVE="haven-${VERSION}-${TARGET}.tar.gz"
+    SUMS="haven-${VERSION}-SHA256SUMS"
 
     # Download to a temp directory
     TMPDIR="$(mktemp -d)"

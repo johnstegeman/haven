@@ -2,7 +2,7 @@
 ///
 /// Data flow:
 ///
-///   dfiles diff
+///   haven diff
 ///        │
 ///        ├── [files]   (gated: source::scan only runs when diff_files=true)
 ///        │     │
@@ -30,7 +30,7 @@ use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 
 use crate::ai_skill::{SkillSource, SkillsConfig};
-use crate::config::{sort_modules, DfilesConfig, ModuleConfig};
+use crate::config::{sort_modules, HavenConfig, ModuleConfig};
 use crate::config::module::expand_tilde;
 use crate::diff_util::{colorize_diff, stat_line, unified_diff};
 use crate::drift::{check_drift, check_drift_link, check_drift_link_template, check_drift_template, DriftKind};
@@ -55,7 +55,7 @@ pub struct DiffOptions<'a> {
     pub repo_root: &'a Path,
     /// Where live files reside. `/` in production; temp dir in tests.
     pub dest_root: &'a Path,
-    /// `~/.dfiles` — used to find the skill cache for AI version drift checks.
+    /// `~/.haven` — used to find the skill cache for AI version drift checks.
     pub state_dir: &'a Path,
     pub profile: &'a str,
     /// When set, scope brew/AI diff to this module only.
@@ -82,7 +82,7 @@ pub fn run(opts: &DiffOptions<'_>) -> Result<bool> {
         }
     };
 
-    let config = DfilesConfig::load(opts.repo_root).unwrap_or_default();
+    let config = HavenConfig::load(opts.repo_root).unwrap_or_default();
     let template_ctx = TemplateContext::from_env(opts.profile, opts.repo_root, config.data);
     let mut any_drift = false;
 
@@ -284,7 +284,7 @@ pub fn run(opts: &DiffOptions<'_>) -> Result<bool> {
     if opts.diff_brews {
         let modules_to_check: Vec<String> = match opts.module_filter {
             Some(m) => vec![m.to_string()],
-            None => DfilesConfig::load(opts.repo_root)?
+            None => HavenConfig::load(opts.repo_root)?
                 .resolve_modules(opts.profile)
                 .unwrap_or_default(),
         };
@@ -342,7 +342,7 @@ pub fn run(opts: &DiffOptions<'_>) -> Result<bool> {
                 };
                 let gh = match source {
                     SkillSource::Repo => {
-                        // repo: skills are embedded in the dfiles repo.
+                        // repo: skills are embedded in the haven repo.
                         // Check for uncommitted changes in the files/ subdir.
                         let files_path = opts
                             .repo_root
@@ -487,10 +487,10 @@ fn read_text_or_notice(
 
 // ─── AI skill helpers ─────────────────────────────────────────────────────────
 
-/// Read the `.dfiles-sha` file from a skill cache directory.
+/// Read the `.haven-sha` file from a skill cache directory.
 /// Returns `None` if the directory doesn't exist or the file is unreadable.
 fn read_cache_sha(cache_path: &Path) -> Option<String> {
-    let sha_file = cache_path.join(".dfiles-sha");
+    let sha_file = cache_path.join(".haven-sha");
     std::fs::read_to_string(&sha_file)
         .ok()
         .map(|s| s.trim().to_string())

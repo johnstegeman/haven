@@ -1,5 +1,5 @@
-pub mod dfiles;
+pub mod haven;
 pub mod module;
 
-pub use dfiles::DfilesConfig;
+pub use haven::HavenConfig;
 pub use module::{sort_modules, ModuleConfig};

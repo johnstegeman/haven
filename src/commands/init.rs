@@ -2,7 +2,7 @@ use anyhow::{bail, Context, Result};
 use std::path::Path;
 
 use crate::commands::apply;
-use crate::config::DfilesConfig;
+use crate::config::HavenConfig;
 use crate::github::GhSource;
 use crate::vcs::{self, VcsBackend};
 
@@ -30,8 +30,8 @@ pub fn run(opts: &InitOptions<'_>) -> Result<()> {
     if (opts.apply || opts.profile.is_some()) && opts.source.is_none() {
         bail!(
             "--apply requires a source.\n\
-             Use: dfiles init <source> --apply\n\
-             To apply an existing local repo, run: dfiles apply"
+             Use: haven init <source> --apply\n\
+             To apply an existing local repo, run: haven apply"
         );
     }
 
@@ -98,11 +98,11 @@ fn run_from_source(opts: &InitOptions<'_>, source_str: &str) -> Result<()> {
 
     // Optionally apply.
     if opts.apply {
-        if !repo_root.join("dfiles.toml").exists() {
+        if !repo_root.join("haven.toml").exists() {
             bail!(
-                "Cloned repo does not contain a dfiles.toml — this does not appear to be a \
-                 dfiles repository.\n\
-                 Cannot apply. Run `dfiles init` in that directory to scaffold one, or \
+                "Cloned repo does not contain a haven.toml — this does not appear to be a \
+                 haven repository.\n\
+                 Cannot apply. Run `haven init` in that directory to scaffold one, or \
                  choose a different source."
             );
         }
@@ -129,27 +129,27 @@ fn run_from_source(opts: &InitOptions<'_>, source_str: &str) -> Result<()> {
         })?;
 
         println!("\nNext steps:");
-        println!("  dfiles status          # verify what was applied");
-        println!("  dfiles add ~/.zshrc    # start tracking more files");
+        println!("  haven status          # verify what was applied");
+        println!("  haven add ~/.zshrc    # start tracking more files");
     } else {
         println!("\nNext steps:");
-        println!("  dfiles apply           # apply config to this machine");
-        println!("  dfiles add ~/.zshrc    # start tracking a new dotfile");
+        println!("  haven apply           # apply config to this machine");
+        println!("  haven add ~/.zshrc    # start tracking a new dotfile");
     }
 
     Ok(())
 }
 
-/// Create a blank dfiles scaffold at `repo_root`. Refuses if already initialized.
+/// Create a blank haven scaffold at `repo_root`. Refuses if already initialized.
 fn run_scaffold(repo_root: &Path) -> Result<()> {
     // Already initialized — nothing to do.
-    if repo_root.join("dfiles.toml").exists() {
+    if repo_root.join("haven.toml").exists() {
         println!(
             "{} is already initialized.",
             repo_root.display()
         );
         println!();
-        println!("To apply your config to this machine, run: dfiles apply");
+        println!("To apply your config to this machine, run: haven apply");
         return Ok(());
     }
 
@@ -164,7 +164,7 @@ fn run_scaffold(repo_root: &Path) -> Result<()> {
         // Not under version control — remind the user.
         eprintln!(
             "hint: {} is not a git/jj repository.\n\
-             hint: Run `git init` or `jj git init --colocate` to track your dfiles config.",
+             hint: Run `git init` or `jj git init --colocate` to track your haven config.",
             repo_root.display()
         );
     }
@@ -177,14 +177,14 @@ fn run_scaffold(repo_root: &Path) -> Result<()> {
     std::fs::create_dir_all(repo_root.join("brew"))
         .context("Cannot create brew/")?;
 
-    // Write dfiles.toml.
-    DfilesConfig::write_scaffold(repo_root)?;
+    // Write haven.toml.
+    HavenConfig::write_scaffold(repo_root)?;
 
     // Write a starter shell module — brew and AI config only.
     // Files are tracked by placing them in source/ with magic-name encoding,
     // so no [[files]] section is needed.
     let shell_toml = r#"# Shell module — brew packages and AI tools for this machine.
-# Add Homebrew packages via: dfiles brew install <name> --module shell
+# Add Homebrew packages via: haven brew install <name> --module shell
 # Add AI skills/commands:
 #
 # [ai]
@@ -201,17 +201,17 @@ fn run_scaffold(repo_root: &Path) -> Result<()> {
     .context("Cannot write modules/shell.toml")?;
 
     // Write .gitignore (never commit state files).
-    let gitignore = "# dfiles runtime files — do not commit\n.dfiles/\n";
+    let gitignore = "# haven runtime files — do not commit\n.haven/\n";
     let gi_path = repo_root.join(".gitignore");
     if !gi_path.exists() {
         std::fs::write(&gi_path, gitignore).context("Cannot write .gitignore")?;
     }
 
-    println!("Initialized dfiles repo at {}", repo_root.display());
+    println!("Initialized haven repo at {}", repo_root.display());
     println!();
     println!("Next steps:");
-    println!("  dfiles add ~/.zshrc              # start tracking a dotfile");
-    println!("  dfiles brew install ripgrep      # track a Homebrew package");
-    println!("  dfiles apply                     # apply config to this machine");
+    println!("  haven add ~/.zshrc              # start tracking a dotfile");
+    println!("  haven brew install ripgrep      # track a Homebrew package");
+    println!("  haven apply                     # apply config to this machine");
     Ok(())
 }

@@ -23,7 +23,7 @@
 /// deploy   = "symlink"
 /// ```
 ///
-/// For locally-developed skills imported via `dfiles ai add-local`, the source
+/// For locally-developed skills imported via `haven ai add-local`, the source
 /// is `"repo:"` and the skill files live in `ai/skills/<name>/files/`:
 ///
 /// ```
@@ -48,10 +48,10 @@ use crate::github::GhSource;
 pub enum SkillSource {
     Gh(GhSource),
     Dir(PathBuf),
-    /// Skill content is embedded in the dfiles repo at `ai/skills/<name>/files/`.
+    /// Skill content is embedded in the haven repo at `ai/skills/<name>/files/`.
     ///
     /// The resolved path is `<repo_root>/ai/skills/<name>/files/`, where `<name>`
-    /// comes from the skill declaration's directory name. Use `dfiles ai add-local`
+    /// comes from the skill declaration's directory name. Use `haven ai add-local`
     /// to import a local skill into the repo.
     Repo,
 }
@@ -230,7 +230,7 @@ impl SkillsConfig {
 ///
 /// If `target` already exists and its path is NOT in `owned_targets`, emits a
 /// warning and returns `Ok(false)` — the skill is skipped to avoid clobbering
-/// files not managed by dfiles.
+/// files not managed by haven.
 ///
 /// Returns `Ok(true)` on successful deploy, `Ok(false)` on skip.
 pub fn deploy_skill(
@@ -244,11 +244,11 @@ pub fn deploy_skill(
             .with_context(|| format!("Cannot create parent dir {}", parent.display()))?;
     }
 
-    // Collision check: exists but not owned by dfiles → warn + skip.
+    // Collision check: exists but not owned by haven → warn + skip.
     if (target.exists() || target.is_symlink()) && !owned_targets.contains(target) {
         eprintln!(
-            "warning: skill target '{}' already exists and is not managed by dfiles — skipping.\n\
-             Remove it manually or run `dfiles ai remove-skill` to take ownership.",
+            "warning: skill target '{}' already exists and is not managed by haven — skipping.\n\
+             Remove it manually or run `haven ai remove-skill` to take ownership.",
             target.display()
         );
         return Ok(false);
@@ -543,7 +543,7 @@ deploy   = "copy"
         let target = dir.path().join("skills").join("test-skill");
         std::fs::create_dir_all(&target).unwrap();
 
-        // Mark target as owned by dfiles.
+        // Mark target as owned by haven.
         let mut owned = HashSet::new();
         owned.insert(target.clone());
 

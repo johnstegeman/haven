@@ -1,14 +1,14 @@
 /// Skill cache management for AI skills.
 ///
-/// Skills are fetched from their sources and stored in `~/.dfiles/skills/`
+/// Skills are fetched from their sources and stored in `~/.haven/skills/`
 /// using a path-safe cache key (`{owner}--{repo}[--{subpath}]`).
 ///
 /// ```
-/// ~/.dfiles/skills/
+/// ~/.haven/skills/
 ///   anthropics--skills--pdf-processing/   # gh:anthropics/skills/pdf-processing
 ///     SKILL.md
 ///     main.sh
-///     .dfiles-sha                         # SHA of the fetched version
+///     .haven-sha                         # SHA of the fetched version
 ///   vercel-labs--skills--find-skills/     # gh:vercel-labs/skills/find-skills
 ///     ...
 /// ```
@@ -19,8 +19,8 @@
 ///   3. Both paths produce the same cache layout.
 ///
 /// Cache validation:
-///   - The lock file (`dfiles.lock`) stores the SHA for each skill source.
-///   - The `.dfiles-sha` file inside the cache dir stores the SHA that was
+///   - The lock file (`haven.lock`) stores the SHA for each skill source.
+///   - The `.haven-sha` file inside the cache dir stores the SHA that was
 ///     used when that cache dir was populated.
 ///   - Cache hit: both SHAs present and equal → skip network.
 ///   - Cache miss / SHA mismatch: re-fetch and update both SHAs.
@@ -31,7 +31,7 @@ use std::path::{Path, PathBuf};
 use crate::github::GhSource;
 use crate::lock::LockFile;
 
-/// Manages the skill cache at `~/.dfiles/skills/`.
+/// Manages the skill cache at `~/.haven/skills/`.
 pub struct SkillCache {
     /// Root of the cache: `{state_dir}/skills/`.
     cache_dir: PathBuf,
@@ -67,7 +67,7 @@ impl SkillCache {
                 if cached_sha == lsha {
                     return Ok(cached_sha.clone());
                 }
-                // SHA mismatch: lock was updated (e.g. by `dfiles ai update`).
+                // SHA mismatch: lock was updated (e.g. by `haven ai update`).
                 // Fall through to re-fetch.
             }
         }
@@ -79,7 +79,7 @@ impl SkillCache {
     }
 
     /// Return the SHA stored in the local cache for `source`, or `None` if the
-    /// cache dir does not exist or has no `.dfiles-sha` file.
+    /// cache dir does not exist or has no `.haven-sha` file.
     ///
     /// Used by the parallel fetch path to check for cache hits before spawning
     /// threads, so the check can happen without holding a `&mut LockFile`.
@@ -88,7 +88,7 @@ impl SkillCache {
     }
 
     /// Fetch `source` into the local cache, verify the SHA against
-    /// `expected_sha` if provided, write `.dfiles-sha`, and return the SHA.
+    /// `expected_sha` if provided, write `.haven-sha`, and return the SHA.
     ///
     /// Does **not** read or update the lock file — the caller is responsible
     /// for recording the new SHA in the lock after a successful fetch.
@@ -124,7 +124,7 @@ impl SkillCache {
                     "SHA mismatch for {} — fetched {:.16}, expected {:.16}\n\
                      Content has changed since the lock was last recorded.\n\
                      This may indicate a supply chain attack or an unpinned ref being updated.\n\
-                     Run `dfiles ai update {}` to review and accept the new version.",
+                     Run `haven ai update {}` to review and accept the new version.",
                     source.source_key(),
                     sha,
                     expected,
@@ -239,7 +239,7 @@ fn tarball_fallback(source: &GhSource, dest: &Path) -> Result<String> {
 
 // ─── SHA file helpers ─────────────────────────────────────────────────────────
 
-const SHA_FILE: &str = ".dfiles-sha";
+const SHA_FILE: &str = ".haven-sha";
 
 fn read_sha_file(cache_dir: &Path) -> Result<String> {
     let path = cache_dir.join(SHA_FILE);
@@ -371,7 +371,7 @@ mod tests {
 
     #[test]
     fn ensure_cache_hit_returns_without_fetch() {
-        // Pre-populate the cache dir with a .dfiles-sha that matches the lock.
+        // Pre-populate the cache dir with a .haven-sha that matches the lock.
         let state_dir = TempDir::new().unwrap();
         let source = GhSource::parse("gh:fake/skill").unwrap();
         let cache = SkillCache::new(state_dir.path());
@@ -391,7 +391,7 @@ mod tests {
 
     #[test]
     fn ensure_sha_mismatch_clears_stale_cache() {
-        // Cache exists but SHA doesn't match the lock (lock was updated by `dfiles ai update`).
+        // Cache exists but SHA doesn't match the lock (lock was updated by `haven ai update`).
         let state_dir = TempDir::new().unwrap();
         let source = GhSource::parse("gh:fake/skill").unwrap();
         let cache = SkillCache::new(state_dir.path());

@@ -48,7 +48,7 @@ pub fn run(opts: &RemoveOptions<'_>) -> Result<()> {
     if matches.is_empty() {
         bail!(
             "No tracked file found for '{}'. \
-             Run `dfiles status` to see which files are tracked.",
+             Run `haven status` to see which files are tracked.",
             opts.file.display()
         );
     }

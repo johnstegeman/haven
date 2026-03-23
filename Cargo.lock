@@ -326,35 +326,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "abd57806937c9cc163efc8ea3910e00a62e2aeb0b8119f1793a978088f8f6b04"
 
 [[package]]
-name = "dfiles"
-version = "0.3.0"
-dependencies = [
- "anyhow",
- "assert_cmd",
- "chrono",
- "clap",
- "clap_complete",
- "dirs",
- "flate2",
- "insta",
- "is-terminal",
- "predicates",
- "regex",
- "serde",
- "serde_json",
- "serde_yaml",
- "sha2",
- "similar",
- "tar",
- "tempfile",
- "tera",
- "toml",
- "toml_edit",
- "ureq",
- "walkdir",
-]
-
-[[package]]
 name = "difflib"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -553,6 +524,35 @@ name = "hashbrown"
 version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "841d1cc9bed7f9236f321df977030373f4a4163ae1a7dbfe1a51a2c1a51d9100"
+
+[[package]]
+name = "haven"
+version = "0.4.0"
+dependencies = [
+ "anyhow",
+ "assert_cmd",
+ "chrono",
+ "clap",
+ "clap_complete",
+ "dirs",
+ "flate2",
+ "insta",
+ "is-terminal",
+ "predicates",
+ "regex",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "sha2",
+ "similar",
+ "tar",
+ "tempfile",
+ "tera",
+ "toml",
+ "toml_edit",
+ "ureq",
+ "walkdir",
+]
 
 [[package]]
 name = "heck"

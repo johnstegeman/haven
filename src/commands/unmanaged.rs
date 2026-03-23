@@ -1,8 +1,8 @@
-/// `dfiles unmanaged` — find files in ~ that are not tracked by dfiles.
+/// `haven unmanaged` — find files in ~ that are not tracked by haven.
 ///
 /// Walks the home directory (or a specified path) and reports files that have
 /// no corresponding entry in `source/`. Useful for discovering dotfiles that
-/// have not been added to dfiles yet.
+/// have not been added to haven yet.
 ///
 /// At the home root, only dotfiles and dotdirs (starting with `.`) are examined —
 /// `Documents/`, `Downloads/`, `Projects/` etc. are always skipped.
@@ -53,7 +53,7 @@ pub fn run(opts: &UnmanagedOptions<'_>) -> Result<()> {
     walk_dir(walk_root, &tracked, max_depth, 0, at_home_root, &mut found);
 
     if found == 0 {
-        println!("All files in {} are tracked by dfiles.", tilde_path(walk_root));
+        println!("All files in {} are tracked by haven.", tilde_path(walk_root));
     }
 
     Ok(())
@@ -119,8 +119,8 @@ fn is_noisy_dir(name: &str) -> bool {
         // Tool caches — large, volatile, not tracked.
         | ".cache" | ".npm" | ".cargo" | ".rustup" | ".pyenv" | ".rbenv" | ".nvm"
         | ".volta" | ".asdf" | ".mise"
-        // dfiles own state dir.
-        | ".dfiles"
+        // haven own state dir.
+        | ".haven"
         // macOS system dirs.
         | "Library" | ".Trash" | ".Spotlight-V100" | ".DocumentRevisions-V100"
         | ".fseventsd" | ".TemporaryItems"

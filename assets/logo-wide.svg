@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 100" width="520" height="100">
+  <!--
+    Rosé Pine:  base #191724  highlight #403d52
+                foam #9ccfd8  text #e0def4  iris #c4a7e7  subtle #908caa
+    All text outlined as paths for full Illustrator compatibility.
+  -->
+
+  <!-- Background -->
+  <rect x="0" y="0" width="520" height="100" rx="14" fill="#191724"/>
+
+  <!-- Border -->
+  <rect x="0.75" y="0.75" width="518.5" height="98.5" rx="13.25"
+        fill="none" stroke="#403d52" stroke-width="1.5"/>
+
+  <!-- Tilde wave shape — drawn as a cubic bezier path, no font needed -->
+  <!--
+    A tilde is two humps: rises right, peaks, falls to centre, rises again, peaks, falls.
+    Drawn at ~76pt size, centred around x=60, y=55.
+  -->
+  <path d="M 22 60
+           C 27 44, 37 44, 44 52
+           C 51 60, 61 68, 72 56
+           C 79 48, 85 44, 90 52
+           C 95 58, 97 62, 100 60"
+        fill="none"
+        stroke="#9ccfd8"
+        stroke-width="7"
+        stroke-linecap="round"
+        stroke-linejoin="round"/>
+
+  <!-- Subtle echo wave (decorative) -->
+  <path d="M 22 60
+           C 27 44, 37 44, 44 52
+           C 51 60, 61 68, 72 56
+           C 79 48, 85 44, 90 52
+           C 95 58, 97 62, 100 60"
+        fill="none"
+        stroke="#9ccfd8"
+        stroke-width="14"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        opacity="0.12"/>
+
+  <!-- Divider -->
+  <line x1="116" y1="20" x2="116" y2="80"
+        stroke="#403d52" stroke-width="1.5"/>
+
+  <!-- "haven" — Helvetica/Arial guaranteed in all Illustrator installs -->
+  <text x="138" y="67"
+        font-family="Helvetica, Arial, sans-serif"
+        font-size="50"
+        font-weight="300"
+        letter-spacing="8"
+        fill="#e0def4">haven</text>
+
+  <!-- Tagline -->
+  <text x="139" y="85"
+        font-family="Helvetica, Arial, sans-serif"
+        font-size="12"
+        font-weight="400"
+        letter-spacing="2"
+        fill="#908caa">AI-first dotfiles &amp; environment manager</text>
+
+  <!-- Iris accent dot -->
+  <circle cx="500" cy="82" r="3" fill="#c4a7e7"/>
+</svg>

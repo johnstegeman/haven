@@ -1,9 +1,9 @@
-/// Local telemetry: append-only JSONL event log at `~/.dfiles/telemetry.jsonl`.
+/// Local telemetry: append-only JSONL event log at `~/.haven/telemetry.jsonl`.
 ///
 /// # Design
 ///
 /// - **Opt-in by default** — telemetry is off unless the user enables it via
-///   `dfiles.toml`, `DFILES_TELEMETRY=1`, or a special build feature flag.
+///   `haven.toml`, `HAVEN_TELEMETRY=1`, or a special build feature flag.
 /// - **Local only** — events are written to a file on the user's machine.
 ///   No data leaves the machine; the file is for the user (and optionally
 ///   shared with maintainers voluntarily for usage analysis).
@@ -18,7 +18,7 @@
 ///
 /// # Enabling
 ///
-/// In `dfiles.toml`:
+/// In `haven.toml`:
 /// ```toml
 /// [telemetry]
 /// enabled = true
@@ -26,7 +26,7 @@
 ///
 /// Or set the environment variable:
 /// ```sh
-/// DFILES_TELEMETRY=1 dfiles apply
+/// HAVEN_TELEMETRY=1 haven apply
 /// ```
 ///
 /// Or build with `--features telemetry-default-on` for special distribution
@@ -38,7 +38,7 @@ use std::time::Instant;
 
 /// A user-written note in the telemetry log.
 ///
-/// Notes are written by `dfiles telemetry --note "..."` and stand out from
+/// Notes are written by `haven telemetry --note "..."` and stand out from
 /// command events via the `kind` field. During analysis, filter for
 /// `kind == "note"` to find context annotations the user left.
 ///
@@ -86,7 +86,7 @@ fn append_note_event(path: &PathBuf, event: &NoteEvent) -> std::io::Result<()> {
 pub const BUILD_VERSION: &str = concat!(
     env!("CARGO_PKG_VERSION"),
     "+",
-    env!("DFILES_GIT_COMMIT"),
+    env!("HAVEN_GIT_COMMIT"),
 );
 
 /// A single telemetry event.
@@ -177,7 +177,7 @@ impl Recorder {
             error,
         };
 
-        // Best-effort: ignore any write errors so telemetry never crashes dfiles.
+        // Best-effort: ignore any write errors so telemetry never crashes haven.
         let _ = append_event(&self.path, &event);
     }
 }
@@ -185,13 +185,13 @@ impl Recorder {
 /// Determine whether telemetry is enabled for this invocation.
 ///
 /// Resolution order (first wins):
-/// 1. `DFILES_TELEMETRY=0` → disabled
-/// 2. `DFILES_TELEMETRY=1` → enabled
-/// 3. `[telemetry] enabled = true` in `dfiles.toml` → enabled
+/// 1. `HAVEN_TELEMETRY=0` → disabled
+/// 2. `HAVEN_TELEMETRY=1` → enabled
+/// 3. `[telemetry] enabled = true` in `haven.toml` → enabled
 /// 4. `telemetry-default-on` feature flag → enabled
 /// 5. Otherwise → disabled
 pub fn is_enabled(config_enabled: bool) -> bool {
-    let env_val = std::env::var("DFILES_TELEMETRY").ok();
+    let env_val = std::env::var("HAVEN_TELEMETRY").ok();
     is_enabled_inner(config_enabled, env_val.as_deref())
 }
 
@@ -212,7 +212,7 @@ fn is_enabled_inner(config_enabled: bool, env_val: Option<&str>) -> bool {
 fn default_telemetry_path() -> PathBuf {
     dirs::home_dir()
         .unwrap_or_else(|| PathBuf::from("."))
-        .join(".dfiles")
+        .join(".haven")
         .join("telemetry.jsonl")
 }
 
@@ -238,7 +238,7 @@ mod tests {
 
     #[test]
     fn is_enabled_respects_env_override() {
-        // DFILES_TELEMETRY=0 always disables, even if config says true.
+        // HAVEN_TELEMETRY=0 always disables, even if config says true.
         assert!(!is_enabled_inner(true, Some("0")));
         assert!(!is_enabled_inner(true, Some("false")));
         assert!(!is_enabled_inner(true, Some("no")));
@@ -262,7 +262,7 @@ mod tests {
     #[test]
     fn append_event_creates_file_and_is_valid_json() {
         let dir = TempDir::new().unwrap();
-        let path = dir.path().join(".dfiles").join("telemetry.jsonl");
+        let path = dir.path().join(".haven").join("telemetry.jsonl");
 
         let event = Event {
             ts: "2026-03-21T12:00:00Z".into(),

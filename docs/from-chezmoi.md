@@ -1,8 +1,8 @@
-# Getting Started with dfiles — for chezmoi users
+# Getting Started with haven — for chezmoi users
 
 This guide is for people who already have a working chezmoi setup and want to
-migrate to dfiles. It covers the automated importer, what carries over unchanged,
-what needs attention, and what chezmoi features do not exist yet in dfiles.
+migrate to haven. It covers the automated importer, what carries over unchanged,
+what needs attention, and what chezmoi features do not exist yet in haven.
 
 If you are new to dotfile managers entirely, start with [the user guide](guide.md).
 
@@ -10,78 +10,78 @@ If you are new to dotfile managers entirely, start with [the user guide](guide.m
 
 ## Why switch?
 
-dfiles shares chezmoi's magic-name encoding (`dot_`, `private_`, `.tmpl`, etc.) —
-so most of your source files work as-is. But dfiles adds three things chezmoi
+haven shares chezmoi's magic-name encoding (`dot_`, `private_`, `.tmpl`, etc.) —
+so most of your source files work as-is. But haven adds three things chezmoi
 doesn't have:
 
 - **Homebrew and mise management** — packages and language runtimes declared
   alongside your dotfiles, applied from the same repo.
-- **AI skill management** — `dfiles ai add/fetch/apply` fetches and deploys
+- **AI skill management** — `haven ai add/fetch/apply` fetches and deploys
   Claude Code skills (and other AI agent skills) from GitHub, with SHA-pinned
   supply-chain protection.
 - **Profiles** — a single repo that applies different subsets of config to a
   work laptop vs. a personal machine vs. a minimal server.
 
 If your workflow is "maintain dotfiles and manage packages in separate tools",
-dfiles collapses that into one.
+haven collapses that into one.
 
 ---
 
 ## Concepts that map directly
 
-| chezmoi concept | dfiles equivalent |
+| chezmoi concept | haven equivalent |
 |----------------|-------------------|
-| Source directory (`~/.local/share/chezmoi`) | Repo root (`~/dfiles` or `~/.local/share/dfiles`) |
+| Source directory (`~/.local/share/chezmoi`) | Repo root (`~/.local/share/haven`) |
 | `source/` file tree | `source/` file tree (same magic-name encoding) |
 | `dot_`, `private_`, `executable_`, `symlink_`, `.tmpl` | Identical — same encoding |
 | `extdir_` in `.chezmoiexternal.toml` | `extdir_` marker files in `source/` |
 | `.chezmoiignore` | `config/ignore` (Tera template evaluated at runtime — same behaviour as chezmoi) |
-| `chezmoi apply` | `dfiles apply` |
-| `chezmoi diff` | `dfiles diff` |
-| `chezmoi status` | `dfiles status` |
-| `chezmoi managed` | `dfiles list` |
-| `chezmoi add` | `dfiles add` |
-| `chezmoi forget`/`remove` | `dfiles remove` |
-| `chezmoi upgrade` | `dfiles upgrade` |
-| `.chezmoidata.yaml` / `.chezmoidata.toml` | `[data]` section in `dfiles.toml` |
+| `chezmoi apply` | `haven apply` |
+| `chezmoi diff` | `haven diff` |
+| `chezmoi status` | `haven status` |
+| `chezmoi managed` | `haven list` |
+| `chezmoi add` | `haven add` |
+| `chezmoi forget`/`remove` | `haven remove` |
+| `chezmoi upgrade` | `haven upgrade` |
+| `.chezmoidata.yaml` / `.chezmoidata.toml` | `[data]` section in `haven.toml` |
 | Go templates (`.tmpl` files) | Tera templates (`.tmpl` files) — syntax differs |
 
 ---
 
 ## Migration
 
-### Step 1: Install dfiles
+### Step 1: Install haven
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/johnstegeman/dfiles/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/johnstegeman/haven/main/install.sh | sh
 ```
 
-### Step 2: Initialize a dfiles repo
+### Step 2: Initialize a haven repo
 
 ```sh
-dfiles init
+haven init
 ```
 
-This creates `~/dfiles` (or `~/.local/share/dfiles` on a fresh install) with the
-scaffolding: `dfiles.toml`, `source/`, `brew/`, `modules/shell.toml`, `.gitignore`.
+This creates `~/.local/share/haven` with the
+scaffolding: `haven.toml`, `source/`, `brew/`, `modules/shell.toml`, `.gitignore`.
 
 ### Step 3: Run the importer
 
 ```sh
-dfiles import --from chezmoi
+haven import --from chezmoi
 ```
 
 The importer locates your chezmoi source directory automatically (checks
 `~/.local/share/chezmoi`). To point it elsewhere:
 
 ```sh
-dfiles import --from chezmoi --source ~/my-chezmoi-dir
+haven import --from chezmoi --source ~/my-chezmoi-dir
 ```
 
 Always try `--dry-run` first to see what would happen:
 
 ```sh
-dfiles import --from chezmoi --dry-run
+haven import --from chezmoi --dry-run
 ```
 
 ### What the importer does
@@ -92,16 +92,16 @@ dfiles import --from chezmoi --dry-run
 | Template files (`.tmpl` suffix) | Copied and Go template syntax converted to Tera |
 | `.chezmoiexternal.toml` git repos | Converted to `extdir_` marker files in `source/` |
 | `.chezmoiignore` | Converted to Tera template syntax and written to `config/ignore` |
-| `.chezmoidata.yaml` / `.chezmoidata.toml` | Flat string values written to `[data]` in `dfiles.toml` |
+| `.chezmoidata.yaml` / `.chezmoidata.toml` | Flat string values written to `[data]` in `haven.toml` |
 | `symlink_` + `.tmpl` files | Converted: template renders to symlink target path |
 
 ### What the importer skips (with reasons)
 
-| chezmoi item | Status in dfiles |
+| chezmoi item | Status in haven |
 |-------------|-----------------|
 | `modify_` scripts | Not supported — skipped with a message |
 | `run_`, `run_once_`, `run_onchange_` scripts | Skipped with guidance |
-| `exact_` and `create_` prefixes | Skipped — use `dfiles add` after migration |
+| `exact_` and `create_` prefixes | Skipped — use `haven add` after migration |
 | `.chezmoi*` internal files | Skipped — chezmoi-internal only |
 | Nested/object data in `.chezmoidata.*` | Only flat string values are migrated |
 
@@ -111,16 +111,16 @@ source files.
 ### Step 4: Verify
 
 ```sh
-dfiles apply --dry-run
+haven apply --dry-run
 ```
 
 Review the plan. If everything looks right:
 
 ```sh
-dfiles apply
+haven apply
 ```
 
-Your files are now managed by dfiles.
+Your files are now managed by haven.
 
 ---
 
@@ -128,7 +128,7 @@ Your files are now managed by dfiles.
 
 The importer converts Go template syntax to Tera. Here is the full mapping:
 
-| chezmoi / Go template | dfiles / Tera |
+| chezmoi / Go template | haven / Tera |
 |----------------------|----------------|
 | `{{ .chezmoi.hostname }}` | `{{ hostname }}` |
 | `{{ .chezmoi.username }}` | `{{ username }}` |
@@ -147,13 +147,13 @@ The importer converts Go template syntax to Tera. Here is the full mapping:
 | `{{ if .someVar }}` | `{% if data.someVar %}` |
 | `{{ env "VAR" }}` | `{{ get_env(name="VAR") }}` |
 
-**OS name note:** chezmoi uses `"darwin"` for macOS; dfiles uses `"macos"`. The
+**OS name note:** chezmoi uses `"darwin"` for macOS; haven uses `"macos"`. The
 importer rewrites these automatically.
 
-**Custom data note:** chezmoi accesses custom data as `.key` in templates. dfiles
+**Custom data note:** chezmoi accesses custom data as `.key` in templates. haven
 namespaces it under `data.key` to avoid collisions with built-in variables. The
 importer rewrites all custom variable references and migrates the values from
-`.chezmoidata.*` into `[data]` in `dfiles.toml`.
+`.chezmoidata.*` into `[data]` in `haven.toml`.
 
 Go constructs with no Tera equivalent (custom functions, complex pipelines) are
 preserved as-is with a warning. You will need to convert these manually.
@@ -161,7 +161,7 @@ preserved as-is with a warning. You will need to convert these manually.
 ### Checking template variables in scope
 
 ```sh
-dfiles data
+haven data
 ```
 
 ```
@@ -169,7 +169,7 @@ os         = macos
 hostname   = my-laptop
 username   = alice
 home_dir   = /Users/alice
-source_dir = /Users/alice/.local/share/dfiles
+source_dir = /Users/alice/.local/share/haven
 
 data.kanata_path = /usr/local/bin/kanata
 data.work_email  = alice@corp.example
@@ -181,41 +181,41 @@ data.work_email  = alice@corp.example
 
 ### Daily workflow
 
-| What you want to do | chezmoi | dfiles |
+| What you want to do | chezmoi | haven |
 |--------------------|---------|--------|
-| Apply all config | `chezmoi apply` | `dfiles apply` |
-| Apply one file | `chezmoi apply ~/.zshrc` | `dfiles apply` (all files, fast) |
-| Preview changes | `chezmoi diff` | `dfiles diff` |
-| Summary of drift | `chezmoi status` | `dfiles status` |
-| See tracked files | `chezmoi managed` | `dfiles list` |
-| Find untracked dotfiles | — | `dfiles unmanaged` |
-| Track a new file | `chezmoi add ~/.foo` | `dfiles add ~/.foo` |
-| Re-track a changed file | `chezmoi re-add ~/.foo` | `dfiles add ~/.foo --update` |
-| Stop tracking a file | `chezmoi forget ~/.foo` | `dfiles remove ~/.foo` |
-| Edit source file | `chezmoi edit ~/.foo` | `$EDITOR $(dfiles source-path)/source/dot_foo` |
-| Go to source dir | `chezmoi cd` | `cd $(dfiles source-path)` |
-| Dry run | `chezmoi apply --dry-run` | `dfiles apply --dry-run` |
-| Check for drift on CI | `chezmoi verify` | `dfiles diff` (exits 1 on drift) |
+| Apply all config | `chezmoi apply` | `haven apply` |
+| Apply one file | `chezmoi apply ~/.zshrc` | `haven apply` (all files, fast) |
+| Preview changes | `chezmoi diff` | `haven diff` |
+| Summary of drift | `chezmoi status` | `haven status` |
+| See tracked files | `chezmoi managed` | `haven list` |
+| Find untracked dotfiles | — | `haven unmanaged` |
+| Track a new file | `chezmoi add ~/.foo` | `haven add ~/.foo` |
+| Re-track a changed file | `chezmoi re-add ~/.foo` | `haven add ~/.foo --update` |
+| Stop tracking a file | `chezmoi forget ~/.foo` | `haven remove ~/.foo` |
+| Edit source file | `chezmoi edit ~/.foo` | `$EDITOR $(haven source-path)/source/dot_foo` |
+| Go to source dir | `chezmoi cd` | `cd $(haven source-path)` |
+| Dry run | `chezmoi apply --dry-run` | `haven apply --dry-run` |
+| Check for drift on CI | `chezmoi verify` | `haven diff` (exits 1 on drift) |
 
 ### Migration and updates
 
-| What you want to do | chezmoi | dfiles |
+| What you want to do | chezmoi | haven |
 |--------------------|---------|--------|
-| Import from chezmoi | — | `dfiles import --from chezmoi` |
-| Pull latest + apply | `chezmoi update` | `cd ~/dfiles && git pull && dfiles apply` |
-| Upgrade the binary | `chezmoi upgrade` | `dfiles upgrade` |
+| Import from chezmoi | — | `haven import --from chezmoi` |
+| Pull latest + apply | `chezmoi update` | `cd ~/.local/share/haven && git pull && haven apply` |
+| Upgrade the binary | `chezmoi upgrade` | `haven upgrade` |
 
 ### Templates and data
 
-| What you want to do | chezmoi | dfiles |
+| What you want to do | chezmoi | haven |
 |--------------------|---------|--------|
-| Preview a rendered template | `chezmoi cat ~/.foo` | *(not available — use `dfiles apply --dry-run`)* |
-| Check template variables | `chezmoi data` | `dfiles data` |
+| Preview a rendered template | `chezmoi cat ~/.foo` | *(not available — use `haven apply --dry-run`)* |
+| Check template variables | `chezmoi data` | `haven data` |
 | Execute a template expression | `chezmoi execute-template '{{ .chezmoi.os }}'` | *(not available)* |
 
 ### Secret management
 
-| What you want to do | chezmoi | dfiles |
+| What you want to do | chezmoi | haven |
 |--------------------|---------|--------|
 | Read from 1Password | `{{ onepasswordField "..." "..." }}` | `{{ op(path="op://...") }}` |
 | Read from environment | `{{ env "VAR" }}` | `{{ get_env(name="VAR") }}` |
@@ -224,16 +224,16 @@ data.work_email  = alice@corp.example
 
 ---
 
-## What chezmoi does that dfiles does not (yet)
+## What chezmoi does that haven does not (yet)
 
-dfiles is younger than chezmoi. These are the known gaps as of v0.3.0:
+haven is younger than chezmoi. These are the known gaps as of v0.3.0:
 
-| Feature | chezmoi | dfiles |
+| Feature | chezmoi | haven |
 |---------|---------|--------|
 | **In-repo encryption** | age and GPG support for encrypting files before committing | Not supported. Workaround: use `op()` to read secrets from 1Password at apply time instead of storing them in the repo |
 | **`modify_` scripts** | Scripts that transform the existing destination file | Skipped on import. Workaround: convert to a `.tmpl` file with `get_env()` or `op()` calls |
 | **`run_onchange_` scripts** | Re-run a script when its content changes | Not supported — only `run_once_` |
-| **`chezmoi cat`** | Print rendered output of a template without applying | Not implemented. Workaround: `dfiles apply --dry-run --dest /tmp/staging` |
+| **`chezmoi cat`** | Print rendered output of a template without applying | Not implemented. Workaround: `haven apply --dry-run --dest /tmp/staging` |
 | **`chezmoi execute-template`** | Evaluate a template expression from the CLI | Not implemented |
 | **`chezmoi chattr`** | Change the magic-name attributes of a tracked file | Not implemented. Rename the source file manually |
 | **`chezmoi merge`** | Three-way merge when source and destination have both changed | Not implemented |
@@ -244,33 +244,33 @@ dfiles is younger than chezmoi. These are the known gaps as of v0.3.0:
 | **Per-file templates for external archives** | `.chezmoiexternal.toml` with templated URLs | `extfile_` supports SHA verification; no templated URLs yet |
 
 If any of these are blocking your migration, open an issue on GitHub or continue
-using chezmoi for that file while managing the rest with dfiles.
+using chezmoi for that file while managing the rest with haven.
 
 ---
 
 ## Setting up Homebrew with modules and profiles
 
-This is where dfiles diverges from chezmoi. chezmoi tracks dotfiles; managing
-packages is out of scope. dfiles tracks both in the same repo.
+This is where haven diverges from chezmoi. chezmoi tracks dotfiles; managing
+packages is out of scope. haven tracks both in the same repo.
 
 ### Brewfiles
 
-dfiles Brewfiles live at `brew/Brewfile` (master) and `brew/Brewfile.<module>`
-(per-module). Create them manually or use `dfiles brew install` to add packages
+haven Brewfiles live at `brew/Brewfile` (master) and `brew/Brewfile.<module>`
+(per-module). Create them manually or use `haven brew install` to add packages
 and keep them in sync automatically:
 
 ```sh
 # Add a formula to the master Brewfile
-dfiles brew install ripgrep
+haven brew install ripgrep
 
 # Add a formula to a named module's Brewfile
-dfiles brew install ripgrep --module shell
+haven brew install ripgrep --module shell
 
 # Add a cask
-dfiles brew install iterm2 --cask
+haven brew install iterm2 --cask
 
 # Remove a package from all Brewfiles
-dfiles brew uninstall ripgrep
+haven brew uninstall ripgrep
 ```
 
 Or write the Brewfile directly:
@@ -305,7 +305,7 @@ modules — their encoded filenames are the complete record.
 
 ### Profiles
 
-Profiles live in `dfiles.toml` and control which modules apply on each machine:
+Profiles live in `haven.toml` and control which modules apply on each machine:
 
 ```toml
 [profile.default]
@@ -328,12 +328,12 @@ modules = ["shell"]
 Apply a profile:
 
 ```sh
-dfiles apply --profile work
-dfiles status --profile personal
+haven apply --profile work
+haven status --profile personal
 ```
 
-**Workflow tip:** commit `dfiles.toml` with all your profiles. On a new machine,
-run `dfiles init gh:yourname/dfiles --apply --profile <name>` to clone the repo
+**Workflow tip:** commit `haven.toml` with all your profiles. On a new machine,
+run `haven init gh:yourname/haven --apply --profile <name>` to clone the repo
 and apply the right profile in one step.
 
 ---
@@ -341,10 +341,10 @@ and apply the right profile in one step.
 ## Custom template variables
 
 If you used `.chezmoidata.yaml` or `.chezmoidata.toml` for machine-specific
-variables, the importer writes them into `[data]` in `dfiles.toml`:
+variables, the importer writes them into `[data]` in `haven.toml`:
 
 ```toml
-# dfiles.toml
+# haven.toml
 [data]
 work_email    = "alice@corp.example"
 kanata_path   = "/usr/local/bin/kanata"
@@ -362,7 +362,7 @@ In any `.tmpl` file, access them as `{{ data.<key> }}`:
   editor = {{ data.kanata_path }}
 ```
 
-Run `dfiles data` to see all variables in scope, including the built-ins
+Run `haven data` to see all variables in scope, including the built-ins
 (`os`, `hostname`, `username`, `home_dir`, `source_dir`).
 
 ---
@@ -370,38 +370,38 @@ Run `dfiles data` to see all variables in scope, including the built-ins
 ## Importing AI skills
 
 If you already have Claude Code skills installed under `~/.claude/skills/`,
-dfiles can detect them and bring them under management:
+haven can detect them and bring them under management:
 
 ```sh
 # Scan and interactively import unmanaged skills
-dfiles ai scan ~/.claude/skills
+haven ai scan ~/.claude/skills
 ```
 
-For each unmanaged skill, dfiles inspects the git remote or searches the
+For each unmanaged skill, haven inspects the git remote or searches the
 skills.sh registry to identify the source. You confirm, edit, or skip each one.
 Confirmed skills are appended to `ai/skills.toml`.
 
 After scanning:
 
 ```sh
-dfiles apply --ai    # deploy and write ~/.claude/CLAUDE.md
+haven apply --ai    # deploy and write ~/.claude/CLAUDE.md
 ```
 
 ### Adding new skills
 
 ```sh
 # Browse what's available
-dfiles ai search browser
-dfiles ai search pdf
+haven ai search browser
+haven ai search pdf
 
 # Add a skill from GitHub
-dfiles ai add gh:anthropics/skills/pdf-processing@v1.0
+haven ai add gh:anthropics/skills/pdf-processing@v1.0
 
 # Add a locally developed skill
-dfiles ai add-local ~/projects/my-skill
+haven ai add-local ~/projects/my-skill
 
 # Deploy
-dfiles apply --ai
+haven apply --ai
 ```
 
 ### Skills in ai/skills.toml
@@ -414,43 +414,43 @@ platforms = "all"
 
 [[skill]]
 name      = "my-commands"
-source    = "repo:"             # bundled in this dfiles repo
+source    = "repo:"             # bundled in this haven repo
 platforms = ["claude-code"]
 ```
 
-Every `gh:` source is SHA-pinned in `dfiles.lock`. Run `dfiles ai update` to
+Every `gh:` source is SHA-pinned in `haven.lock`. Run `haven ai update` to
 pull updates and refresh the pinned SHAs.
 
 ---
 
 ## Setting up a new machine
 
-With chezmoi you run `chezmoi init --apply gh:yourname/dotfiles`. dfiles is similar:
+With chezmoi you run `chezmoi init --apply gh:yourname/dotfiles`. haven is similar:
 
 ```sh
-# Install dfiles
-curl -fsSL https://raw.githubusercontent.com/johnstegeman/dfiles/main/install.sh | sh
+# Install haven
+curl -fsSL https://raw.githubusercontent.com/johnstegeman/haven/main/install.sh | sh
 
 # Clone your repo and apply
-dfiles init gh:yourname/dfiles --apply
+haven init gh:yourname/haven --apply
 
 # Or with a specific profile
-dfiles init gh:yourname/dfiles --apply --profile work
+haven init gh:yourname/haven --apply --profile work
 ```
 
-`dfiles init --apply` clones the repo, then runs `dfiles apply`. If you also want
+`haven init --apply` clones the repo, then runs `haven apply`. If you also want
 Homebrew packages and AI skills:
 
 ```sh
-dfiles init gh:yourname/dfiles --apply
-dfiles apply --brews          # install Homebrew packages
-dfiles apply --ai             # deploy AI skills
+haven init gh:yourname/haven --apply
+haven apply --brews          # install Homebrew packages
+haven apply --ai             # deploy AI skills
 ```
 
 Or all at once:
 
 ```sh
-dfiles apply                  # applies everything (files + brews + mise + ai)
+haven apply                  # applies everything (files + brews + mise + ai)
 ```
 
 ---
@@ -461,22 +461,22 @@ After the initial migration, your workflow is almost identical to chezmoi's:
 
 ```sh
 # Something drifted — check what changed
-dfiles status
-dfiles diff
+haven status
+haven diff
 
 # Snap the live file back into source
-dfiles add ~/.zshrc --update
+haven add ~/.zshrc --update
 
 # Push the update
-cd ~/dfiles && git add -A && git commit -m "update zshrc" && git push
+cd ~/.local/share/haven && git add -A && git commit -m "update zshrc" && git push
 
 # Pull and apply on another machine
-cd ~/dfiles && git pull && dfiles apply
+cd ~/.local/share/haven && git pull && haven apply
 ```
 
-There is no `dfiles update` shortcut (equivalent to `chezmoi update`) — you pull
-the repo manually. This is intentional: dfiles does not assume which VCS workflow
-you prefer. If you use jj, `jj git fetch && jj rebase -d main@origin && dfiles apply`.
+There is no `haven update` shortcut (equivalent to `chezmoi update`) — you pull
+the repo manually. This is intentional: haven does not assume which VCS workflow
+you prefer. If you use jj, `jj git fetch && jj rebase -d main@origin && haven apply`.
 
 ---
 
@@ -485,7 +485,7 @@ you prefer. If you use jj, `jj git fetch && jj rebase -d main@origin && dfiles a
 ### Templates that didn't convert cleanly
 
 The importer emits a warning for each Go template construct it could not convert.
-Look for `# dfiles: TODO` comments in the converted `.tmpl` files. Each one
+Look for `# haven: TODO` comments in the converted `.tmpl` files. Each one
 marks a construct you need to translate manually.
 
 Check the [template syntax table](#template-syntax-conversion) above and the
@@ -496,7 +496,7 @@ Check the [template syntax table](#template-syntax-conversion) above and the
 Run with `--dry-run` to see the full list of what would be skipped and why:
 
 ```sh
-dfiles import --from chezmoi --dry-run 2>&1 | grep -i skip
+haven import --from chezmoi --dry-run 2>&1 | grep -i skip
 ```
 
 For `modify_` scripts: the typical chezmoi use case is injecting an environment
@@ -506,15 +506,15 @@ the value via `{{ get_env(name="VAR") }}` or `{{ op(path="op://...") }}`.
 ### File applies but looks wrong
 
 ```sh
-dfiles diff ~/.zshrc      # see exact diff between source and destination
-dfiles apply --dry-run    # preview full apply plan
+haven diff ~/.zshrc      # see exact diff between source and destination
+haven apply --dry-run    # preview full apply plan
 ```
 
 ### Check if anything in your home dir is still untracked
 
 ```sh
-dfiles unmanaged
-dfiles unmanaged --path ~/.config --depth 4
+haven unmanaged
+haven unmanaged --path ~/.config --depth 4
 ```
 
 ### Security scan before committing
@@ -523,24 +523,24 @@ Run a scan on the imported source files to catch anything that shouldn't be in
 the repo:
 
 ```sh
-dfiles security-scan
-dfiles security-scan --entropy    # also flag high-entropy strings
+haven security-scan
+haven security-scan --entropy    # also flag high-entropy strings
 ```
 
-Add false positives to `[security] allow` in `dfiles.toml`.
+Add false positives to `[security] allow` in `haven.toml`.
 
 ---
 
 ## Keeping chezmoi around during the transition
 
-You do not have to switch all at once. chezmoi and dfiles can coexist: they manage
+You do not have to switch all at once. chezmoi and haven can coexist: they manage
 different files. A pragmatic approach:
 
-1. Run `dfiles import --from chezmoi --dry-run` to see the full picture.
-2. Move your most-used dotfiles to dfiles first.
-3. For any file that uses a chezmoi feature dfiles doesn't support yet (e.g.
+1. Run `haven import --from chezmoi --dry-run` to see the full picture.
+2. Move your most-used dotfiles to haven first.
+3. For any file that uses a chezmoi feature haven doesn't support yet (e.g.
    `modify_` scripts, age encryption), leave it in chezmoi.
-4. Add the chezmoi source directory to `config/ignore` in dfiles so it isn't
+4. Add the chezmoi source directory to `config/ignore` in haven so it isn't
    accidentally imported twice.
 
 When you are ready to cut over fully, run `chezmoi unmanage` on each file

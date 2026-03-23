@@ -1,10 +1,10 @@
-/// `dfiles brew install` / `dfiles brew uninstall`
+/// `haven brew install` / `haven brew uninstall`
 ///
-/// Runs the real `brew` command and keeps your dfiles Brewfiles in sync.
+/// Runs the real `brew` command and keeps your haven Brewfiles in sync.
 ///
 /// Brewfile layout:
-///   brew/Brewfile            — master list (always applied on `dfiles apply`)
-///   brew/Brewfile.<module>   — module subset (applied via `dfiles apply --module <m>`)
+///   brew/Brewfile            — master list (always applied on `haven apply`)
+///   brew/Brewfile.<module>   — module subset (applied via `haven apply --module <m>`)
 ///
 /// install (no --module):     add to brew/Brewfile (master), create if needed
 /// install (--module <name>): add to brew/Brewfile.<name>, update module config
@@ -17,7 +17,7 @@ use crate::homebrew;
 
 // ─── Public entry points ──────────────────────────────────────────────────────
 
-/// `dfiles brew install <name> [--cask] [--module <module>]`
+/// `haven brew install <name> [--cask] [--module <module>]`
 pub fn install(repo_root: &Path, name: &str, cask: bool, module_filter: Option<&str>) -> Result<()> {
     let kind = if cask { "cask" } else { "brew" };
 
@@ -48,7 +48,7 @@ pub fn install(repo_root: &Path, name: &str, cask: bool, module_filter: Option<&
     Ok(())
 }
 
-/// `dfiles brew uninstall <name> [--cask]`
+/// `haven brew uninstall <name> [--cask]`
 pub fn uninstall(repo_root: &Path, name: &str, cask: bool) -> Result<()> {
     let kind = if cask { "cask" } else { "brew" };
 
@@ -59,7 +59,7 @@ pub fn uninstall(repo_root: &Path, name: &str, cask: bool) -> Result<()> {
     let brewfiles = all_brewfiles(repo_root)?;
 
     if brewfiles.is_empty() {
-        println!("No Brewfiles found in this dfiles repo.");
+        println!("No Brewfiles found in this haven repo.");
     } else {
         let mut total_removed = 0usize;
         for brewfile_path in &brewfiles {

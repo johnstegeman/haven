@@ -300,7 +300,7 @@ mod tests {
             username: "testuser".to_string(),
             profile: "default".to_string(),
             home_dir: "/home/testuser".to_string(),
-            source_dir: "/home/testuser/dfiles".to_string(),
+            source_dir: "/home/testuser/haven".to_string(),
             data: HashMap::new(),
         }
     }

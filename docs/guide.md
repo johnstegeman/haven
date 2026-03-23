@@ -1,6 +1,6 @@
-# dfiles User Guide
+# haven User Guide
 
-dfiles is an AI-first dotfiles and environment manager. It tracks your dotfiles,
+haven is an AI-first dotfiles and environment manager. It tracks your dotfiles,
 Homebrew packages, language runtimes, and Claude Code skills in a single git
 repository, and can reproduce your full development environment on any machine
 from a single command.
@@ -9,31 +9,31 @@ from a single command.
 
 ## Concepts
 
-**Repo** — a git repository (default: `~/dfiles`) that holds your config and source
+**Repo** — a git repository (default: `~/.local/share/haven`) that holds your config and source
 files. You commit and push it like any other repo.
 
 **Source file** — a dotfile stored under `source/` inside the repo, with its
-destination path and flags encoded directly in the filename. dfiles copies (or
+destination path and flags encoded directly in the filename. haven copies (or
 renders) it to its decoded destination on apply.
 
 **Module** — a named group of packages defined in `modules/<name>.toml`. Modules
 control Homebrew and mise. Files are **not** listed in modules — their encoded
 filenames in `source/` are the sole source of truth.
 
-**Profile** — a named set of modules defined in `dfiles.toml`. Different machines
+**Profile** — a named set of modules defined in `haven.toml`. Different machines
 or contexts (work, personal, minimal) activate different subsets of modules.
 
-**State** — `~/.dfiles/state.json` records what was last applied. Used by
-`dfiles status` to detect drift.
+**State** — `~/.haven/state.json` records what was last applied. Used by
+`haven status` to detect drift.
 
 ---
 
 ## Repo layout
 
 ```
-~/dfiles/
-├── dfiles.toml                 # profiles and which modules each profile activates
-├── dfiles.lock                 # pinned SHA for every fetched GitHub source
+~/.local/share/haven/
+├── haven.toml                 # profiles and which modules each profile activates
+├── haven.lock                 # pinned SHA for every fetched GitHub source
 │
 ├── source/                     # dotfiles with magic-name encoded filenames
 │   ├── dot_zshrc               # → ~/.zshrc
@@ -59,7 +59,7 @@ or contexts (work, personal, minimal) activate different subsets of modules.
 ```
 
 Everything under `source/`, `brew/`, `ai/`, and `modules/` is committed to git.
-`~/.dfiles/` (state, backups, skill cache) is not committed — `dfiles init` adds it to `.gitignore`.
+`~/.haven/` (state, backups, skill cache) is not committed — `haven init` adds it to `.gitignore`.
 
 ---
 
@@ -68,18 +68,18 @@ Everything under `source/`, `brew/`, `ai/`, and `modules/` is committed to git.
 ### macOS and Linux (recommended)
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/johnstegeman/dfiles/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/johnstegeman/haven/main/install.sh | sh
 ```
 
 The installer detects your OS and CPU architecture, downloads the matching binary
-from the [latest GitHub release](https://github.com/johnstegeman/dfiles/releases),
+from the [latest GitHub release](https://github.com/johnstegeman/haven/releases),
 verifies the SHA256 checksum, and installs to `/usr/local/bin` (or `~/.local/bin`
 if `/usr/local/bin` is not writable).
 
 ### Pinning a version
 
 ```sh
-VERSION=v0.2.0 curl -fsSL https://raw.githubusercontent.com/johnstegeman/dfiles/main/install.sh | sh
+VERSION=v0.2.0 curl -fsSL https://raw.githubusercontent.com/johnstegeman/haven/main/install.sh | sh
 ```
 
 ### Build from source
@@ -87,7 +87,7 @@ VERSION=v0.2.0 curl -fsSL https://raw.githubusercontent.com/johnstegeman/dfiles/
 Requires Rust 1.75+:
 
 ```sh
-cargo install --git https://github.com/johnstegeman/dfiles
+cargo install --git https://github.com/johnstegeman/haven
 ```
 
 ---
@@ -97,27 +97,27 @@ cargo install --git https://github.com/johnstegeman/dfiles
 ### Initialize a repo
 
 ```
-dfiles init
+haven init
 ```
 
-Creates `dfiles.toml`, `source/`, `brew/`, `modules/shell.toml`, and `.gitignore`.
+Creates `haven.toml`, `source/`, `brew/`, `modules/shell.toml`, and `.gitignore`.
 Fails if already initialized.
 
-By default the repo lives at `~/dfiles`. Override with:
+By default the repo lives at `~/.local/share/haven`. Override with:
 
 ```
-dfiles --dir /path/to/repo init
+haven --dir /path/to/repo init
 # or permanently:
-export DFILES_DIR=/path/to/repo
+export HAVEN_DIR=/path/to/repo
 ```
 
 ### Track a file or directory
 
 ```
-dfiles add ~/.zshrc
-dfiles add ~/.gitconfig
-dfiles add ~/.tmux/plugins/tpm   # git repo → prompts for extdir or files
-dfiles add ~/.config/nvim         # same
+haven add ~/.zshrc
+haven add ~/.gitconfig
+haven add ~/.tmux/plugins/tpm   # git repo → prompts for extdir or files
+haven add ~/.config/nvim         # same
 ```
 
 **Files:** Copied into `source/` with a magic-name encoded filename. Permissions
@@ -125,7 +125,7 @@ are auto-detected — `private_` for mode 0600, `executable_` for any execute bi
 Intermediate directory permissions are also encoded: `~/.ssh` at 0700 produces
 `source/private_dot_ssh/`.
 
-**Directories:** If the directory is a git repo with remotes, dfiles asks whether
+**Directories:** If the directory is a git repo with remotes, haven asks whether
 to add it as an `extdir_` external (cloned on apply) or copy all files recursively.
 Hidden subdirectories (`.git`, etc.) are skipped when adding recursively.
 
@@ -135,8 +135,8 @@ complete record.
 ### Stop tracking a file
 
 ```
-dfiles remove ~/.zshrc
-dfiles remove ~/.config/git/config --dry-run
+haven remove ~/.zshrc
+haven remove ~/.config/git/config --dry-run
 ```
 
 Deletes the source file from `source/`. The live file on disk is **not** touched.
@@ -145,27 +145,27 @@ Use `--dry-run` to see what would be removed before committing.
 ### Apply your config
 
 ```
-dfiles apply
-dfiles apply --profile work
-dfiles apply --module shell      # apply one module only (brew/mise)
-dfiles apply --dry-run           # print the plan without writing anything
-dfiles apply --dest ~/staging    # apply to a staging dir (chroot-style, for testing)
+haven apply
+haven apply --profile work
+haven apply --module shell      # apply one module only (brew/mise)
+haven apply --dry-run           # print the plan without writing anything
+haven apply --dest ~/staging    # apply to a staging dir (chroot-style, for testing)
 ```
 
-For each tracked file, dfiles backs up the existing destination file to
-`~/.dfiles/backups/` before overwriting it.
+For each tracked file, haven backs up the existing destination file to
+`~/.haven/backups/` before overwriting it.
 
 ### Check for drift
 
 ```
-dfiles status
-dfiles status --profile work
-dfiles diff                   # full unified diff (what would change)
-dfiles diff --stat            # summary: filenames + line counts only
+haven status
+haven status --profile work
+haven diff                   # full unified diff (what would change)
+haven diff --stat            # summary: filenames + line counts only
 ```
 
-`dfiles status` gives you a quick overview — which files are in sync, which have
-drifted, which are missing. `dfiles diff` shows you the exact lines that differ.
+`haven status` gives you a quick overview — which files are in sync, which have
+drifted, which are missing. `haven diff` shows you the exact lines that differ.
 
 | Marker | Meaning |
 |--------|---------|
@@ -224,13 +224,13 @@ Files stored in the repo can be excluded from `apply`, `status`, and `diff` usin
 
 The template is evaluated at runtime on every command that loads it (same as how
 chezmoi treats `.chezmoiignore`). If the template fails to render (syntax error),
-dfiles warns and falls back to ignoring nothing.
+haven warns and falls back to ignoring nothing.
 
 Ignored files are committed to the repo like any other file — they just aren't
 applied to the destination. This is useful for machine-specific files that you
 want to keep in the repo for reference but not deploy everywhere.
 
-If you try to `dfiles add` a file that matches an ignore pattern, dfiles will
+If you try to `haven add` a file that matches an ignore pattern, haven will
 print a message and skip it. Remove the pattern from `config/ignore` first if
 you want the file to be tracked and applied normally.
 
@@ -294,11 +294,11 @@ url  = "https://github.com/user/nvim-config"
 ref  = "main"   # optional — branch, tag, or commit SHA
 ```
 
-This marker file tells dfiles: clone `https://github.com/user/nvim-config` into
+This marker file tells haven: clone `https://github.com/user/nvim-config` into
 `~/.config/nvim` when applying.
 
-**Adding externals:** Run `dfiles add <directory>`. If the directory is a git repo,
-dfiles detects the remotes and prompts you to choose:
+**Adding externals:** Run `haven add <directory>`. If the directory is a git repo,
+haven detects the remotes and prompts you to choose:
 
 ```
 ~/.config/nvim is a git repository with 1 remote:
@@ -318,7 +318,7 @@ How to add?
 - **Dest is a git repo** — skipped by default (use `--apply-externals` to pull)
 - **Dest is not a git repo** — hard error (remove manually first)
 
-`dfiles status` reports `?` if the dest is absent and `M` if it exists but is
+`haven status` reports `?` if the dest is absent and `M` if it exists but is
 not a git repo.
 
 ### Homebrew
@@ -330,25 +330,25 @@ brewfile = "brew/Brewfile.shell"
 ```
 
 The `brewfile` field points to a Homebrew Brewfile relative to the repo root.
-On apply, dfiles runs `brew bundle install --file=<path>`.
+On apply, haven runs `brew bundle install --file=<path>`.
 If Homebrew is not installed, this section is skipped with a warning.
 
-Use `dfiles brew install` and `dfiles brew uninstall` instead of bare `brew`
+Use `haven brew install` and `haven brew uninstall` instead of bare `brew`
 commands to keep your Brewfiles automatically in sync:
 
 ```
-dfiles brew install ripgrep                   # → brew/Brewfile (master)
-dfiles brew install ripgrep --module shell    # → brew/Brewfile.shell
-dfiles brew install iterm2 --cask             # cask entry
-dfiles brew uninstall ripgrep                 # removes from ALL Brewfiles
+haven brew install ripgrep                   # → brew/Brewfile (master)
+haven brew install ripgrep --module shell    # → brew/Brewfile.shell
+haven brew install iterm2 --cask             # cask entry
+haven brew uninstall ripgrep                 # removes from ALL Brewfiles
 ```
 
 **Brewfile layout:**
 
 | Path | Used when |
 |------|-----------|
-| `brew/Brewfile` | `dfiles brew install` with no `--module` |
-| `brew/Brewfile.<name>` | `dfiles brew install --module <name>` |
+| `brew/Brewfile` | `haven brew install` with no `--module` |
+| `brew/Brewfile.<name>` | `haven brew install --module <name>` |
 
 ### Mise
 
@@ -358,7 +358,7 @@ dfiles brew uninstall ripgrep                 # removes from ALL Brewfiles
 config = "source/mise.toml"   # path relative to repo root; omit to use global config
 ```
 
-On apply, dfiles runs `mise install`. If mise is not installed, the section is
+On apply, haven runs `mise install`. If mise is not installed, the section is
 skipped with a hint to install it.
 
 ### 1Password guard
@@ -368,7 +368,7 @@ skipped with a hint to install it.
 requires_op = true
 ```
 
-Adding `requires_op = true` to any module causes dfiles to skip that module's
+Adding `requires_op = true` to any module causes haven to skip that module's
 brew and mise steps with a warning if the `op` CLI is not installed or the user
 is not signed in. Source files in `source/` are always applied regardless of
 this flag.
@@ -377,7 +377,7 @@ this flag.
 
 ## Profiles
 
-`dfiles.toml` defines which modules are active for each profile.
+`haven.toml` defines which modules are active for each profile.
 
 ```toml
 [profile.default]
@@ -397,8 +397,8 @@ applied first, then the child's modules are appended (duplicates removed).
 Apply a specific profile:
 
 ```
-dfiles apply --profile work
-dfiles status --profile work
+haven apply --profile work
+haven status --profile work
 ```
 
 The default profile name is `default`.
@@ -408,7 +408,7 @@ The default profile name is `default`.
 ## AI skills
 
 Skills are declared in `ai/skills.toml` and deployed to platform directories
-(e.g. `~/.claude/skills/`) by `dfiles apply`.
+(e.g. `~/.claude/skills/`) by `haven apply`.
 
 ```toml
 # ai/skills.toml
@@ -446,7 +446,7 @@ platforms = "all"
 
 ### Lock and supply chain protection
 
-Every `gh:` skill source is fetched once and its SHA pinned in `dfiles.lock`.
+Every `gh:` skill source is fetched once and its SHA pinned in `haven.lock`.
 On subsequent applies:
 
 - **Cache hit, SHA matches** — uses cached copy, no network.
@@ -454,44 +454,44 @@ On subsequent applies:
   A mismatch is an error (supply chain protection).
 - **Lock has no entry** — fetches and records the SHA.
 
-Use `dfiles ai update [name]` to intentionally pull a new version and update the lock.
+Use `haven ai update [name]` to intentionally pull a new version and update the lock.
 
 ### Managing skills
 
 ```
-dfiles ai discover          # detect installed AI platforms, update ai/platforms.toml
-dfiles ai add <source>      # add a [[skill]] entry to ai/skills.toml
-dfiles ai fetch [name]      # download to cache without deploying
-dfiles ai update [name]     # re-fetch + update lock SHAs
-dfiles ai remove <name>     # remove from ai/skills.toml
-dfiles ai search <query>    # search skills.sh for available skills
-dfiles ai scan <dir>        # interactively import unmanaged skills from a directory
+haven ai discover          # detect installed AI platforms, update ai/platforms.toml
+haven ai add <source>      # add a [[skill]] entry to ai/skills.toml
+haven ai fetch [name]      # download to cache without deploying
+haven ai update [name]     # re-fetch + update lock SHAs
+haven ai remove <name>     # remove from ai/skills.toml
+haven ai search <query>    # search skills.sh for available skills
+haven ai scan <dir>        # interactively import unmanaged skills from a directory
 ```
 
-After adding or updating skills, run `dfiles apply --ai` to deploy them.
+After adding or updating skills, run `haven apply --ai` to deploy them.
 
 ### Discovering and importing existing skills
 
 If you already have skills installed in a skills directory (e.g. via `npx skills add`)
-and want to bring them under dfiles management, use `dfiles ai scan`:
+and want to bring them under haven management, use `haven ai scan`:
 
 ```
-dfiles ai scan ~/.claude/skills
-dfiles ai scan ~/.agents/skills
+haven ai scan ~/.claude/skills
+haven ai scan ~/.agents/skills
 ```
 
-For each unmanaged skill, dfiles tries to identify its GitHub source by inspecting
+For each unmanaged skill, haven tries to identify its GitHub source by inspecting
 git remotes or searching the skills.sh registry. It then prompts you to confirm,
 edit, or skip each one. Confirmed skills are appended to `ai/skills.toml`.
 
 To browse what's available on skills.sh before scanning:
 
 ```
-dfiles ai search pdf
-dfiles ai search browser --limit 5
+haven ai search pdf
+haven ai search browser --limit 5
 ```
 
-dfiles regenerates `~/.claude/CLAUDE.md` after every successful apply so Claude
+haven regenerates `~/.claude/CLAUDE.md` after every successful apply so Claude
 Code always has an accurate inventory of installed skills.
 
 ---
@@ -550,7 +550,7 @@ in shell scripts, Makefiles, and similar files are left untouched.
 
 ## 1Password integration
 
-dfiles can read secrets from 1Password at apply time and render them directly into
+haven can read secrets from 1Password at apply time and render them directly into
 destination files, without ever storing them in the repo or on disk.
 
 ### Prerequisites
@@ -570,7 +570,7 @@ github.com:
 ```
 
 The `op://vault/item/field` URI is the 1Password secret reference format. If you
-omit the `op://` prefix, dfiles adds it automatically.
+omit the `op://` prefix, haven adds it automatically.
 
 ### Module guard
 
@@ -588,12 +588,12 @@ a warning instead of failing with an error. All other modules are applied normal
 
 ## Secret scanning
 
-`dfiles security-scan` audits every file tracked in `source/` for accidentally
+`haven security-scan` audits every file tracked in `source/` for accidentally
 committed secrets, sensitive filenames, and credential paths.
 
 ```sh
-dfiles security-scan          # scan all tracked files
-dfiles security-scan --entropy  # also flag high-entropy strings
+haven security-scan          # scan all tracked files
+haven security-scan --entropy  # also flag high-entropy strings
 ```
 
 Exits 0 when clean, 1 when findings are reported (suitable for CI or pre-push hooks).
@@ -609,7 +609,7 @@ Exits 0 when clean, 1 when findings are reported (suitable for CI or pre-push ho
 
 ### Suppressing false positives
 
-Add paths to `[security] allow` in `dfiles.toml`. Patterns use the same glob
+Add paths to `[security] allow` in `haven.toml`. Patterns use the same glob
 syntax as `config/ignore`:
 
 ```toml
@@ -620,9 +620,9 @@ allow = [
 ]
 ```
 
-### Integration with `dfiles add`
+### Integration with `haven add`
 
-When you run `dfiles add`, dfiles scans the file's content before saving it.
+When you run `haven add`, haven scans the file's content before saving it.
 If a sensitive pattern is matched, you are prompted:
 
 ```
@@ -638,11 +638,11 @@ Files in the `[security] allow` list bypass this prompt.
 
 ## The lock file
 
-`dfiles.lock` pins the SHA of every fetched GitHub source for reproducible installs.
+`haven.lock` pins the SHA of every fetched GitHub source for reproducible installs.
 Commit it alongside your config:
 
 ```toml
-# dfiles.lock (auto-generated — do not edit by hand)
+# haven.lock (auto-generated — do not edit by hand)
 [skill."gh:anthropics/skills/pdf-processing"]
 sha        = "abc123def456..."
 fetched_at = "2026-03-21T10:00:00Z"
@@ -652,13 +652,13 @@ fetched_at = "2026-03-21T10:00:00Z"
 
 ## Telemetry
 
-dfiles can write a local usage log to `~/.dfiles/telemetry.jsonl`. This is **off by
+haven can write a local usage log to `~/.haven/telemetry.jsonl`. This is **off by
 default** and never sends any data anywhere — the file is yours to inspect and optionally
 share with maintainers for usage analysis.
 
 ### Enabling
 
-In `dfiles.toml`:
+In `haven.toml`:
 ```toml
 [telemetry]
 enabled = true
@@ -666,7 +666,7 @@ enabled = true
 
 Or per-invocation:
 ```sh
-DFILES_TELEMETRY=1 dfiles apply
+HAVEN_TELEMETRY=1 haven apply
 ```
 
 ### Event format
@@ -682,24 +682,24 @@ hostnames, or other personal data.
 
 ---
 
-## Upgrading dfiles
+## Upgrading haven
 
-`dfiles upgrade` downloads the latest release from GitHub, verifies the SHA256
+`haven upgrade` downloads the latest release from GitHub, verifies the SHA256
 checksum, and atomically replaces the running binary in one command.
 
 ```sh
-dfiles upgrade           # upgrade to the latest version
-dfiles upgrade --check   # check without installing (exits 1 if update available)
-dfiles upgrade --force   # reinstall even if already on latest
+haven upgrade           # upgrade to the latest version
+haven upgrade --check   # check without installing (exits 1 if update available)
+haven upgrade --force   # reinstall even if already on latest
 ```
 
 **Checking in CI or a setup script:**
 
 ```sh
-if dfiles upgrade --check; then
-    echo "dfiles is up to date"
+if haven upgrade --check; then
+    echo "haven is up to date"
 else
-    dfiles upgrade
+    haven upgrade
 fi
 ```
 
@@ -711,14 +711,14 @@ binary.
 
 ## Shell completions
 
-`dfiles completions` prints a completion script for your shell to stdout.
+`haven completions` prints a completion script for your shell to stdout.
 
 ### Fish
 
 Write once to the fish completions directory — fish picks it up automatically:
 
 ```sh
-dfiles completions fish > ~/.config/fish/completions/dfiles.fish
+haven completions fish > ~/.config/fish/completions/haven.fish
 ```
 
 ### Zsh
@@ -726,7 +726,7 @@ dfiles completions fish > ~/.config/fish/completions/dfiles.fish
 Add to `~/.zshrc`:
 
 ```sh
-source <(dfiles completions zsh)
+source <(haven completions zsh)
 ```
 
 ### Bash
@@ -734,16 +734,16 @@ source <(dfiles completions zsh)
 Add to `~/.bashrc`:
 
 ```sh
-source <(dfiles completions bash)
+source <(haven completions bash)
 ```
 
 ---
 
 ## VCS backend (git vs jj)
 
-By default dfiles uses `git` for all clone and init operations. If you use
-[Jujutsu (jj)](https://jj-vcs.github.io/jj/), you can tell dfiles to use
-`jj git clone --colocate` instead, so all repos managed by dfiles are
+By default haven uses `git` for all clone and init operations. If you use
+[Jujutsu (jj)](https://jj-vcs.github.io/jj/), you can tell haven to use
+`jj git clone --colocate` instead, so all repos managed by haven are
 colocated (they have both `.jj/` and `.git/`, so both `git` and `jj`
 commands work in them).
 
@@ -753,31 +753,31 @@ commands work in them).
 
 | Source | Example |
 |--------|---------|
-| `--vcs` CLI flag | `dfiles init gh:alice/dotfiles --vcs jj` |
-| `DFILES_VCS` env var | `DFILES_VCS=jj dfiles apply --apply-externals` |
-| `vcs.backend` in `dfiles.toml` | `[vcs] / backend = "jj"` |
+| `--vcs` CLI flag | `haven init gh:alice/dotfiles --vcs jj` |
+| `HAVEN_VCS` env var | `HAVEN_VCS=jj haven apply --apply-externals` |
+| `vcs.backend` in `haven.toml` | `[vcs] / backend = "jj"` |
 | Interactive detection | jj is on PATH, no config set → prompt |
 | Default | `git` |
 
 ### Persisting the choice
 
-Set `vcs.backend` in `dfiles.toml` so every command uses jj without extra flags:
+Set `vcs.backend` in `haven.toml` so every command uses jj without extra flags:
 
 ```toml
 [vcs]
 backend = "jj"
 ```
 
-Or let dfiles prompt you: if jj is installed but nothing is configured, the next
+Or let haven prompt you: if jj is installed but nothing is configured, the next
 command that needs a VCS backend will ask which to use and offer to save the choice.
 
 ### What uses the configured backend
 
 | Operation | git | jj |
 |-----------|-----|----|
-| `dfiles init --source <url>` | `git clone` | `jj git clone --colocate` |
-| `dfiles apply --apply-externals` (new extdir) | `git clone --depth 1` | `jj git clone --colocate --depth 1` |
-| `dfiles apply --apply-externals` (existing extdir, pull) | `git pull --ff-only` | `git pull --ff-only` |
+| `haven init --source <url>` | `git clone` | `jj git clone --colocate` |
+| `haven apply --apply-externals` (new extdir) | `git clone --depth 1` | `jj git clone --colocate --depth 1` |
+| `haven apply --apply-externals` (existing extdir, pull) | `git pull --ff-only` | `git pull --ff-only` |
 | Skill cache | `git` sparse checkout | `git` sparse checkout (always) |
 
 Pulling existing extdirs always uses `git pull --ff-only`, because this works
@@ -788,44 +788,44 @@ uses git sparse checkout which is not yet supported by `jj git clone`.
 
 ### Migration: converting existing plain-git extdirs
 
-When `vcs.backend = "jj"` is set and `dfiles apply --apply-externals` encounters
-an extdir that already exists on disk but has no `.jj/` directory, dfiles will
+When `vcs.backend = "jj"` is set and `haven apply --apply-externals` encounters
+an extdir that already exists on disk but has no `.jj/` directory, haven will
 prompt you to run `jj git init --colocate` in that directory. Choosing "always"
 applies the migration to all remaining extdirs without further prompts.
 
 ### Inspecting the active backend
 
 ```sh
-dfiles vcs
+haven vcs
 ```
 
 Output:
 
 ```
-VCS backend: jj (colocated)  (set in dfiles.toml [vcs])
+VCS backend: jj (colocated)  (set in haven.toml [vcs])
 jj:          installed
-dfiles.toml: /Users/alice/dfiles/dfiles.toml
+haven.toml: /Users/alice/haven/haven.toml
 ```
 
 ---
 
 ## Importing from chezmoi
 
-If you already manage dotfiles with chezmoi, `dfiles import` converts your existing
-setup into dfiles format in one step.
+If you already manage dotfiles with chezmoi, `haven import` converts your existing
+setup into haven format in one step.
 
 ```
-dfiles import --from chezmoi
-dfiles import --from chezmoi --source ~/my-chezmoi-dir
-dfiles import --from chezmoi --dry-run
+haven import --from chezmoi
+haven import --from chezmoi --source ~/my-chezmoi-dir
+haven import --from chezmoi --dry-run
 ```
 
 ### What gets imported
 
 Files are copied into `source/` preserving their chezmoi magic-name encoding, which
-dfiles uses natively. No translation needed for filenames.
+haven uses natively. No translation needed for filenames.
 
-| chezmoi source path | dfiles source path | destination |
+| chezmoi source path | haven source path | destination |
 |--------------------|--------------------|-------------|
 | `dot_zshrc` | `source/dot_zshrc` | `~/.zshrc` |
 | `dot_config/git/config` | `source/dot_config/git/config` | `~/.config/git/config` |
@@ -839,7 +839,7 @@ converted to an `extdir_` marker file in `source/`.
 
 `.tmpl` files are converted from Go template syntax to Tera syntax during import:
 
-| chezmoi construct | dfiles Tera equivalent |
+| chezmoi construct | haven Tera equivalent |
 |------------------|----------------------|
 | `{{ .chezmoi.hostname }}` | `{{ hostname }}` |
 | `{{ .chezmoi.username }}` | `{{ username }}` |
@@ -866,8 +866,8 @@ Constructs with no direct mapping are preserved as-is with a warning.
 ### After importing
 
 ```
-dfiles apply --dry-run        # verify the import looks correct
-dfiles apply                  # deploy to this machine
+haven apply --dry-run        # verify the import looks correct
+haven apply                  # deploy to this machine
 ```
 
 Re-running import is safe — it is idempotent and never overwrites existing source files.
@@ -878,7 +878,7 @@ Re-running import is safe — it is idempotent and never overwrites existing sou
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `DFILES_DIR` | `~/dfiles` | Repo root directory |
-| `DFILES_CLAUDE_DIR` | `~/.claude` | Claude Code directory (skills, CLAUDE.md) |
-| `DFILES_TELEMETRY` | unset | Set to `1` to enable telemetry, `0` to force-disable |
-| `DFILES_VCS` | unset | Set to `git` or `jj` to override the VCS backend |
+| `HAVEN_DIR` | `~/.local/share/haven` | Repo root directory |
+| `HAVEN_CLAUDE_DIR` | `~/.claude` | Claude Code directory (skills, CLAUDE.md) |
+| `HAVEN_TELEMETRY` | unset | Set to `1` to enable telemetry, `0` to force-disable |
+| `HAVEN_VCS` | unset | Set to `git` or `jj` to override the VCS backend |

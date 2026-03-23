@@ -1,12 +1,12 @@
 /// Scan tracked source files for secrets, sensitive filenames, and sensitive paths.
 ///
 /// Exits 0 when no issues are found, 1 when findings are reported.
-/// Add paths to `[security] allow` in `dfiles.toml` to suppress false positives.
+/// Add paths to `[security] allow` in `haven.toml` to suppress false positives.
 use anyhow::Result;
 use regex::Regex;
 use std::path::Path;
 
-use crate::config::dfiles::DfilesConfig;
+use crate::config::haven::HavenConfig;
 use crate::fs::is_sensitive_with_rule;
 use crate::ignore::IgnoreList;
 use crate::template::TemplateContext;
@@ -222,7 +222,7 @@ pub fn run(opts: &ScanOptions<'_>) -> Result<()> {
     let source_dir = opts.repo_root.join("source");
     let ctx = TemplateContext::from_env_for_repo(opts.repo_root);
     let ignore = IgnoreList::load(opts.repo_root, &ctx);
-    let config = DfilesConfig::load(opts.repo_root).unwrap_or_default();
+    let config = HavenConfig::load(opts.repo_root).unwrap_or_default();
     let allow_list = make_allow_list(&config.security.allow);
 
     let entries = source::scan(&source_dir, &ignore)?;
@@ -413,13 +413,13 @@ fn print_findings(findings: &[Finding]) {
     }
 
     println!();
-    println!("Run `dfiles security-scan` to re-check after fixing.");
-    println!("Add paths to `[security] allow` in dfiles.toml to suppress false positives.");
+    println!("Run `haven security-scan` to re-check after fixing.");
+    println!("Add paths to `[security] allow` in haven.toml to suppress false positives.");
 }
 
-// ─── Public API for dfiles add ───────────────────────────────────────────────
+// ─── Public API for haven add ───────────────────────────────────────────────
 
-/// Scan a single file's content for secrets (used by `dfiles add`).
+/// Scan a single file's content for secrets (used by `haven add`).
 ///
 /// Does not check filename or path — those are the caller's responsibility.
 /// Does not check entropy (opt-in only via `security-scan --entropy`).
@@ -560,11 +560,11 @@ mod tests {
         let src_file = source_dir.join("dot_env");
         fs::write(&src_file, "API_KEY=secret123\n").unwrap();
 
-        // Write dfiles.toml with allow list.
+        // Write haven.toml with allow list.
         let config_content = "[security]\nallow = [\"~/.env\"]\n";
-        fs::write(repo.path().join("dfiles.toml"), config_content).unwrap();
+        fs::write(repo.path().join("haven.toml"), config_content).unwrap();
 
-        let config = DfilesConfig::load(repo.path()).unwrap();
+        let config = HavenConfig::load(repo.path()).unwrap();
         let allow_list = make_allow_list(&config.security.allow);
 
         // ~/.env should be allowed.

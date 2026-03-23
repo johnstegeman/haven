@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
 use crate::commands::security_scan::scan_single_file_content;
-use crate::config::dfiles::DfilesConfig;
+use crate::config::haven::HavenConfig;
 use crate::config::module::expand_tilde;
 use crate::fs::{is_sensitive, tilde_path};
 use crate::ignore::IgnoreList;
@@ -99,8 +99,8 @@ pub fn run(repo_root: &Path, file: &Path, link: bool, apply: bool, update: bool)
     println!("Added: {} → source/{}", dest_tilde, encoded.display());
 
     // Content scan: warn if the newly-added file contains sensitive patterns.
-    // Respect [security] allow list from dfiles.toml.
-    let config = DfilesConfig::load(repo_root).unwrap_or_default();
+    // Respect [security] allow list from haven.toml.
+    let config = HavenConfig::load(repo_root).unwrap_or_default();
     let allow_list = crate::commands::security_scan::make_allow_list(&config.security.allow);
     if !allow_list.is_ignored(&dest_tilde) {
         let content_findings = scan_single_file_content(&source_dest, &dest_tilde);

@@ -1,12 +1,12 @@
 # chezmoi Feature Gap Analysis
 
-This document maps every significant chezmoi feature against dfiles' current implementation.
+This document maps every significant chezmoi feature against haven's current implementation.
 Use it to decide which features are worth building.
 
 **Key:**
-- ✅ Already in dfiles
+- ✅ Already in haven
 - 📋 Already tracked in TODOS.md (not yet implemented)
-- ⬜ Not in dfiles, not yet tracked
+- ⬜ Not in haven, not yet tracked
 
 ---
 
@@ -14,7 +14,7 @@ Use it to decide which features are worth building.
 
 ### File prefixes
 
-| Attribute | chezmoi behavior | dfiles status |
+| Attribute | chezmoi behavior | haven status |
 |-----------|-----------------|---------------|
 | `dot_` | Renames `.dot_foo` → `.foo` | ✅ Implemented |
 | `private_` | chmod 0600 (files), 0700 (dirs) | ✅ Implemented |
@@ -25,7 +25,7 @@ Use it to decide which features are worth building.
 | `remove_` | Remove the file/symlink/dir from the target during apply | ⬜ Not tracked |
 | `encrypted_` | File is encrypted in the repo; decrypted on apply | ⬜ Not tracked |
 | `create_` | Write only if dest doesn't exist (skip if present) | 📋 TODOS.md P1 |
-| `exact_` | Delete anything in dest dir not tracked by dfiles | 📋 TODOS.md P1 |
+| `exact_` | Delete anything in dest dir not tracked by haven | 📋 TODOS.md P1 |
 | `modify_` | Script whose stdout replaces dest file (stdin = current content) | 📋 TODOS.md P2 (note only) |
 | `run_` | Execute as a script on every apply | 📋 TODOS.md P1 |
 | `run_once_` | Execute once per machine (tracked by content hash) | 📋 TODOS.md P1 |
@@ -37,9 +37,9 @@ Use it to decide which features are worth building.
 
 ### File suffixes
 
-| Attribute | chezmoi behavior | dfiles status |
+| Attribute | chezmoi behavior | haven status |
 |-----------|-----------------|---------------|
-| `.tmpl` | Render as Go template (dfiles uses Tera) | ✅ Implemented |
+| `.tmpl` | Render as Go template (haven uses Tera) | ✅ Implemented |
 | `.literal` | Stop parsing suffix attributes | ⬜ Not tracked |
 | `.age` | Strip when age encryption is active | ⬜ (part of encryption feature) |
 | `.asc` | Strip when GPG encryption is active | ⬜ (part of encryption feature) |
@@ -52,7 +52,7 @@ chezmoi supports stacking `run_`, `once_`/`onchange_`, and `before_`/`after_`:
 - `run_onchange_before_script.sh` — run on change, before file updates
 - `run_onchange_after_script.sh` — run on change, after file updates
 
-dfiles status: ⬜ Not tracked (depends on script execution feature in TODOS.md P1)
+haven status: ⬜ Not tracked (depends on script execution feature in TODOS.md P1)
 
 ---
 
@@ -60,7 +60,7 @@ dfiles status: ⬜ Not tracked (depends on script execution feature in TODOS.md 
 
 ### Template variables
 
-| Variable | chezmoi | dfiles |
+| Variable | chezmoi | haven |
 |----------|---------|--------|
 | OS name | `.chezmoi.os` (`darwin`, `linux`, …) | ✅ `{{ os }}` |
 | Short hostname | `.chezmoi.hostname` | ✅ `{{ hostname }}` |
@@ -80,13 +80,13 @@ dfiles status: ⬜ Not tracked (depends on script execution feature in TODOS.md 
 | chezmoi version | `.chezmoi.version.version` | ⬜ Not tracked |
 | Current target file | `.chezmoi.targetFile` | ⬜ Not tracked |
 | stdin (modify_ scripts) | `.chezmoi.stdin` | ⬜ (part of modify_ feature) |
-| Active profile | — | ✅ `{{ profile }}` (dfiles-specific) |
+| Active profile | — | ✅ `{{ profile }}` (haven-specific) |
 | Env variable | — | ✅ `{{ get_env(name="X") }}` |
 | 1Password secret | — | ✅ `{{ op(path="...") }}` |
 
 ### Template functions (chezmoi-specific, beyond Tera builtins)
 
-| Function | Purpose | dfiles status |
+| Function | Purpose | haven status |
 |----------|---------|---------------|
 | `exec cmd args...` / `output` | Run an external command; return stdout | ⬜ Not tracked |
 | `glob pattern` | Glob filesystem paths | ⬜ Not tracked |
@@ -115,7 +115,7 @@ dfiles status: ⬜ Not tracked (depends on script execution feature in TODOS.md 
 
 chezmoi supports special comments inside `.tmpl` files to control rendering behavior:
 
-| Directive | Effect | dfiles status |
+| Directive | Effect | haven status |
 |-----------|--------|---------------|
 | `chezmoi:template:left-delimiter=X right-delimiter=Y` | Change `{{ }}` to custom delimiters | ⬜ Not tracked |
 | `chezmoi:template:encoding=utf-8-bom` etc. | Control output encoding | ⬜ Not tracked |
@@ -126,7 +126,7 @@ chezmoi supports special comments inside `.tmpl` files to control rendering beha
 
 ## Special Files and Directories
 
-| File/Dir | chezmoi purpose | dfiles status |
+| File/Dir | chezmoi purpose | haven status |
 |----------|----------------|---------------|
 | `.chezmoiexternal.toml` | Define external git repos, archives, files | ✅ Parsed (git-repo type only) |
 | `.chezmoiignore` | gitignore-style patterns to skip during apply | ⬜ Not tracked |
@@ -143,22 +143,22 @@ chezmoi supports special comments inside `.tmpl` files to control rendering beha
 
 ## External Sources
 
-dfiles `extdir_` marker files currently support only `type = "git"`. chezmoi's `.chezmoiexternal` supports:
+haven `extdir_` marker files currently support only `type = "git"`. chezmoi's `.chezmoiexternal` supports:
 
-| External type | chezmoi behavior | dfiles status |
+| External type | chezmoi behavior | haven status |
 |--------------|-----------------|---------------|
 | `git-repo` | Clone/pull a git repository | ✅ Implemented (`extdir_` marker files) |
 | `file` | Download a single file from a URL | ⬜ Not tracked |
 | `archive` | Download + extract a tarball/zip into a directory | ⬜ Not tracked |
 | `archive-file` | Extract a single file from within an archive | ⬜ Not tracked |
 
-### Common external options not yet in dfiles
+### Common external options not yet in haven
 
-| Option | Purpose | dfiles status |
+| Option | Purpose | haven status |
 |--------|---------|---------------|
 | `urls: []` | Fallback URL list tried in order | ⬜ Not tracked |
 | `refreshPeriod` | Re-download periodically (e.g., `"168h"` = weekly) | ⬜ Not tracked |
-| `checksum.sha256` etc. | Verify download integrity | ⬜ Not tracked (related to dfiles.lock SHA verification in TODOS.md) |
+| `checksum.sha256` etc. | Verify download integrity | ⬜ Not tracked (related to haven.lock SHA verification in TODOS.md) |
 | `filter.command` | Pipe downloaded content through external command | ⬜ Not tracked |
 | `stripComponents` | Strip N leading path components from archive | ⬜ Not tracked |
 | `include`/`exclude` | Glob filter for archive members | ⬜ Not tracked |
@@ -169,7 +169,7 @@ dfiles `extdir_` marker files currently support only `type = "git"`. chezmoi's `
 
 chezmoi supports transparent encryption of source files with `encrypted_` prefix:
 
-| Feature | chezmoi | dfiles status |
+| Feature | chezmoi | haven status |
 |---------|---------|---------------|
 | age encryption | `encrypted_` prefix + `encryption = "age"` in config | ⬜ Not tracked |
 | GPG encryption | `encrypted_` prefix + `encryption = "gpg"` in config | ⬜ Not tracked |
@@ -180,9 +180,9 @@ chezmoi supports transparent encryption of source files with `encrypted_` prefix
 
 ## Secret Manager Integrations
 
-dfiles supports 1Password via `{{ op(path="...") }}`. chezmoi supports many more:
+haven supports 1Password via `{{ op(path="...") }}`. chezmoi supports many more:
 
-| Manager | dfiles status |
+| Manager | haven status |
 |---------|---------------|
 | 1Password | ✅ Implemented (`op()` function) |
 | Bitwarden / rbw | ⬜ Not tracked |
@@ -203,7 +203,7 @@ dfiles supports 1Password via `{{ op(path="...") }}`. chezmoi supports many more
 
 ## Commands
 
-| Command | chezmoi | dfiles status |
+| Command | chezmoi | haven status |
 |---------|---------|---------------|
 | `init` | Initialize repo, generate config via template | ✅ Implemented |
 | `add` | Track a file or directory (copy into source with magic-name encoding; directories prompt for extdir or recursive) | ✅ Implemented |
@@ -216,25 +216,25 @@ dfiles supports 1Password via `{{ op(path="...") }}`. chezmoi supports many more
 | `edit` | Edit a source file (handles .tmpl and encryption transparently) | ⬜ Not tracked |
 | `re-add` | Copy a modified live file back into source (reverse of apply) | ⬜ Not tracked |
 | `forget` / `unmanage` | Stop tracking a file (remove from source, leave target alone) | ⬜ Not tracked |
-| `managed` | List all files currently managed by dfiles | ⬜ Not tracked |
+| `managed` | List all files currently managed by haven | ⬜ Not tracked |
 | `chattr` | Change attributes of a source file (rename with new prefixes) | ⬜ Not tracked |
 | `doctor` | Check environment (installed tools, permissions, integrations) | ⬜ Not tracked |
 | `verify` | Assert target state exactly matches source state | ⬜ Not tracked |
-| `update` | Pull remote changes and apply (git pull + dfiles apply) | ⬜ Not tracked |
+| `update` | Pull remote changes and apply (git pull + haven apply) | ⬜ Not tracked |
 | `data` | Print all template variables as JSON (debugging) | ⬜ Not tracked |
 | `completions` | Generate shell completion scripts | ⬜ Not tracked |
 | `merge` / `merge-all` | Three-way merge source and target | ⬜ Not tracked |
 | `archive` | Create an archive of the rendered target state | ⬜ Not tracked |
 | `cd` | Start a shell in the source directory | ⬜ Not tracked |
 | `git` | Run git in the source directory | ⬜ Not tracked |
-| `purge` | Remove dfiles and all its data | ⬜ Not tracked |
+| `purge` | Remove haven and all its data | ⬜ Not tracked |
 | `state` | Inspect/reset the persistent state database | ⬜ Not tracked |
 
 ---
 
 ## Configuration and Behavior
 
-| Feature | chezmoi | dfiles status |
+| Feature | chezmoi | haven status |
 |---------|---------|---------------|
 | `mode = "symlink"` | Manage all files as symlinks pointing into source (instead of copying) | ⬜ Not tracked |
 | Auto-commit | Automatically `git commit` after apply | ⬜ Not tracked |
@@ -248,24 +248,24 @@ dfiles supports 1Password via `{{ op(path="...") }}`. chezmoi supports many more
 | Script interpreters | Configurable per-extension interpreter (`[interpreters.py]`) | ⬜ Not tracked |
 | Script environment | Extra env vars injected into scripts (`[scriptEnv]`) | ⬜ Not tracked |
 | `update --init` | Pull remote changes + re-run init template | ⬜ Not tracked |
-| Plugin system | `dfiles-foo` binaries in PATH are auto-discovered as subcommands | ⬜ Not tracked |
-| `dfiles.boltdb` state | chezmoi uses a BoltDB for run_once_ tracking (dfiles uses state.json) | ✅ state.json is dfiles' equivalent |
+| Plugin system | `haven-foo` binaries in PATH are auto-discovered as subcommands | ⬜ Not tracked |
+| `haven.boltdb` state | chezmoi uses a BoltDB for run_once_ tracking (haven uses state.json) | ✅ state.json is haven's equivalent |
 
 ---
 
-## Features dfiles Has That chezmoi Doesn't
+## Features haven Has That chezmoi Doesn't
 
-For completeness — features that are dfiles-specific and have no chezmoi equivalent:
+For completeness — features that are haven-specific and have no chezmoi equivalent:
 
 | Feature | Description |
 |---------|-------------|
 | Module system | Namespaced Homebrew/mise/AI/externals config per module |
 | Profile system | Named sets of modules with inheritance (`extends`) |
 | AI skills/commands | First-class `[ai]` section for Claude Code skills and commands |
-| `dfiles-manifest.json` | Package manifest for `dfiles bootstrap gh:owner/repo` |
-| `dfiles.lock` | SHA pinning for fetched GitHub sources |
+| `haven-manifest.json` | Package manifest for `haven bootstrap gh:owner/repo` |
+| `haven.lock` | SHA pinning for fetched GitHub sources |
 | `gh:owner/repo@ref` source format | Shorthand for GitHub sources in AI and externals |
-| `dfiles brew install` | `brew install` + auto-update Brewfile in one command |
+| `haven brew install` | `brew install` + auto-update Brewfile in one command |
 | `--dest` staging flag | Apply to a staging directory for testing without touching real home |
 | Auto-generated CLAUDE.md | Regenerates `~/.claude/CLAUDE.md` listing installed skills after every apply |
 
@@ -273,33 +273,33 @@ For completeness — features that are dfiles-specific and have no chezmoi equiv
 
 ## Prioritization Notes
 
-Features most likely worth implementing (high signal-to-noise for dfiles users):
+Features most likely worth implementing (high signal-to-noise for haven users):
 
-1. **`dfiles diff`** — the most-missed command after `apply`/`status`. Shows what would change.
-2. **`dfiles edit`** — second most-missed. Edit source files without manually navigating to `~/dfiles/source/`.
-3. **`dfiles managed`** — list what's being tracked. Useful for auditing.
-4. **`dfiles forget`** — stop tracking a file without deleting it. Pair with `managed`.
-5. **`dfiles re-add`** — copy a modified live file back into source (the reverse of apply).
+1. **`haven diff`** — the most-missed command after `apply`/`status`. Shows what would change.
+2. **`haven edit`** — second most-missed. Edit source files without manually navigating to `~/haven/source/`.
+3. **`haven managed`** — list what's being tracked. Useful for auditing.
+4. **`haven forget`** — stop tracking a file without deleting it. Pair with `managed`.
+5. **`haven re-add`** — copy a modified live file back into source (the reverse of apply).
 6. **`arch` template variable** — commonly needed for OS-conditional tool install paths.
-7. **`dfiles update`** — `git pull` + `dfiles apply` in one command. Near-essential for daily use.
-8. **`.dfilesignore`** — ignore patterns for source files. Useful for excluding machine-specific files.
+7. **`haven update`** — `git pull` + `haven apply` in one command. Near-essential for daily use.
+8. **`.havenignore`** — ignore patterns for source files. Useful for excluding machine-specific files.
 9. **`readonly_` prefix** — simple to implement; occasionally needed.
 10. **`empty_` prefix** — simple to implement; useful for placeholder files.
 11. **`remove_` prefix** — declaratively remove files during apply.
 12. **`refreshPeriod` for externals** — auto-update external sources periodically.
 13. **`file` and `archive` external types** — download single files or archives from URLs (very useful for binary tools).
 14. **Additional secret managers** — Bitwarden and Vault are the most commonly used after 1Password.
-15. **Shell completions** — quality-of-life; `dfiles completions --shell zsh`.
+15. **Shell completions** — quality-of-life; `haven completions --shell zsh`.
 
-Features likely **not** worth implementing (too complex or mismatched to dfiles' design):
+Features likely **not** worth implementing (too complex or mismatched to haven's design):
 
-- **Encryption** — dfiles' design uses 1Password for secrets; `encrypted_` adds major complexity for marginal gain.
+- **Encryption** — haven's design uses 1Password for secrets; `encrypted_` adds major complexity for marginal gain.
 - **`modify_` scripts** — fundamentally incompatible with static file management; already documented as note-only.
-- **`mode = "symlink"`** — dfiles supports explicit `symlink_` prefix; a global symlink mode adds complexity.
-- **Merge tool** — dfiles tracks source as truth; conflicts don't arise in the same way.
-- **`--one-shot` mode** — rarely needed; can be approximated by running dfiles and then deleting the repo.
+- **`mode = "symlink"`** — haven supports explicit `symlink_` prefix; a global symlink mode adds complexity.
+- **Merge tool** — haven tracks source as truth; conflicts don't arise in the same way.
+- **`--one-shot` mode** — rarely needed; can be approximated by running haven and then deleting the repo.
 - **Plugin system** — premature generalization; add commands directly.
 - **`purge`** — destructive; not obviously useful in a dotfiles manager.
 - **Sprig library** — Tera already provides a rich set of filters; full Sprig parity not needed.
 - **Template directives** (delimiter changes, encoding) — edge cases for exotic file formats.
-- **chezmoi init config template** (`.chezmoi.$FORMAT.tmpl`) — dfiles' `dfiles init` is simpler by design.
+- **chezmoi init config template** (`.chezmoi.$FORMAT.tmpl`) — haven's `haven init` is simpler by design.

@@ -1,43 +1,52 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
-  <defs>
-    <linearGradient id="bgGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#0f1117"/>
-      <stop offset="100%" style="stop-color:#1a1f2e"/>
-    </linearGradient>
-    <linearGradient id="accentGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#3b82f6"/>
-      <stop offset="100%" style="stop-color:#6366f1"/>
-    </linearGradient>
-    <clipPath id="hexClip">
-      <polygon points="100,8 174,50 174,150 100,192 26,150 26,50"/>
-    </clipPath>
-  </defs>
+  <!--
+    Rosé Pine:  base #191724  overlay #26233a  highlight #403d52
+                foam #9ccfd8  text #e0def4  iris #c4a7e7  subtle #908caa
+    Tilde drawn as a path (no font). "haven" uses Helvetica/Arial.
+  -->
 
   <!-- Hexagon background -->
   <polygon points="100,8 174,50 174,150 100,192 26,150 26,50"
-           fill="url(#bgGrad1)"/>
+           fill="#191724"/>
 
-  <!-- Subtle inner glow ring -->
+  <!-- Inner border ring -->
   <polygon points="100,18 166,57 166,143 100,182 34,143 34,57"
-           fill="none" stroke="url(#accentGrad1)" stroke-width="1" opacity="0.3"/>
+           fill="none" stroke="#403d52" stroke-width="1.2"/>
 
-  <!-- Accent bar — horizontal line through middle -->
-  <line x1="44" y1="100" x2="156" y2="100"
-        stroke="url(#accentGrad1)" stroke-width="1.5" opacity="0.4"/>
+  <!-- Tilde — drawn as cubic bezier, centred at (100, 95) -->
+  <path d="M 46 100
+           C 54 80, 68 80, 78 92
+           C 88 104, 102 116, 118 100
+           C 128 88, 138 80, 150 92
+           C 155 98, 157 103, 160 100"
+        fill="none"
+        stroke="#9ccfd8"
+        stroke-width="8"
+        stroke-linecap="round"
+        stroke-linejoin="round"/>
 
-  <!-- "df" monogram — monospace/terminal feel -->
-  <!-- d -->
-  <text x="52" y="122"
-        font-family="'JetBrains Mono', 'Fira Code', 'Courier New', monospace"
-        font-size="62" font-weight="700"
-        fill="#e2e8f0" letter-spacing="-2">d</text>
+  <!-- Glow echo -->
+  <path d="M 46 100
+           C 54 80, 68 80, 78 92
+           C 88 104, 102 116, 118 100
+           C 128 88, 138 80, 150 92
+           C 155 98, 157 103, 160 100"
+        fill="none"
+        stroke="#9ccfd8"
+        stroke-width="18"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        opacity="0.12"/>
 
-  <!-- f — electric blue -->
-  <text x="105" y="122"
-        font-family="'JetBrains Mono', 'Fira Code', 'Courier New', monospace"
-        font-size="62" font-weight="700"
-        fill="url(#accentGrad1)">f</text>
+  <!-- "haven" — Helvetica/Arial -->
+  <text x="100" y="154"
+        font-family="Helvetica, Arial, sans-serif"
+        font-size="26"
+        font-weight="300"
+        text-anchor="middle"
+        letter-spacing="6"
+        fill="#e0def4">haven</text>
 
-  <!-- Dot — bottom right accent -->
-  <circle cx="154" cy="144" r="4" fill="url(#accentGrad1)" opacity="0.8"/>
+  <!-- Iris accent dot -->
+  <circle cx="154" cy="169" r="3.5" fill="#c4a7e7"/>
 </svg>

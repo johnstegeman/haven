@@ -17,7 +17,7 @@ pub fn run(opts: &ListOptions<'_>) -> Result<()> {
     let entries = source::scan(&source_dir, &ignore)?;
 
     if entries.is_empty() {
-        println!("No files tracked. Run `dfiles add <file>` to start tracking.");
+        println!("No files tracked. Run `haven add <file>` to start tracking.");
         return Ok(());
     }
 

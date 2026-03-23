@@ -5,13 +5,13 @@
 ///   {{ os }}                          # "macos" | "linux" | <os name>
 ///   {{ hostname }}                    # machine hostname
 ///   {{ username }}                    # current user ($USER / $USERNAME)
-///   {{ profile }}                     # active dfiles profile name
+///   {{ profile }}                     # active haven profile name
 ///   {{ home_dir }}                    # absolute path to the home directory (e.g. /Users/you)
-///   {{ source_dir }}                  # absolute path to the dfiles repo root (e.g. /Users/you/dfiles)
+///   {{ source_dir }}                  # absolute path to the haven repo root (e.g. /Users/you/haven)
 ///   {{ get_env(name="VAR") }}         # read an environment variable (Tera built-in)
 ///   {{ get_env(name="VAR", default="fallback") }}
 ///
-/// Custom variables from `[data]` in `dfiles.toml` are available under the `data` namespace:
+/// Custom variables from `[data]` in `haven.toml` are available under the `data` namespace:
 ///
 ///   {{ data.host }}                   # from [data] host = "my-laptop"
 ///   {{ data.kanata_path }}            # from [data] kanata_path = "/usr/local/bin/kanata"
@@ -29,7 +29,7 @@ use std::path::Path;
 use tera::{Context as TeraContext, Tera};
 
 /// Template name used internally when rendering a single source string.
-const TEMPLATE_NAME: &str = "_dfiles_template";
+const TEMPLATE_NAME: &str = "_haven_template";
 
 /// Variables injected into every template render.
 pub struct TemplateContext {
@@ -39,24 +39,24 @@ pub struct TemplateContext {
     pub profile: String,
     pub home_dir: String,
     pub source_dir: String,
-    /// Custom variables from `[data]` in `dfiles.toml`.
+    /// Custom variables from `[data]` in `haven.toml`.
     /// Accessible in templates as `{{ data.key }}`.
     pub data: HashMap<String, String>,
 }
 
 impl TemplateContext {
     /// Build from the current machine environment, loading profile and data from
-    /// the dfiles state file and config at `repo_root`.
+    /// the haven state file and config at `repo_root`.
     ///
     /// Used by commands that have a `repo_root` but no pre-loaded config (e.g. `diff`,
-    /// `list`, `add`). Reads `~/.dfiles/state.json` for the active profile and
-    /// `dfiles.toml` for `[data]` variables. Falls back to `"default"` profile and
+    /// `list`, `add`). Reads `~/.haven/state.json` for the active profile and
+    /// `haven.toml` for `[data]` variables. Falls back to `"default"` profile and
     /// empty data on any read error.
     pub fn from_env_for_repo(repo_root: &Path) -> Self {
-        let config = crate::config::dfiles::DfilesConfig::load(repo_root).unwrap_or_default();
+        let config = crate::config::haven::HavenConfig::load(repo_root).unwrap_or_default();
         let state_dir = dirs::home_dir()
             .unwrap_or_else(|| std::path::PathBuf::from("/tmp"))
-            .join(".dfiles");
+            .join(".haven");
         let profile = crate::state::State::load(&state_dir)
             .ok()
             .and_then(|s| s.profile)
@@ -66,7 +66,7 @@ impl TemplateContext {
 
     /// Build from the current machine environment.
     ///
-    /// `data` comes from `[data]` in `dfiles.toml` — pass `config.data.clone()`.
+    /// `data` comes from `[data]` in `haven.toml` — pass `config.data.clone()`.
     pub fn from_env(profile: &str, repo_root: &Path, data: HashMap<String, String>) -> Self {
         Self {
             os: detect_os(),
@@ -167,7 +167,7 @@ mod tests {
             username: "testuser".to_string(),
             profile: profile.to_string(),
             home_dir: "/home/testuser".to_string(),
-            source_dir: "/home/testuser/dfiles".to_string(),
+            source_dir: "/home/testuser/haven".to_string(),
             data: HashMap::new(),
         }
     }
@@ -205,7 +205,7 @@ mod tests {
     #[test]
     fn renders_source_dir_variable() {
         let out = render("dir={{ source_dir }}", &ctx("default")).unwrap();
-        assert_eq!(out, "dir=/home/testuser/dfiles");
+        assert_eq!(out, "dir=/home/testuser/haven");
     }
 
     #[test]
@@ -217,10 +217,10 @@ mod tests {
 
     #[test]
     fn renders_env_variable_via_get_env() {
-        std::env::set_var("DFILES_TEST_VAR", "hello");
-        let out = render(r#"{{ get_env(name="DFILES_TEST_VAR") }}"#, &ctx("default")).unwrap();
+        std::env::set_var("HAVEN_TEST_VAR", "hello");
+        let out = render(r#"{{ get_env(name="HAVEN_TEST_VAR") }}"#, &ctx("default")).unwrap();
         assert_eq!(out, "hello");
-        std::env::remove_var("DFILES_TEST_VAR");
+        std::env::remove_var("HAVEN_TEST_VAR");
     }
 
     #[test]

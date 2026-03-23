@@ -37,17 +37,17 @@ enum AiAction {
     /// making any changes.
     ///
     /// Example:
-    ///   dfiles ai discover
+    ///   haven ai discover
     Discover,
 
     /// Add a skill declaration to `ai/skills.toml`.
     ///
-    /// Does not deploy the skill; run `dfiles apply --ai` afterward.
+    /// Does not deploy the skill; run `haven apply --ai` afterward.
     ///
     /// Examples:
-    ///   dfiles ai add gh:anthropics/skills/pdf-processing
-    ///   dfiles ai add gh:owner/repo --name my-skill --platforms claude-code,codex
-    ///   dfiles ai add dir:~/projects/my-skill --deploy copy
+    ///   haven ai add gh:anthropics/skills/pdf-processing
+    ///   haven ai add gh:owner/repo --name my-skill --platforms claude-code,codex
+    ///   haven ai add dir:~/projects/my-skill --deploy copy
     Add {
         /// Skill source: `gh:owner/repo[/subpath][@ref]` or `dir:~/path`.
         source: String,
@@ -66,19 +66,19 @@ enum AiAction {
         deploy: String,
     },
 
-    /// Import a locally-developed skill into the dfiles repo.
+    /// Import a locally-developed skill into the haven repo.
     ///
     /// Copies the skill directory into `ai/skills/<name>/files/`, writes
     /// `ai/skills/<name>/skill.toml` with `source = "repo:"`, creates a blank
     /// `all.md` snippet stub, and removes the original directory.
     ///
-    /// Run `dfiles apply --ai` afterward to deploy the skill symlink to
+    /// Run `haven apply --ai` afterward to deploy the skill symlink to
     /// `~/.claude/skills/<name>` (or equivalent for your active platforms).
     ///
     /// Examples:
-    ///   dfiles ai add-local ~/.claude/skills/myskill
-    ///   dfiles ai add-local ~/dev/my-skill --name myskill
-    ///   dfiles ai add-local ~/.claude/skills/myskill --platforms claude-code
+    ///   haven ai add-local ~/.claude/skills/myskill
+    ///   haven ai add-local ~/dev/my-skill --name myskill
+    ///   haven ai add-local ~/.claude/skills/myskill --platforms claude-code
     #[command(name = "add-local")]
     AddLocal {
         /// Path to the local skill directory to import.
@@ -100,8 +100,8 @@ enum AiAction {
     /// `dir:` and `repo:` skills are always skipped (read directly on apply).
     ///
     /// Examples:
-    ///   dfiles ai fetch
-    ///   dfiles ai fetch pdf-processing
+    ///   haven ai fetch
+    ///   haven ai fetch pdf-processing
     Fetch {
         /// Skill name to fetch. Omit to fetch all skills.
         name: Option<String>,
@@ -110,12 +110,12 @@ enum AiAction {
     /// Fetch the latest version of skills, ignoring the current lock SHA.
     ///
     /// Unlike `fetch`, this clears the lock entry before fetching so the
-    /// skill is always re-downloaded from its source. Run `dfiles apply --ai`
+    /// skill is always re-downloaded from its source. Run `haven apply --ai`
     /// afterward to deploy updated skills.
     ///
     /// Examples:
-    ///   dfiles ai update
-    ///   dfiles ai update pdf-processing
+    ///   haven ai update
+    ///   haven ai update pdf-processing
     Update {
         /// Skill name to update. Omit to update all skills.
         name: Option<String>,
@@ -127,8 +127,8 @@ enum AiAction {
     /// is given.
     ///
     /// Example:
-    ///   dfiles ai remove pdf-processing
-    ///   dfiles ai remove pdf-processing --yes
+    ///   haven ai remove pdf-processing
+    ///   haven ai remove pdf-processing --yes
     Remove {
         /// Skill name as declared in `ai/skills.toml`.
         name: String,
@@ -141,11 +141,11 @@ enum AiAction {
     /// Search skills.sh for skills matching a query and display results.
     ///
     /// Results show the skill name, gh: source, and install count.
-    /// To add a skill from the results: `dfiles ai add gh:owner/repo/skill-name`.
+    /// To add a skill from the results: `haven ai add gh:owner/repo/skill-name`.
     ///
     /// Examples:
-    ///   dfiles ai search jujutsu
-    ///   dfiles ai search "pdf processing" --limit 5
+    ///   haven ai search jujutsu
+    ///   haven ai search "pdf processing" --limit 5
     Search {
         /// Search query.
         query: String,
@@ -163,8 +163,8 @@ enum AiAction {
     /// adding anything to ai/skills.toml.
     ///
     /// Examples:
-    ///   dfiles ai scan ~/.claude/skills
-    ///   dfiles ai scan ~/.agents/skills --dry-run
+    ///   haven ai scan ~/.claude/skills
+    ///   haven ai scan ~/.agents/skills --dry-run
     Scan {
         /// Directory to scan for skill subdirectories.
         path: String,
@@ -177,12 +177,12 @@ enum AiAction {
 
 #[derive(Subcommand)]
 enum BrewAction {
-    /// Install a formula and record it in a Brewfile in your dfiles repo.
+    /// Install a formula and record it in a Brewfile in your haven repo.
     ///
     /// Examples:
-    ///   dfiles brew install ripgrep
-    ///   dfiles brew install iterm2 --cask
-    ///   dfiles brew install ripgrep --module packages
+    ///   haven brew install ripgrep
+    ///   haven brew install iterm2 --cask
+    ///   haven brew install ripgrep --module packages
     Install {
         /// Formula or cask name (e.g. `ripgrep`, `iterm2`).
         name: String,
@@ -197,11 +197,11 @@ enum BrewAction {
         module: Option<String>,
     },
 
-    /// Uninstall a formula and remove it from all Brewfiles in your dfiles repo.
+    /// Uninstall a formula and remove it from all Brewfiles in your haven repo.
     ///
     /// Examples:
-    ///   dfiles brew uninstall ripgrep
-    ///   dfiles brew uninstall iterm2 --cask
+    ///   haven brew uninstall ripgrep
+    ///   haven brew uninstall iterm2 --cask
     Uninstall {
         /// Formula or cask name.
         name: String,
@@ -212,22 +212,22 @@ enum BrewAction {
     },
 }
 
-use config::dfiles::{DfilesConfig, repo_root};
+use config::haven::{HavenConfig, repo_root};
 
 #[derive(Parser)]
 #[command(
-    name = "dfiles",
+    name = "haven",
     version = telemetry::BUILD_VERSION,
     about = "AI-first dotfiles & environment manager",
-    long_about = "dfiles tracks dotfiles, packages, and AI tools across machines.\n\
+    long_about = "haven tracks dotfiles, packages, and AI tools across machines.\n\
                   \n\
-                  Repo directory: ~/dfiles  (override: --dir or DFILES_DIR)\n\
-                  State directory: ~/.dfiles (backups, lock file, applied state)\n\
+                  Repo directory: ~/.local/share/haven  (override: --dir or HAVEN_DIR)\n\
+                  State directory: ~/.haven (backups, lock file, applied state)\n\
                   Claude directory: ~/.claude (skills, commands, CLAUDE.md)",
 )]
 struct Cli {
-    /// dfiles repo directory. Defaults to ~/dfiles; overridden by DFILES_DIR env var.
-    #[arg(long, global = true, env = "DFILES_DIR")]
+    /// haven repo directory. Defaults to ~/.local/share/haven; overridden by HAVEN_DIR env var.
+    #[arg(long, global = true, env = "HAVEN_DIR")]
     dir: Option<PathBuf>,
 
     #[command(subcommand)]
@@ -236,53 +236,53 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Generate shell completion scripts for dfiles.
+    /// Generate shell completion scripts for haven.
     ///
     /// Print the completion script to stdout and source it in your shell config.
     ///
     /// Fish:
-    ///   dfiles completions fish > ~/.config/fish/completions/dfiles.fish
+    ///   haven completions fish > ~/.config/fish/completions/haven.fish
     ///
     /// Zsh (add to ~/.zshrc):
-    ///   source <(dfiles completions zsh)
+    ///   source <(haven completions zsh)
     ///
     /// Bash (add to ~/.bashrc):
-    ///   source <(dfiles completions bash)
+    ///   source <(haven completions bash)
     Completions {
         /// Shell to generate completions for: fish, zsh, or bash.
         shell: Shell,
     },
 
-    /// Print the path to the dfiles repo directory and exit.
+    /// Print the path to the haven repo directory and exit.
     ///
     /// Useful in shell scripts and aliases:
-    ///   cd $(dfiles source-path)
-    ///   alias dfiles-cd='cd $(dfiles source-path)'
+    ///   cd $(haven source-path)
+    ///   alias haven-cd='cd $(haven source-path)'
     ///
     /// Resolution order:
     ///   1. $DFILES_DIR env var
-    ///   2. ~/dfiles if it contains a dfiles repo (migration)
-    ///   3. $XDG_DATA_HOME/dfiles
-    ///   4. ~/.local/share/dfiles  (default for new installs)
+    ///   2. ~/haven if it contains a haven repo (migration)
+    ///   3. $XDG_DATA_HOME/haven
+    ///   4. ~/.local/share/haven  (default for new installs)
     SourcePath,
 
-    /// Create a new dfiles repository (first-time setup).
+    /// Create a new haven repository (first-time setup).
     ///
     /// Without a source, creates a blank scaffold in the --dir directory.
     /// With a source, clones the repository and optionally applies it immediately.
     ///
     /// Use this once when setting up a machine for the first time. For subsequent
-    /// re-provisioning of an already-initialised machine, use `dfiles apply`.
+    /// re-provisioning of an already-initialised machine, use `haven apply`.
     ///
     /// Examples:
-    ///   dfiles init
-    ///   dfiles init gh:alice/dotfiles
-    ///   dfiles init gh:alice/dotfiles --branch dev
-    ///   dfiles init https://github.com/alice/dotfiles --apply
-    ///   dfiles init gh:alice/dotfiles --apply --profile work
-    ///   dfiles init gh:alice/dotfiles --vcs jj
+    ///   haven init
+    ///   haven init gh:alice/dotfiles
+    ///   haven init gh:alice/dotfiles --branch dev
+    ///   haven init https://github.com/alice/dotfiles --apply
+    ///   haven init gh:alice/dotfiles --apply --profile work
+    ///   haven init gh:alice/dotfiles --vcs jj
     Init {
-        /// Git repository to clone as your dfiles repo.
+        /// Git repository to clone as your haven repo.
         /// Accepts `gh:owner/repo[@ref]` notation or any URL that `git clone` accepts
         /// (HTTPS, SSH, local path, etc.). Omit to create a blank scaffold.
         source: Option<String>,
@@ -301,7 +301,7 @@ enum Commands {
         profile: Option<String>,
 
         /// VCS backend to use: `git` (default) or `jj` (Jujutsu colocated).
-        /// Overrides DFILES_VCS env var and dfiles.toml [vcs] settings.
+        /// Overrides HAVEN_VCS env var and haven.toml [vcs] settings.
         #[arg(long, value_name = "BACKEND")]
         vcs: Option<String>,
     },
@@ -312,7 +312,7 @@ enum Commands {
     /// when present.
     ///
     /// Examples:
-    ///   dfiles list
+    ///   haven list
     ///
     /// Example output:
     ///   ~/.zshrc
@@ -516,9 +516,9 @@ enum Commands {
     /// to (or removed from) the Brewfile(s) in your dfiles repo.
     ///
     /// Examples:
-    ///   dfiles brew install ripgrep
-    ///   dfiles brew install iterm2 --cask
-    ///   dfiles brew uninstall ripgrep
+    ///   haven brew install ripgrep
+    ///   haven brew install iterm2 --cask
+    ///   haven brew uninstall ripgrep
     Brew {
         #[command(subcommand)]
         action: BrewAction,
@@ -530,10 +530,10 @@ enum Commands {
     /// directories (e.g. `~/.claude/skills/`) by `dfiles apply`.
     ///
     /// Examples:
-    ///   dfiles ai discover
-    ///   dfiles ai add gh:anthropics/skills/pdf-processing
-    ///   dfiles ai fetch
-    ///   dfiles ai update
+    ///   haven ai discover
+    ///   haven ai add gh:anthropics/skills/pdf-processing
+    ///   haven ai fetch
+    ///   haven ai update
     ///   dfiles ai remove my-skill
     Ai {
         #[command(subcommand)]
@@ -722,8 +722,8 @@ fn parse_vcs_flag(s: &str) -> anyhow::Result<vcs::VcsBackend> {
 
 /// Load the VCS backend from dfiles.toml, or return None if not set or parse fails.
 fn vcs_from_config(repo: &std::path::Path) -> Option<vcs::VcsBackend> {
-    use config::dfiles::DfilesConfig;
-    let cfg = DfilesConfig::load(repo).ok()?;
+    use config::haven::HavenConfig;
+    let cfg = HavenConfig::load(repo).ok()?;
     match cfg.vcs.backend.as_deref() {
         Some("git") => Some(vcs::VcsBackend::Git),
         Some("jj")  => Some(vcs::VcsBackend::Jj),
@@ -828,7 +828,7 @@ fn set_telemetry_in_config(repo: &std::path::Path, enabled: bool) -> Result<()> 
 fn try_load_telemetry_config() -> bool {
     (|| -> Option<bool> {
         let repo = repo_root().ok()?;
-        let cfg = DfilesConfig::load(&repo).ok()?;
+        let cfg = HavenConfig::load(&repo).ok()?;
         Some(cfg.telemetry.enabled)
     })()
     .unwrap_or(false)
@@ -1102,7 +1102,7 @@ fn run() -> Result<()> {
         }
 
         Commands::Data => {
-            let config = DfilesConfig::load(&repo).unwrap_or_default();
+            let config = HavenConfig::load(&repo).unwrap_or_default();
             let ctx = template::TemplateContext::from_env("default", &repo, config.data);
             println!("os        = {}", ctx.os);
             println!("hostname  = {}", ctx.hostname);

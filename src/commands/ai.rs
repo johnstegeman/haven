@@ -1,10 +1,10 @@
-/// `dfiles ai` subcommands: discover, add, add-local, fetch, update, remove.
+/// `haven ai` subcommands: discover, add, add-local, fetch, update, remove.
 ///
 /// These commands manage the lifecycle of AI skills declared in `ai/skills.toml`:
 ///
 /// - `discover`   — scan for installed AI platforms, offer to update `active` list
 /// - `add`        — append a new `[[skill]]` entry to `ai/skills.toml`
-/// - `add-local`  — import a locally-developed skill into the dfiles repo (`repo:` source)
+/// - `add-local`  — import a locally-developed skill into the haven repo (`repo:` source)
 /// - `fetch`      — download `gh:` skills into the local cache (respects lock SHA)
 /// - `update`     — like `fetch` but clears the lock SHA first to force re-download
 /// - `remove`     — remove a skill from the config, lock file, and optionally live dirs
@@ -57,7 +57,7 @@ pub fn discover(opts: &DiscoverOptions<'_>) -> Result<()> {
     if detected.is_empty() {
         println!(
             "No AI platforms detected on this machine.\n\
-             Install a platform binary and re-run `dfiles ai discover`."
+             Install a platform binary and re-run `haven ai discover`."
         );
         return Ok(());
     }
@@ -92,7 +92,7 @@ pub fn discover(opts: &DiscoverOptions<'_>) -> Result<()> {
     update_platforms_active(opts.repo_root, &ids_to_add)?;
     println!("Updated ai/platforms.toml — active: {}", ids_to_add.join(", "));
     println!();
-    println!("Run `dfiles apply --ai` to deploy skills to the newly-added platforms.");
+    println!("Run `haven apply --ai` to deploy skills to the newly-added platforms.");
     Ok(())
 }
 
@@ -222,7 +222,7 @@ pub fn add(opts: &AddOptions<'_>) -> Result<()> {
     println!("Added skill '{}'.", name);
     println!("  → snippet: ai/skills/{}/all.md (edit to add agent instructions)", name);
     println!();
-    println!("Run `dfiles apply --ai` to deploy it, or `dfiles ai fetch` to pre-warm the cache.");
+    println!("Run `haven apply --ai` to deploy it, or `haven ai fetch` to pre-warm the cache.");
     Ok(())
 }
 
@@ -245,7 +245,7 @@ fn infer_name_from_source(source: &SkillSource) -> String {
 
 // ─── add-local ────────────────────────────────────────────────────────────────
 
-/// Options for `dfiles ai add-local`.
+/// Options for `haven ai add-local`.
 pub struct AddLocalOptions<'a> {
     pub repo_root: &'a Path,
     /// Path to the local skill directory to import.
@@ -256,13 +256,13 @@ pub struct AddLocalOptions<'a> {
     pub platforms: &'a str,
 }
 
-/// Import a locally-developed skill into the dfiles repo.
+/// Import a locally-developed skill into the haven repo.
 ///
 /// Copies the skill directory into `ai/skills/<name>/files/`, writes
 /// `ai/skills/<name>/skill.toml` with `source = "repo:"`, creates a blank
 /// `all.md` snippet stub, and removes the original directory.
 ///
-/// Run `dfiles apply --ai` afterward to deploy the skill symlink to
+/// Run `haven apply --ai` afterward to deploy the skill symlink to
 /// `~/.claude/skills/<name>` (or the equivalent for your active platforms).
 pub fn add_local(opts: &AddLocalOptions<'_>) -> Result<()> {
     use crate::config::module::expand_tilde;
@@ -344,7 +344,7 @@ pub fn add_local(opts: &AddLocalOptions<'_>) -> Result<()> {
     println!("  Files:   ai/skills/{}/files/", name);
     println!("  Snippet: ai/skills/{}/all.md  (edit to add agent instructions)", name);
     println!();
-    println!("Run `dfiles apply --ai` to deploy the skill symlink.");
+    println!("Run `haven apply --ai` to deploy the skill symlink.");
 
     Ok(())
 }
@@ -408,7 +408,7 @@ fn write_skill_dir(
 
 // ─── fetch ────────────────────────────────────────────────────────────────────
 
-/// Options for `dfiles ai fetch`.
+/// Options for `haven ai fetch`.
 pub struct FetchOptions<'a> {
     pub repo_root: &'a Path,
     pub state_dir: &'a Path,
@@ -470,7 +470,7 @@ pub fn fetch(opts: &FetchOptions<'_>) -> Result<()> {
 
 // ─── update ───────────────────────────────────────────────────────────────────
 
-/// Options for `dfiles ai update`.
+/// Options for `haven ai update`.
 pub struct UpdateOptions<'a> {
     pub repo_root: &'a Path,
     pub state_dir: &'a Path,
@@ -534,7 +534,7 @@ pub fn update(opts: &UpdateOptions<'_>) -> Result<()> {
 
 // ─── remove ───────────────────────────────────────────────────────────────────
 
-/// Options for `dfiles ai remove`.
+/// Options for `haven ai remove`.
 pub struct RemoveOptions<'a> {
     pub repo_root: &'a Path,
     pub state_dir: &'a Path,
@@ -666,7 +666,7 @@ fn find_deployed_paths(state_dir: &Path, skill_name: &str) -> Vec<(String, PathB
 
 // ─── search ───────────────────────────────────────────────────────────────────
 
-/// Options for `dfiles ai search`.
+/// Options for `haven ai search`.
 pub struct SearchOptions<'a> {
     pub query: &'a str,
     pub limit: u8,
@@ -690,13 +690,13 @@ pub fn search(opts: &SearchOptions<'_>) -> Result<()> {
         println!("  {}  ({} installs)", entry.gh_source(), entry.installs);
     }
     println!();
-    println!("To add a skill:  dfiles ai add <gh:source>");
+    println!("To add a skill:  haven ai add <gh:source>");
     Ok(())
 }
 
 // ─── scan ─────────────────────────────────────────────────────────────────────
 
-/// Options for `dfiles ai scan`.
+/// Options for `haven ai scan`.
 pub struct ScanOptions<'a> {
     pub repo_root: &'a Path,
     pub state_dir: &'a Path,
@@ -740,7 +740,7 @@ pub fn scan(opts: &ScanOptions<'_>) -> Result<()> {
             continue;
         }
 
-        // Skip if already managed by dfiles (points into the skill cache).
+        // Skip if already managed by haven (points into the skill cache).
         if real_path.starts_with(&skill_cache_dir) {
             continue;
         }
@@ -950,7 +950,7 @@ pub fn scan(opts: &ScanOptions<'_>) -> Result<()> {
         println!("Dry run — {} skill(s) would be added.", added);
     } else if added > 0 {
         println!("{} skill(s) added.", added);
-        println!("Run `dfiles apply --ai` to deploy.");
+        println!("Run `haven apply --ai` to deploy.");
     } else {
         println!("No skills added.");
     }
@@ -982,7 +982,7 @@ fn skillssh_search(query: &str, limit: usize) -> Result<Vec<SkillsShEntry>> {
     let response = ureq::get("https://skills.sh/api/search")
         .query("q", query)
         .query("limit", &limit.to_string())
-        .set("User-Agent", "dfiles/0.1 (+https://github.com/dfiles-sh/dfiles)")
+        .set("User-Agent", "haven/0.1 (+https://github.com/johnstegeman/haven)")
         .call()
         .context("skills.sh request failed")?
         .into_string()
@@ -1079,7 +1079,7 @@ fn expand_dir(dir: &str) -> Result<PathBuf> {
 /// Load skills and return an error if no skills are declared.
 fn load_skills_required(repo_root: &Path) -> Result<SkillsConfig> {
     SkillsConfig::load(repo_root)?
-        .context("No skills found in ai/skills/. Use `dfiles ai add` to declare skills first.")
+        .context("No skills found in ai/skills/. Use `haven ai add` to declare skills first.")
 }
 
 /// Filter skill declarations to just the named skill (if specified) or all.

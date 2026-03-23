@@ -306,6 +306,22 @@ enum Commands {
         vcs: Option<String>,
     },
 
+    /// List all tracked files with their decoded destination paths.
+    ///
+    /// Prints one line per tracked file. Flag annotations are shown in parentheses
+    /// when present.
+    ///
+    /// Examples:
+    ///   dfiles list
+    ///
+    /// Example output:
+    ///   ~/.zshrc
+    ///   ~/.gitconfig          (template)
+    ///   ~/.ssh/config         (private)
+    ///   ~/.local/bin/delta    (extfile)
+    ///   ~/.config/nvim        (extdir)
+    List,
+
     /// Start tracking a dotfile by copying it into the repo's source/ directory.
     Add {
         /// Absolute or relative path to the file to track (e.g. ~/.zshrc).
@@ -844,6 +860,12 @@ fn run() -> Result<()> {
                 state_dir: &state_dir,
                 claude_dir: &claude_dir,
                 vcs_backend,
+            })?;
+        }
+
+        Commands::List => {
+            commands::list::run(&commands::list::ListOptions {
+                repo_root: &repo,
             })?;
         }
 

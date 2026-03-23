@@ -4,6 +4,7 @@
 
 ```
 dfiles init [source] [--branch <b>] [--apply] [--profile <p>]
+dfiles list
 dfiles add <file> [--link] [--apply] [--update]
 dfiles remove <file> [--dry-run]
 dfiles apply [--profile <p>] [--module <m>] [--dry-run]
@@ -77,6 +78,42 @@ dfiles init [source] [--branch <b>] [--apply] [--profile <p>]
 | `--branch <b>` | Branch to clone. Overrides any `@ref` in source. |
 | `--apply` | Apply the cloned repo immediately after cloning. Requires a source. |
 | `--profile <p>` | Profile to apply. Requires `--apply`. |
+
+---
+
+## `dfiles list`
+
+List all tracked files with their decoded destination paths.
+
+```
+dfiles list
+```
+
+Prints one line per tracked file. Flag annotations appear in parentheses when
+present.
+
+```
+~/.zshrc
+~/.gitconfig          (template)
+~/.ssh/config         (private)
+~/.local/bin/delta    (extfile)
+~/.config/nvim        (extdir)
+~/.vimrc              (symlink)
+~/.env.example        (create-only)
+```
+
+| Annotation | Meaning |
+|------------|---------|
+| `template` | Rendered through Tera before writing |
+| `symlink` | Destination is a symlink back into `source/` |
+| `private` | Destination is chmod 0600 (0700 for directories) |
+| `executable` | Destination is chmod 0755 |
+| `extdir` | Remote git repo cloned into destination on apply |
+| `extfile` | Remote file/archive downloaded to destination on apply |
+| `create-only` | Only written if destination does not already exist |
+| `exact` | Untracked files in destination directory are removed on apply |
+
+Files matching patterns in `config/ignore` are excluded from the list.
 
 ---
 

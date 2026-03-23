@@ -34,6 +34,8 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   removes the file from `source/` with no partial state left behind.
 - **`dfiles completions <shell>`** — print shell completion scripts to stdout.
   Supports `fish`, `zsh`, and `bash`. All subcommands and flags are included.
+- **`dfiles list`** — list all tracked files with decoded destination paths and
+  flag annotations (`template`, `private`, `symlink`, `extdir`, `extfile`, etc.).
 - **`dfiles telemetry`** — manage local telemetry from the CLI. `--enable` /
   `--disable` flip `[telemetry] enabled` in `dfiles.toml` using surgical
   `toml_edit` (preserves comments and formatting). `--note "<text>"` appends a

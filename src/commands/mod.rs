@@ -1,5 +1,6 @@
 pub mod add;
 pub mod ai;
+pub mod list;
 pub mod apply;
 pub mod brew;
 pub mod diff;

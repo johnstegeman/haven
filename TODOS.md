@@ -142,6 +142,42 @@ up 2026-03-21.
 
 ---
 
+## P2: `brew install dfiles` — Homebrew tap distribution
+
+**What:** Publish a Homebrew tap (`homebrew-dfiles` or `homebrew-tap`) so users can install and upgrade dfiles with `brew install johnstegeman/tap/dfiles` and eventually just `brew install dfiles` if accepted into homebrew-core.
+
+**Why:** The curl-pipe-sh installer works but isn't the natural install path for macOS developers. Homebrew is where they expect to find CLI tools. Distribution via tap also enables `brew upgrade dfiles` for free.
+
+**Pros:** Dramatically lowers the install friction on macOS. Homebrew handles versioning, checksums, and `PATH` automatically. A tap can be published before homebrew-core acceptance.
+
+**Cons:** Requires maintaining a `Formula/dfiles.rb` file that references the release tarball and SHA256. Must be updated on every release.
+
+**Context:** Create `github.com/johnstegeman/homebrew-dfiles` with a `Formula/dfiles.rb`. The formula downloads the macOS release tarball from GitHub Releases, verifies SHA256, and installs the binary. Once a tap exists, explore submitting to homebrew-core (requires ≥30 days since last significant commit, broad appeal criteria, etc.). Can be partially automated: CI generates the updated formula SHA on release.
+
+**Effort:** S (human) → S (CC+gstack)
+**Priority:** P2
+**Depends on:** v0.3.0 release; stable release cadence established
+
+---
+
+## P2: `dfiles upgrade` command — self-update
+
+**What:** Add a `dfiles upgrade` command that fetches the latest release from GitHub, verifies SHA256, and replaces the installed binary in-place.
+
+**Why:** Users who installed via the curl installer have no clean upgrade path today — they'd need to re-run the install script manually. `dfiles upgrade` makes this a single command. Opens the door to optional periodic update checks (see below).
+
+**Pros:** Zero friction for existing installs. Self-contained: no dependency on brew or any package manager. Natural place to add `--check` (report if update is available without installing) and future auto-check behavior.
+
+**Cons:** Binary self-replacement requires care on Windows (file locking). On Unix it's straightforward: download to a temp path, `chmod +x`, `mv` over the existing binary (mv is atomic within the same filesystem).
+
+**Context:** Reuse most of `install.sh` logic in Rust: detect the current install path (`std::env::current_exe()`), call the GitHub releases API for the latest version, compare with `env!("CARGO_PKG_VERSION")`, download and verify SHA256, replace the binary. Add `--check` flag (exit 0 if current, exit 1 with message if update available — useful for scripts and shell prompts). Future P3: `[update] check = "weekly"` in `dfiles.toml` for periodic background checks triggered on `dfiles apply`.
+
+**Effort:** S (human) → S (CC+gstack)
+**Priority:** P2
+**Depends on:** v0.3.0 release; stable GitHub Releases asset naming
+
+---
+
 ## P2: Registry Protocol Standard
 
 **What:** Define `dfiles.pkg.toml` — a formal package manifest spec for publishable AI config packages.

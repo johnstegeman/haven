@@ -664,6 +664,36 @@ hostnames, or other personal data.
 
 ---
 
+## Shell completions
+
+`dfiles completions` prints a completion script for your shell to stdout.
+
+### Fish
+
+Write once to the fish completions directory — fish picks it up automatically:
+
+```sh
+dfiles completions fish > ~/.config/fish/completions/dfiles.fish
+```
+
+### Zsh
+
+Add to `~/.zshrc`:
+
+```sh
+source <(dfiles completions zsh)
+```
+
+### Bash
+
+Add to `~/.bashrc`:
+
+```sh
+source <(dfiles completions bash)
+```
+
+---
+
 ## VCS backend (git vs jj)
 
 By default dfiles uses `git` for all clone and init operations. If you use

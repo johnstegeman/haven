@@ -354,6 +354,7 @@ pub fn extdir_source_path(repo_source: &Path, dest_tilde: &str) -> PathBuf {
 ///
 /// Directory components are encoded with [`encode_filename`]. The final
 /// component gets the `extfile_` prefix.
+#[allow(dead_code)]
 pub fn extfile_source_path(repo_source: &Path, dest_tilde: &str) -> PathBuf {
     let rel = dest_tilde.strip_prefix("~/").unwrap_or(dest_tilde);
     let parts: Vec<&str> = rel.split('/').filter(|s| !s.is_empty()).collect();

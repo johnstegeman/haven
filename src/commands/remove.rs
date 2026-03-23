@@ -3,7 +3,7 @@
 /// Scans source/ for entries whose decoded destination matches the given path,
 /// then deletes the source file. The live file on disk is left unchanged.
 use anyhow::{bail, Context, Result};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use crate::config::module::expand_tilde;
 use crate::ignore::IgnoreList;

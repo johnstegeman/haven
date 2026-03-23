@@ -5,6 +5,7 @@ Updated by /plan-ceo-review on 2026-03-21 (AI skills management)
 Updated by /plan-eng-review on 2026-03-21 (managed config sections)
 Updated by /plan-eng-review on 2026-03-21 (add-local feature review)
 Updated by /plan-eng-review on 2026-03-23 (jj VCS backend)
+Updated by /plan-eng-review on 2026-03-23 (security-scan feature)
 
 ---
 
@@ -27,6 +28,38 @@ Implemented 2026-03-21. `src/commands/apply.rs`: `ApplyLock` RAII struct writes 
 to `~/.dfiles/apply.lock` on construction; Drop removes it. Stale lock detection via
 `kill(pid, 0)` — if the recorded PID is not alive, the lock is removed and apply
 proceeds. Skipped in `--dry-run` mode.
+
+---
+
+## P2: `dfiles security-scan --fix`
+
+**What:** When run with `--fix`, automatically remove source files that have High-severity findings, after a single confirmation prompt listing all affected files.
+
+**Why:** The scan currently only reports findings. Users still have to manually `dfiles remove` each flagged file. `--fix` completes the loop.
+
+**Pros:** Zero friction to clean up a repo once the scan runs. The confirmation prompt keeps it safe. High-severity-only scope avoids over-deleting on Medium/Low findings.
+
+**Cons:** Destructive operation (deletes source files). Requires careful wording in the prompt.
+
+**Context:** After `security_scan::run()` collects findings, filter to `Severity::High`, group by `src` path (multiple findings per file are common), prompt once ("Remove these N files? [y/N]"), then call `std::fs::remove_file` for each. The live file is left unchanged (same behavior as `dfiles remove`).
+
+**Depends on / blocked by:** `dfiles security-scan` shipping.
+
+---
+
+## P2: `dfiles security-scan` pre-push hook
+
+**What:** `dfiles init` (or a new `dfiles hooks install` command) writes a pre-push hook that runs `dfiles security-scan` and blocks the push if High-severity findings exist.
+
+**Why:** The scan is only useful if it runs before secrets reach GitHub. A manual `dfiles security-scan` call is easy to forget; a pre-push hook makes it automatic.
+
+**Pros:** Prevents the most common failure mode (accidental push). Works with both git and jj (jj supports `[ui] pre-push-hook`). Opt-in via `dfiles init --hooks`.
+
+**Cons:** Adds a side effect to `init`. Hook management (install/uninstall) is new surface area.
+
+**Context:** Git hook: `.git/hooks/pre-push` containing `#!/bin/sh\ndfiles security-scan || exit 1`. Jj equivalent: `[ui]\npre-push-hook = "dfiles security-scan"` in `.jj/repo/config.toml`. Should respect `[security] scan_on_push = false` in `dfiles.toml` as an escape hatch.
+
+**Depends on / blocked by:** `dfiles security-scan` shipping.
 
 ---
 

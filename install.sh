@@ -2,7 +2,7 @@
 # dfiles installer
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/jstegeman/dfiles/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/johnstegeman/dfiles/main/install.sh | sh
 #
 # The installer:
 #   1. Detects your OS and CPU architecture

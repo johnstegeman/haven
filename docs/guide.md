@@ -63,6 +63,35 @@ Everything under `source/`, `brew/`, `ai/`, and `modules/` is committed to git.
 
 ---
 
+## Installation
+
+### macOS and Linux (recommended)
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/johnstegeman/dfiles/main/install.sh | sh
+```
+
+The installer detects your OS and CPU architecture, downloads the matching binary
+from the [latest GitHub release](https://github.com/johnstegeman/dfiles/releases),
+verifies the SHA256 checksum, and installs to `/usr/local/bin` (or `~/.local/bin`
+if `/usr/local/bin` is not writable).
+
+### Pinning a version
+
+```sh
+VERSION=v0.2.0 curl -fsSL https://raw.githubusercontent.com/johnstegeman/dfiles/main/install.sh | sh
+```
+
+### Build from source
+
+Requires Rust 1.75+:
+
+```sh
+cargo install --git https://github.com/johnstegeman/dfiles
+```
+
+---
+
 ## Getting started
 
 ### Initialize a repo

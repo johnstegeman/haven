@@ -1,4 +1,4 @@
-/// dfiles.lock — pins GitHub sources by commit SHA for reproducible installs.
+/// haven.lock — pins GitHub sources by commit SHA for reproducible installs.
 ///
 /// ```toml
 /// # Dotfile / command sources (existing section — SHA-256 of tarball).
@@ -46,7 +46,7 @@ pub struct SkillLockEntry {
     pub fetched_at: String,
 }
 
-/// The full contents of `dfiles.lock`.
+/// The full contents of `haven.lock`.
 #[derive(Debug, Deserialize, Serialize, Default)]
 pub struct LockFile {
     /// Map from source key (e.g. `"gh:alice/dotfiles@v1.0"`) to its lock entry.
@@ -61,7 +61,7 @@ pub struct LockFile {
 }
 
 impl LockFile {
-    /// Load `dfiles.lock` from `repo_root`. Returns an empty lock if the file
+    /// Load `haven.lock` from `repo_root`. Returns an empty lock if the file
     /// doesn't exist yet (first run).
     pub fn load(repo_root: &Path) -> Result<Self> {
         let path = lock_path(repo_root);
@@ -74,7 +74,7 @@ impl LockFile {
             .with_context(|| format!("Invalid TOML in {}", path.display()))
     }
 
-    /// Write the lock file to `repo_root/dfiles.lock`.
+    /// Write the lock file to `repo_root/haven.lock`.
     pub fn save(&self, repo_root: &Path) -> Result<()> {
         let path = lock_path(repo_root);
         let text = toml::to_string_pretty(self)?;
@@ -106,7 +106,7 @@ impl LockFile {
 
     /// Remove the lock entry for a skill source key.
     ///
-    /// Used by `dfiles ai update` to force a re-fetch: clearing the lock SHA
+    /// Used by `haven ai update` to force a re-fetch: clearing the lock SHA
     /// causes `SkillCache::ensure()` to treat the cache as a miss and re-fetch.
     pub fn remove_skill(&mut self, key: &str) {
         self.skill.remove(key);
@@ -114,7 +114,7 @@ impl LockFile {
 }
 
 fn lock_path(repo_root: &Path) -> PathBuf {
-    repo_root.join("dfiles.lock")
+    repo_root.join("haven.lock")
 }
 
 #[cfg(test)]
@@ -187,7 +187,7 @@ mod tests {
         let dir = TempDir::new().unwrap();
         // Write a lock file that has only the [sources] section (old format).
         std::fs::write(
-            dir.path().join("dfiles.lock"),
+            dir.path().join("haven.lock"),
             r#"[sources."gh:alice/dotfiles@v1.0"]
 sha256 = "abc123"
 fetched_at = "2026-03-20T12:00:00Z"

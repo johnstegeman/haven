@@ -77,10 +77,10 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME}"
           TARGET="${{ matrix.target }}"
-          ARCHIVE="dfiles-${VERSION}-${TARGET}.tar.gz"
-          cp "target/${TARGET}/release/dfiles" dfiles
-          tar czf "${ARCHIVE}" dfiles
-          rm dfiles
+          ARCHIVE="haven-${VERSION}-${TARGET}.tar.gz"
+          cp "target/${TARGET}/release/haven" haven
+          tar czf "${ARCHIVE}" haven
+          rm haven
           echo "ARCHIVE=${ARCHIVE}" >> "${GITHUB_ENV}"
 
       - name: Upload archive artifact
@@ -105,14 +105,14 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME}"
           cd artifacts
-          sha256sum dfiles-"${VERSION}"-*.tar.gz > "dfiles-${VERSION}-SHA256SUMS"
-          cat "dfiles-${VERSION}-SHA256SUMS"
+          sha256sum haven-"${VERSION}"-*.tar.gz > "haven-${VERSION}-SHA256SUMS"
+          cat "haven-${VERSION}-SHA256SUMS"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            artifacts/dfiles-*.tar.gz
-            artifacts/dfiles-*-SHA256SUMS
+            artifacts/haven-*.tar.gz
+            artifacts/haven-*-SHA256SUMS
           generate_release_notes: true
           fail_on_unmatched_files: true

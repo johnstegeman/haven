@@ -1,4 +1,4 @@
-# Design: `dfiles diff`
+# Design: `haven diff`
 
 **Status:** Reviewed (plan-eng-review 2026-03-20)
 **Date:** 2026-03-20
@@ -8,13 +8,13 @@
 
 ## Problem
 
-`dfiles status` tells you *that* drift exists (modified, missing, source-missing) but not
-*what changed*. To investigate drift today you must open the source file in `~/dfiles/source/`
+`haven status` tells you *that* drift exists (modified, missing, source-missing) but not
+*what changed*. To investigate drift today you must open the source file in `~/.local/share/haven/source/`
 and the live destination file side-by-side manually. For template files this is especially
 painful — you have to mentally render the template to understand what the destination
 *should* look like.
 
-`dfiles diff` closes this gap: it shows the line-level delta between what dfiles would apply
+`haven diff` closes this gap: it shows the line-level delta between what haven would apply
 and what is currently on disk.
 
 ---
@@ -38,11 +38,11 @@ and what is currently on disk.
 
 ## Non-Goals
 
-- Applying or reversing changes. Use `dfiles apply` / `dfiles re-add` (future).
+- Applying or reversing changes. Use `haven apply` / `haven re-add` (future).
 - Three-way merge. Use an external merge tool.
 - Binary file diffing. Binary files get a "binary files differ" notice only.
 - Configurable external diff tool (nice-to-have, deferred — see TODOS).
-- Cross-machine diff (`dfiles diff --machine <name>`) — P3, see TODOS.md.
+- Cross-machine diff (`haven diff --machine <name>`) — P3, see TODOS.md.
 - AI version drift (pinned SHA vs installed SHA) — blocked on SHA verification TODO.
 
 ---
@@ -75,7 +75,7 @@ Markers:
 
 Symlinks: instead of a diff, show:
 ```
-  M ~/.config/nvim  (symlink: points to /wrong/path, expected /Users/jstegeman/dfiles/source/symlink_dot_config/nvim)
+  M ~/.config/nvim  (symlink: points to /wrong/path, expected /Users/jstegeman/.local/share/haven/source/symlink_dot_config/nvim)
 ```
 
 Binary files: instead of a diff, show:
@@ -95,8 +95,8 @@ Binary files: instead of a diff, show:
 
 ```
 
-The `+` lines are packages that `dfiles apply --brews` would install.
-The `-` lines are packages that `dfiles apply --brews --remove-unreferenced-brews` would remove.
+The `+` lines are packages that `haven apply --brews` would install.
+The `-` lines are packages that `haven apply --brews --remove-unreferenced-brews` would remove.
 
 When the master Brewfile is clean: no section printed (or `✓ brew/Brewfile clean` if
 only brew section was requested).
@@ -108,7 +108,7 @@ only brew section was requested).
 
   [shell]
   - fetch skill: gh:anthropics/claude-code-gstack   (not installed)
-  - fetch command: gh:jstegeman/dfiles-commands       (not installed)
+  - fetch command: gh:jstegeman/haven-commands       (not installed)
 
 ```
 
@@ -121,7 +121,7 @@ Version drift is deferred to a future TODO.
 ✓ Everything up to date (profile: default)
 ```
 
-(Same phrasing as `dfiles status`, consistent UX.)
+(Same phrasing as `haven status`, consistent UX.)
 
 ---
 
@@ -130,7 +130,7 @@ Version drift is deferred to a future TODO.
 ### Data flow
 
 ```
-dfiles diff
+haven diff
      │
      ├── [files]   (only if diff_files — source::scan() is inside this gate)
      │     │
@@ -279,10 +279,10 @@ Add `Diff` command variant and dispatch:
 /// Exits 0 if everything is clean, 1 if drift is found.
 ///
 /// Examples:
-///   dfiles diff
-///   dfiles diff --files
-///   dfiles diff --brews
-///   dfiles diff --profile work
+///   haven diff
+///   haven diff --files
+///   haven diff --brews
+///   haven diff --profile work
 Diff {
     #[arg(long)] profile: Option<String>,
     #[arg(long)] module: Option<String>,
@@ -350,7 +350,7 @@ When stdout is a tty (`isatty(STDOUT_FILENO)`), apply ANSI codes:
 - `@@ ... @@` hunk headers → cyan
 - `---` / `+++` header lines → bold
 
-When stdout is piped (e.g. `dfiles diff | grep ...`), no ANSI codes.
+When stdout is piped (e.g. `haven diff | grep ...`), no ANSI codes.
 
 Use the `is-terminal` crate for cross-platform tty detection. Add a
 `--color=always|never|auto` flag (default: `auto`).
@@ -365,7 +365,7 @@ brew/Brewfile    | M (packages not installed)
 [shell] skill    | ? (not installed)
 ```
 The `--stat` flag is mutually exclusive with content display but can be combined with
-section flags (`dfiles diff --files --stat`).
+section flags (`haven diff --files --stat`).
 
 ### Symlinks
 
@@ -520,9 +520,9 @@ SourceEntry
 
 | Command | Purpose | Shows what |
 |---------|---------|------------|
-| `dfiles status` | Quick drift check | Which files/modules have drift (no content) |
-| `dfiles diff` | Detailed drift inspection | What the actual changes are |
-| `dfiles apply` | Resolve drift | Apply source state to machine |
+| `haven status` | Quick drift check | Which files/modules have drift (no content) |
+| `haven diff` | Detailed drift inspection | What the actual changes are |
+| `haven apply` | Resolve drift | Apply source state to machine |
 
 `diff` is intentionally complementary to `status`, not a replacement. `status` is fast
 and good for "is anything out of date?" checks. `diff` is for "what exactly changed?"
@@ -531,10 +531,10 @@ and good for "is anything out of date?" checks. `diff` is for "what exactly chan
 
 ## Deferred (TODOS candidates)
 
-- **Configurable external diff tool**: `dfiles.toml` `[diff] tool = "delta"` — pipe output through an external colorizer. (Captured in TODOS.md)
-- **`dfiles diff <path>`**: diff a single file by destination path.
-- **AI version drift**: compare installed skill commit SHA against `dfiles.lock` pin. Blocked on SHA verification. (Captured in TODOS.md)
-- **Cross-machine diff**: `dfiles diff --machine <hostname>` — P3, see TODOS.md.
+- **Configurable external diff tool**: `haven.toml` `[diff] tool = "delta"` — pipe output through an external colorizer. (Captured in TODOS.md)
+- **`haven diff <path>`**: diff a single file by destination path.
+- **AI version drift**: compare installed skill commit SHA against `haven.lock` pin. Blocked on SHA verification. (Captured in TODOS.md)
+- **Cross-machine diff**: `haven diff --machine <hostname>` — P3, see TODOS.md.
 - **Pager support**: pipe long output through `$PAGER` automatically.
 
 ---
@@ -547,5 +547,5 @@ and good for "is anything out of date?" checks. `diff` is for "what exactly chan
 2. **Template render errors — hard fail or skip?** If `op()` isn't authenticated and a template uses it, should we fail the whole diff or skip that file with a warning?
    _Leaning toward: skip with `~` marker (see Template rendering errors section)._
 
-3. **`dfiles diff` vs `dfiles status --diff`?** Could be a flag on status instead of a new subcommand.
+3. **`haven diff` vs `haven status --diff`?** Could be a flag on status instead of a new subcommand.
    _Leaning toward: separate command — cleaner UX, separate exit code semantics, mirrors chezmoi's design._

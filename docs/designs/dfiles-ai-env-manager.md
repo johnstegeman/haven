@@ -244,16 +244,16 @@ Install script (`https://haven.sh/install`):
 ### Bootstrap Flow
 
 ```
-curl install | sh           OR    brew install dfiles-sh/tap/dfiles
+curl install | sh           OR    brew install haven-sh/tap/haven
       │                                         │
       └──────────────┬──────────────────────────┘
                      ▼
-              dfiles bootstrap [gh:user/env]
+              haven bootstrap [gh:user/env]
                      │
           ┌──────────┴──────────┐
           │                     │
           ▼ (if gh:user/env)    ▼ (local config)
-    Fetch + verify         Read dfiles.toml
+    Fetch + verify         Read haven.toml
     manifest from          + module configs
     GitHub release
           │                     │
@@ -275,7 +275,7 @@ curl install | sh           OR    brew install dfiles-sh/tap/dfiles
             state.json written
                      │
                      ▼
-            dfiles status (show result)
+            haven status (show result)
 ```
 
 ---
@@ -286,12 +286,12 @@ curl install | sh           OR    brew install dfiles-sh/tap/dfiles
    chosen over "plain names + TOML dest mapping". Source filenames like `dot_zshrc`,
    `private_dot_ssh/id_rsa`, `executable_dot_local/bin/foo` encode all metadata with
    no TOML registry. Enables zero-friction migration from chezmoi and compatible tooling.
-2. **DECIDED:** Lockfile format: `dfiles.lock` pins GitHub sources by commit SHA (implemented).
+2. **DECIDED:** Lockfile format: `haven.lock` pins GitHub sources by commit SHA (implemented).
 3. **DECIDED:** Conflict resolution — default is backup-and-overwrite for MVP:
-   `dfiles apply` backs up the live file to `~/.dfiles/backups/` before overwriting.
+   `haven apply` backs up the live file to `~/.haven/backups/` before overwriting.
    Three-way diff tool deferred to post-v1 (TODOS.md).
 4. **DECIDED:** Rust chosen for implementation.
-5. **OPEN:** `dfiles publish` bundle format — tar.gz vs directory — and whether secrets.toml
+5. **OPEN:** `haven publish` bundle format — tar.gz vs directory — and whether secrets.toml
    is excluded by default or opt-in exclude.
 
 ---
@@ -307,12 +307,12 @@ curl install | sh           OR    brew install dfiles-sh/tap/dfiles
   mise                    runtime version mgmt       environment bootstrapping
   Homebrew Bundle         package management         unified env bootstrap
 
-  dfiles                  ALL OF THE ABOVE           + AI configs as packages
+  haven                   ALL OF THE ABOVE           + AI configs as packages
                           unified, declarative        + publish/share
                           one bootstrap command       + CLAUDE.md awareness
 ```
 
-dfiles wins not by being better at any one thing but by being the only tool that
+haven wins not by being better at any one thing but by being the only tool that
 connects all of them — and adds the AI tooling layer that doesn't exist anywhere else.
 
 ---
@@ -323,7 +323,7 @@ Implementation decisions to resolve before coding:
 
 **HOUR 1 (foundations):**
 - Which Rust crates? Recommend: `clap` (CLI), `tera` (templates), `toml` (config), `notify` (file watch), `reqwest` (HTTP for GitHub), `serde` (serialization)
-- File structure: does `dfiles init` live inside a git repo (like chezmoi) or standalone directory?
+- File structure: does `haven init` live inside a git repo (like chezmoi) or standalone directory?
 
 **HOUR 2-3 (core logic):**
 - How does apply handle files that already exist at the destination? Options: overwrite, backup, ask, fail.
@@ -335,7 +335,7 @@ Implementation decisions to resolve before coding:
 
 **HOUR 6+ (polish/tests):**
 - Shell completions: `clap_complete` crate handles this cleanly; wire it early.
-- First-run experience: does `dfiles bootstrap` on a machine with no config ask questions or fail loudly?
+- First-run experience: does `haven bootstrap` on a machine with no config ask questions or fail loudly?
 
 ---
 
@@ -346,7 +346,7 @@ Implementation decisions to resolve before coding:
   No hard dependency on 1Password for core functionality.
 
 - **GitHub API rate limiting.** Unauthenticated: 60 req/hour. Mitigation:
-  (1) cache fetched GitHub sources in `~/.dfiles/cache/` with TTL;
+  (1) cache fetched GitHub sources in `~/.haven/cache/` with TTL;
   (2) prefer `gh auth token` when available;
   (3) batch all GitHub fetches at bootstrap start rather than inline.
 

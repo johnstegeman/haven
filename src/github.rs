@@ -76,7 +76,7 @@ impl GhSource {
             .unwrap_or(&self.repo)
     }
 
-    /// Cache key for `~/.dfiles/skills/`.
+    /// Cache key for `~/.haven/skills/`.
     ///
     /// Format: `{owner}--{repo}` or `{owner}--{repo}--{subpath-with-slashes-as-dashes}`.
     pub fn cache_key(&self) -> String {
@@ -87,7 +87,7 @@ impl GhSource {
     }
 
     /// Canonical lock-file key — reconstructs the original source string (without @ref
-    /// if absent). Used as the key in `dfiles.lock [skill]` entries.
+    /// if absent). Used as the key in `haven.lock [skill]` entries.
     pub fn source_key(&self) -> String {
         let base = match &self.subpath {
             None => format!("gh:{}/{}", self.owner, self.repo),
@@ -116,7 +116,7 @@ pub fn download_bytes(url: &str) -> Result<Vec<u8>> {
     let token = std::env::var("GITHUB_TOKEN").ok();
 
     let mut request =
-        ureq::get(url).set("User-Agent", "dfiles/0.1 (+https://github.com/dfiles-sh/dfiles)");
+        ureq::get(url).set("User-Agent", "haven/0.1 (+https://github.com/johnstegeman/haven)");
     if let Some(ref t) = token {
         request = request.set("Authorization", &format!("Bearer {}", t));
     }

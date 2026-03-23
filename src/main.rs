@@ -346,11 +346,11 @@ enum Commands {
     /// Stop tracking a dotfile by removing it from the source/ directory.
     ///
     /// The live file on disk is left unchanged — only the source/ copy is removed.
-    /// Run `dfiles status` first to verify the path before removing.
+    /// Run `haven status` first to verify the path before removing.
     ///
     /// Examples:
-    ///   dfiles remove ~/.zshrc
-    ///   dfiles remove ~/.config/git/config --dry-run
+    ///   haven remove ~/.zshrc
+    ///   haven remove ~/.config/git/config --dry-run
     Remove {
         /// Destination path to stop tracking (e.g. ~/.zshrc).
         file: PathBuf,
@@ -420,7 +420,7 @@ enum Commands {
         run_scripts: bool,
 
         /// VCS backend to use for new extdir clones: `git` (default) or `jj`.
-        /// Overrides DFILES_VCS env var and dfiles.toml [vcs] settings.
+        /// Overrides HAVEN_VCS env var and haven.toml [vcs] settings.
         #[arg(long, value_name = "BACKEND")]
         vcs: Option<String>,
 
@@ -428,7 +428,7 @@ enum Commands {
         ///
         /// Mirrors the real filesystem layout under the given root so you can
         /// inspect the result without touching your live configuration.
-        /// Example: `dfiles apply --dest /tmp/dfiles-test`
+        /// Example: `haven apply --dest /tmp/haven-test`
         #[cfg_attr(debug_assertions, arg(long, value_name = "DIR"))]
         #[cfg_attr(not(debug_assertions), arg(skip))]
         dest: Option<PathBuf>,
@@ -442,11 +442,11 @@ enum Commands {
     /// to inspect only specific sections.
     ///
     /// Examples:
-    ///   dfiles diff
-    ///   dfiles diff --files
-    ///   dfiles diff --brews
-    ///   dfiles diff --stat
-    ///   dfiles diff --profile work --color=always
+    ///   haven diff
+    ///   haven diff --files
+    ///   haven diff --brews
+    ///   haven diff --stat
+    ///   haven diff --profile work --color=always
     Diff {
         /// Profile to diff. Defaults to the last-used profile saved in state,
         /// or "default" if no prior apply has been recorded.
@@ -509,11 +509,11 @@ enum Commands {
         ai: bool,
     },
 
-    /// Run `brew install`/`uninstall` and keep your dfiles Brewfiles in sync.
+    /// Run `brew install`/`uninstall` and keep your haven Brewfiles in sync.
     ///
     /// Use these commands instead of bare `brew install` when you want the
     /// change to persist across machines — the formula is automatically added
-    /// to (or removed from) the Brewfile(s) in your dfiles repo.
+    /// to (or removed from) the Brewfile(s) in your haven repo.
     ///
     /// Examples:
     ///   haven brew install ripgrep
@@ -527,14 +527,14 @@ enum Commands {
     /// Manage AI agent skills across platforms.
     ///
     /// Skills are declared in `ai/skills.toml` and deployed to platform skill
-    /// directories (e.g. `~/.claude/skills/`) by `dfiles apply`.
+    /// directories (e.g. `~/.claude/skills/`) by `haven apply`.
     ///
     /// Examples:
     ///   haven ai discover
     ///   haven ai add gh:anthropics/skills/pdf-processing
     ///   haven ai fetch
     ///   haven ai update
-    ///   dfiles ai remove my-skill
+    ///   haven ai remove my-skill
     Ai {
         #[command(subcommand)]
         action: AiAction,
@@ -542,27 +542,27 @@ enum Commands {
 
     /// Show the active VCS backend and how it was resolved.
     ///
-    /// Prints whether dfiles will use `git` or `jj` for new clones, and
+    /// Prints whether haven will use `git` or `jj` for new clones, and
     /// indicates whether the setting came from a CLI flag, environment variable,
     /// config file, interactive detection, or default.
     ///
     /// Examples:
-    ///   dfiles vcs
+    ///   haven vcs
     Vcs,
 
     /// Show all template variables available in `.tmpl` files.
     ///
     /// Prints built-in variables (os, hostname, username, etc.) and custom
-    /// variables from the `[data]` section of `dfiles.toml`.
+    /// variables from the `[data]` section of `haven.toml`.
     ///
     /// Useful for debugging templates or verifying that custom data variables
-    /// are correctly set before running `dfiles apply`.
+    /// are correctly set before running `haven apply`.
     ///
     /// Examples:
-    ///   dfiles data
+    ///   haven data
     Data,
 
-    /// Find files in ~ that are not tracked by dfiles.
+    /// Find files in ~ that are not tracked by haven.
     ///
     /// Walks the home directory (or a specified path) and reports any files
     /// that have no corresponding entry in `source/`. Only dotfiles and
@@ -572,9 +572,9 @@ enum Commands {
     /// `Library`, etc.) are automatically skipped.
     ///
     /// Examples:
-    ///   dfiles unmanaged
-    ///   dfiles unmanaged --path ~/.config
-    ///   dfiles unmanaged --depth 2
+    ///   haven unmanaged
+    ///   haven unmanaged --path ~/.config
+    ///   haven unmanaged --depth 2
     Unmanaged {
         /// Root path to walk. Defaults to `~`.
         #[arg(long, value_name = "PATH")]
@@ -593,11 +593,11 @@ enum Commands {
     ///   - Content patterns (GitHub tokens, AWS keys, PEM keys, OpenAI keys, etc.)
     ///
     /// Exits 0 when clean, 1 when findings are reported.
-    /// Add paths to `[security] allow` in dfiles.toml to suppress false positives.
+    /// Add paths to `[security] allow` in haven.toml to suppress false positives.
     ///
     /// Examples:
-    ///   dfiles security-scan
-    ///   dfiles security-scan --entropy
+    ///   haven security-scan
+    ///   haven security-scan --entropy
     #[command(name = "security-scan")]
     SecurityScan {
         /// Also report high-entropy strings (opt-in: may produce false positives).
@@ -607,23 +607,23 @@ enum Commands {
 
     /// Manage local telemetry: enable, disable, or annotate the telemetry log.
     ///
-    /// Enable / disable writes `[telemetry] enabled = true/false` to `dfiles.toml`.
-    /// Notes write a `{"kind":"note","note":"..."}` entry to `~/.dfiles/telemetry.jsonl`
+    /// Enable / disable writes `[telemetry] enabled = true/false` to `haven.toml`.
+    /// Notes write a `{"kind":"note","note":"..."}` entry to `~/.haven/telemetry.jsonl`
     /// regardless of whether telemetry is currently enabled.
     ///
     /// Without any flags, prints the current telemetry status.
     ///
     /// Examples:
-    ///   dfiles telemetry --enable
-    ///   dfiles telemetry --disable
-    ///   dfiles telemetry --note "starting fresh config — prior data is from testing"
-    ///   dfiles telemetry --note "onboarding a new machine"
+    ///   haven telemetry --enable
+    ///   haven telemetry --disable
+    ///   haven telemetry --note "starting fresh config — prior data is from testing"
+    ///   haven telemetry --note "onboarding a new machine"
     Telemetry {
-        /// Enable telemetry by setting `[telemetry] enabled = true` in dfiles.toml.
+        /// Enable telemetry by setting `[telemetry] enabled = true` in haven.toml.
         #[arg(long, conflicts_with_all = ["disable", "note"])]
         enable: bool,
 
-        /// Disable telemetry by setting `[telemetry] enabled = false` in dfiles.toml.
+        /// Disable telemetry by setting `[telemetry] enabled = false` in haven.toml.
         #[arg(long, conflicts_with_all = ["enable", "note"])]
         disable: bool,
 
@@ -633,15 +633,15 @@ enum Commands {
         note: Option<String>,
     },
 
-    /// Upgrade dfiles to the latest version.
+    /// Upgrade haven to the latest version.
     ///
     /// Downloads the latest release from GitHub, verifies the SHA256 checksum,
     /// and atomically replaces the running binary in place.
     ///
     /// Examples:
-    ///   dfiles upgrade              # install the latest version
-    ///   dfiles upgrade --check      # check without installing (exits 1 if update available)
-    ///   dfiles upgrade --force      # reinstall even if already on latest
+    ///   haven upgrade              # install the latest version
+    ///   haven upgrade --check      # check without installing (exits 1 if update available)
+    ///   haven upgrade --force      # reinstall even if already on latest
     Upgrade {
         /// Check whether an update is available without installing it.
         /// Exits 0 when up to date, 1 when an update is available.
@@ -656,7 +656,7 @@ enum Commands {
     /// Import dotfiles from another dotfile manager.
     ///
     /// Reads the source manager's directory, decodes its naming conventions,
-    /// and imports files into dfiles' source/ directory with generated module
+    /// and imports files into haven's source/ directory with generated module
     /// TOML configs.
     ///
     /// What is imported:
@@ -676,9 +676,9 @@ enum Commands {
     ///   .chezmoiignore patterns       — unless --include-ignored-files is given
     ///
     /// Examples:
-    ///   dfiles import --from chezmoi
-    ///   dfiles import --from chezmoi --source ~/my-chezmoi-dir --dry-run
-    ///   dfiles import --from chezmoi --include-ignored-files
+    ///   haven import --from chezmoi
+    ///   haven import --from chezmoi --source ~/my-chezmoi-dir --dry-run
+    ///   haven import --from chezmoi --include-ignored-files
     Import {
         /// Source format to import from. Currently only `chezmoi` is supported.
         #[arg(long)]
@@ -694,7 +694,7 @@ enum Commands {
         dry_run: bool,
 
         /// Import files that match `.chezmoiignore` patterns instead of skipping them.
-        /// The patterns are still written to `config/ignore`, so `dfiles apply`,
+        /// The patterns are still written to `config/ignore`, so `haven apply`,
         /// `status`, and `diff` will continue to exclude those files.
         #[arg(long)]
         include_ignored_files: bool,
@@ -720,7 +720,7 @@ fn parse_vcs_flag(s: &str) -> anyhow::Result<vcs::VcsBackend> {
     }
 }
 
-/// Load the VCS backend from dfiles.toml, or return None if not set or parse fails.
+/// Load the VCS backend from haven.toml, or return None if not set or parse fails.
 fn vcs_from_config(repo: &std::path::Path) -> Option<vcs::VcsBackend> {
     use config::haven::HavenConfig;
     let cfg = HavenConfig::load(repo).ok()?;
@@ -795,10 +795,10 @@ fn flags_from_args(args: &[String]) -> Vec<String> {
         .collect()
 }
 
-/// Set `[telemetry] enabled` in `dfiles.toml` using `toml_edit` so all other
+/// Set `[telemetry] enabled` in `haven.toml` using `toml_edit` so all other
 /// content (comments, formatting, other keys) is preserved.
 fn set_telemetry_in_config(repo: &std::path::Path, enabled: bool) -> Result<()> {
-    let path = repo.join("dfiles.toml");
+    let path = repo.join("haven.toml");
     let text = if path.exists() {
         std::fs::read_to_string(&path)
             .with_context(|| format!("Cannot read {}", path.display()))?
@@ -808,7 +808,7 @@ fn set_telemetry_in_config(repo: &std::path::Path, enabled: bool) -> Result<()> 
 
     let mut doc: toml_edit::DocumentMut = text
         .parse()
-        .context("dfiles.toml contains invalid TOML")?;
+        .context("haven.toml contains invalid TOML")?;
 
     // `doc["telemetry"]["enabled"]` creates the [telemetry] table if absent.
     doc["telemetry"]["enabled"] = toml_edit::value(enabled);
@@ -824,7 +824,7 @@ fn set_telemetry_in_config(repo: &std::path::Path, enabled: bool) -> Result<()> 
     Ok(())
 }
 
-/// Load the telemetry.enabled setting from dfiles.toml (best-effort, never panics).
+/// Load the telemetry.enabled setting from haven.toml (best-effort, never panics).
 fn try_load_telemetry_config() -> bool {
     (|| -> Option<bool> {
         let repo = repo_root().ok()?;
@@ -839,14 +839,14 @@ fn run() -> Result<()> {
 
     // Completions don't need a repo — handle before repo_root() resolution.
     if let Commands::Completions { shell } = &cli.command {
-        generate(*shell, &mut Cli::command(), "dfiles", &mut std::io::stdout());
+        generate(*shell, &mut Cli::command(), "haven", &mut std::io::stdout());
         return Ok(());
     }
 
     // Telemetry notes don't need a repo — handle before repo_root() resolution.
     if let Commands::Telemetry { note: Some(note), .. } = &cli.command {
         telemetry::append_note(note)?;
-        println!("Note recorded in ~/.dfiles/telemetry.jsonl");
+        println!("Note recorded in ~/.haven/telemetry.jsonl");
         return Ok(());
     }
 
@@ -858,9 +858,9 @@ fn run() -> Result<()> {
     // State and backup directories live outside the repo (not committed).
     let state_dir = dirs::home_dir()
         .unwrap_or_else(|| PathBuf::from("."))
-        .join(".dfiles");
+        .join(".haven");
     let backup_dir = state_dir.join("backups");
-    let claude_dir = std::env::var("DFILES_CLAUDE_DIR")
+    let claude_dir = std::env::var("HAVEN_CLAUDE_DIR")
         .map(PathBuf::from)
         .unwrap_or_else(|_| {
             dirs::home_dir()
@@ -881,7 +881,7 @@ fn run() -> Result<()> {
             vcs: vcs_flag,
         } => {
             // VCS resolution (and the jj prompt) only matters when cloning a source.
-            // Scaffold mode (`dfiles init` with no source) doesn't clone anything,
+            // Scaffold mode (`haven init` with no source) doesn't clone anything,
             // so skip the prompt entirely to avoid asking about jj before erroring
             // out on "already initialized".
             let vcs_backend = if source.is_some() {
@@ -1111,7 +1111,7 @@ fn run() -> Result<()> {
             println!("source_dir = {}", ctx.source_dir);
             if ctx.data.is_empty() {
                 println!();
-                println!("No [data] variables set in dfiles.toml.");
+                println!("No [data] variables set in haven.toml.");
                 println!("Add them like:");
                 println!("  [data]");
                 println!("  host = \"my-laptop\"");
@@ -1156,9 +1156,9 @@ fn run() -> Result<()> {
                     "Telemetry is currently {}.",
                     if is_on { "enabled" } else { "disabled" }
                 );
-                println!("  dfiles telemetry --enable   # turn on");
-                println!("  dfiles telemetry --disable  # turn off");
-                println!("  dfiles telemetry --note \"<text>\"  # annotate the log");
+                println!("  haven telemetry --enable   # turn on");
+                println!("  haven telemetry --disable  # turn off");
+                println!("  haven telemetry --note \"<text>\"  # annotate the log");
             }
         }
 

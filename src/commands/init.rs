@@ -4,6 +4,7 @@ use std::path::Path;
 use crate::commands::apply;
 use crate::config::DfilesConfig;
 use crate::github::GhSource;
+use crate::vcs::{self, VcsBackend};
 
 pub struct InitOptions<'a> {
     pub repo_root: &'a Path,
@@ -20,6 +21,8 @@ pub struct InitOptions<'a> {
     pub backup_dir: &'a Path,
     pub state_dir: &'a Path,
     pub claude_dir: &'a Path,
+    /// VCS backend to use for the initial clone.
+    pub vcs_backend: VcsBackend,
 }
 
 pub fn run(opts: &InitOptions<'_>) -> Result<()> {
@@ -88,21 +91,8 @@ fn run_from_source(opts: &InitOptions<'_>, source_str: &str) -> Result<()> {
         None => println!("Cloning {} into {} …", clone_url, repo_root.display()),
     }
 
-    // Run git clone. Output streams directly to the terminal.
-    let mut cmd = std::process::Command::new("git");
-    cmd.arg("clone");
-    if let Some(b) = branch {
-        cmd.args(["--branch", b]);
-    }
-    cmd.arg(&clone_url);
-    cmd.arg(repo_root);
-
-    let status = cmd
-        .status()
-        .context("Failed to run `git clone`. Is git installed and in your PATH?")?;
-    if !status.success() {
-        bail!("git clone failed (exit code {:?})", status.code());
-    }
+    vcs::clone_repo(opts.vcs_backend, &clone_url, repo_root, None, branch)
+        .with_context(|| format!("Clone failed for {}", clone_url))?;
 
     println!("Cloned successfully.");
 
@@ -135,6 +125,7 @@ fn run_from_source(opts: &InitOptions<'_>, source_str: &str) -> Result<()> {
             run_scripts: false,
             remove_unreferenced_brews: false,
             interactive: false,
+            vcs_backend: opts.vcs_backend,
         })?;
 
         println!("\nNext steps:");
@@ -170,7 +161,7 @@ fn run_scaffold(repo_root: &Path) -> Result<()> {
         // Not under version control — remind the user.
         eprintln!(
             "hint: {} is not a git/jj repository.\n\
-             hint: Run `git init` or `jj init --colocate` to track your dfiles config.",
+             hint: Run `git init` or `jj git init --colocate` to track your dfiles config.",
             repo_root.display()
         );
     }

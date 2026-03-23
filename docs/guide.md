@@ -585,6 +585,76 @@ hostnames, or other personal data.
 
 ---
 
+## VCS backend (git vs jj)
+
+By default dfiles uses `git` for all clone and init operations. If you use
+[Jujutsu (jj)](https://jj-vcs.github.io/jj/), you can tell dfiles to use
+`jj git clone --colocate` instead, so all repos managed by dfiles are
+colocated (they have both `.jj/` and `.git/`, so both `git` and `jj`
+commands work in them).
+
+### Choosing a backend
+
+**Priority order** (first match wins):
+
+| Source | Example |
+|--------|---------|
+| `--vcs` CLI flag | `dfiles init gh:alice/dotfiles --vcs jj` |
+| `DFILES_VCS` env var | `DFILES_VCS=jj dfiles apply --apply-externals` |
+| `vcs.backend` in `dfiles.toml` | `[vcs] / backend = "jj"` |
+| Interactive detection | jj is on PATH, no config set → prompt |
+| Default | `git` |
+
+### Persisting the choice
+
+Set `vcs.backend` in `dfiles.toml` so every command uses jj without extra flags:
+
+```toml
+[vcs]
+backend = "jj"
+```
+
+Or let dfiles prompt you: if jj is installed but nothing is configured, the next
+command that needs a VCS backend will ask which to use and offer to save the choice.
+
+### What uses the configured backend
+
+| Operation | git | jj |
+|-----------|-----|----|
+| `dfiles init --source <url>` | `git clone` | `jj git clone --colocate` |
+| `dfiles apply --apply-externals` (new extdir) | `git clone --depth 1` | `jj git clone --colocate --depth 1` |
+| `dfiles apply --apply-externals` (existing extdir, pull) | `git pull --ff-only` | `git pull --ff-only` |
+| Skill cache | `git` sparse checkout | `git` sparse checkout (always) |
+
+Pulling existing extdirs always uses `git pull --ff-only`, because this works
+in colocated repos and jj has no equivalent single-command pull.
+
+Skill cache cloning always uses git regardless of `vcs.backend`. The skill cache
+uses git sparse checkout which is not yet supported by `jj git clone`.
+
+### Migration: converting existing plain-git extdirs
+
+When `vcs.backend = "jj"` is set and `dfiles apply --apply-externals` encounters
+an extdir that already exists on disk but has no `.jj/` directory, dfiles will
+prompt you to run `jj git init --colocate` in that directory. Choosing "always"
+applies the migration to all remaining extdirs without further prompts.
+
+### Inspecting the active backend
+
+```sh
+dfiles vcs
+```
+
+Output:
+
+```
+VCS backend: jj (colocated)  (set in dfiles.toml [vcs])
+jj:          installed
+dfiles.toml: /Users/alice/dfiles/dfiles.toml
+```
+
+---
+
 ## Importing from chezmoi
 
 If you already manage dotfiles with chezmoi, `dfiles import` converts your existing
@@ -657,3 +727,4 @@ Re-running import is safe — it is idempotent and never overwrites existing sou
 | `DFILES_DIR` | `~/dfiles` | Repo root directory |
 | `DFILES_CLAUDE_DIR` | `~/.claude` | Claude Code directory (skills, CLAUDE.md) |
 | `DFILES_TELEMETRY` | unset | Set to `1` to enable telemetry, `0` to force-disable |
+| `DFILES_VCS` | unset | Set to `git` or `jj` to override the VCS backend |

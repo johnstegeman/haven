@@ -20,6 +20,7 @@ mod source;
 mod state;
 mod telemetry;
 mod template;
+mod vcs;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -261,6 +262,7 @@ enum Commands {
     ///   dfiles init gh:alice/dotfiles --branch dev
     ///   dfiles init https://github.com/alice/dotfiles --apply
     ///   dfiles init gh:alice/dotfiles --apply --profile work
+    ///   dfiles init gh:alice/dotfiles --vcs jj
     Init {
         /// Git repository to clone as your dfiles repo.
         /// Accepts `gh:owner/repo[@ref]` notation or any URL that `git clone` accepts
@@ -279,6 +281,11 @@ enum Commands {
         /// Profile to apply. Requires --apply.
         #[arg(long)]
         profile: Option<String>,
+
+        /// VCS backend to use: `git` (default) or `jj` (Jujutsu colocated).
+        /// Overrides DFILES_VCS env var and dfiles.toml [vcs] settings.
+        #[arg(long, value_name = "BACKEND")]
+        vcs: Option<String>,
     },
 
     /// Start tracking a dotfile by copying it into the repo's source/ directory.
@@ -377,6 +384,11 @@ enum Commands {
         /// Scripts are never run without this flag (opt-in for safety).
         #[arg(long)]
         run_scripts: bool,
+
+        /// VCS backend to use for new extdir clones: `git` (default) or `jj`.
+        /// Overrides DFILES_VCS env var and dfiles.toml [vcs] settings.
+        #[arg(long, value_name = "BACKEND")]
+        vcs: Option<String>,
 
         /// (Debug builds only) Write files into this directory instead of `~`.
         ///
@@ -494,6 +506,16 @@ enum Commands {
         action: AiAction,
     },
 
+    /// Show the active VCS backend and how it was resolved.
+    ///
+    /// Prints whether dfiles will use `git` or `jj` for new clones, and
+    /// indicates whether the setting came from a CLI flag, environment variable,
+    /// config file, interactive detection, or default.
+    ///
+    /// Examples:
+    ///   dfiles vcs
+    Vcs,
+
     /// Import dotfiles from another dotfile manager.
     ///
     /// Reads the source manager's directory, decodes its naming conventions,
@@ -549,6 +571,26 @@ fn parse_color_mode(s: &str) -> Result<commands::diff::ColorMode, String> {
         "never"  => Ok(commands::diff::ColorMode::Never),
         "auto"   => Ok(commands::diff::ColorMode::Auto),
         other    => Err(format!("unknown color mode '{}'; use always, never, or auto", other)),
+    }
+}
+
+/// Parse `--vcs` string to a [`vcs::VcsBackend`], returning a user-facing error on bad input.
+fn parse_vcs_flag(s: &str) -> anyhow::Result<vcs::VcsBackend> {
+    match s.to_lowercase().as_str() {
+        "git" => Ok(vcs::VcsBackend::Git),
+        "jj"  => Ok(vcs::VcsBackend::Jj),
+        other => anyhow::bail!("unknown --vcs value '{}'; use 'git' or 'jj'", other),
+    }
+}
+
+/// Load the VCS backend from dfiles.toml, or return None if not set or parse fails.
+fn vcs_from_config(repo: &std::path::Path) -> Option<vcs::VcsBackend> {
+    use config::dfiles::DfilesConfig;
+    let cfg = DfilesConfig::load(repo).ok()?;
+    match cfg.vcs.backend.as_deref() {
+        Some("git") => Some(vcs::VcsBackend::Git),
+        Some("jj")  => Some(vcs::VcsBackend::Jj),
+        _ => None,
     }
 }
 
@@ -657,7 +699,12 @@ fn run() -> Result<()> {
             branch,
             apply,
             profile,
+            vcs: vcs_flag,
         } => {
+            let cli_backend = vcs_flag.as_deref().map(parse_vcs_flag).transpose()?;
+            let config_backend = vcs_from_config(&repo);
+            let resolved = vcs::resolve(cli_backend, config_backend, None)?;
+            let vcs_backend = resolved.map(|r| r.backend).unwrap_or(vcs::VcsBackend::Git);
             commands::init::run(&commands::init::InitOptions {
                 repo_root: &repo,
                 source: source.as_deref(),
@@ -668,6 +715,7 @@ fn run() -> Result<()> {
                 backup_dir: &backup_dir,
                 state_dir: &state_dir,
                 claude_dir: &claude_dir,
+                vcs_backend,
             })?;
         }
 
@@ -694,6 +742,7 @@ fn run() -> Result<()> {
             run_scripts,
             remove_unreferenced_brews,
             interactive,
+            vcs: vcs_flag,
             dest,
         } => {
             let resolved = resolve_profile(profile.as_deref(), &state_dir);
@@ -702,6 +751,10 @@ fn run() -> Result<()> {
                 .map(PathBuf::from)
                 .unwrap_or_else(|| PathBuf::from("/"));
             let none_specified = !files && !brews && !ai;
+            let cli_backend = vcs_flag.as_deref().map(parse_vcs_flag).transpose()?;
+            let config_backend = vcs_from_config(&repo);
+            let vcs_resolved = vcs::resolve(cli_backend, config_backend, Some(&repo))?;
+            let vcs_backend = vcs_resolved.map(|r| r.backend).unwrap_or(vcs::VcsBackend::Git);
             commands::apply::run(&commands::apply::ApplyOptions {
                 repo_root: &repo,
                 dest_root: &dest_root_buf,
@@ -718,6 +771,7 @@ fn run() -> Result<()> {
                 run_scripts: *run_scripts,
                 remove_unreferenced_brews: *remove_unreferenced_brews || *interactive,
                 interactive: *interactive,
+                vcs_backend,
             })?;
         }
 
@@ -841,6 +895,18 @@ fn run() -> Result<()> {
                 })?;
             }
         },
+
+        Commands::Vcs => {
+            let config_backend = vcs_from_config(&repo);
+            let resolved = vcs::resolve(None, config_backend, Some(&repo))?;
+            match resolved {
+                Some(ref r) => vcs::print_status(r, &repo),
+                None => {
+                    // User aborted the detection prompt — nothing to print.
+                    return Ok(());
+                }
+            }
+        }
 
         Commands::Import { from, source, dry_run, include_ignored_files } => {
             if from != "chezmoi" {

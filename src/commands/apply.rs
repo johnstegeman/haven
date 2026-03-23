@@ -23,6 +23,7 @@ use crate::ai_platform::{PlatformPlugin, PlatformsConfig};
 use crate::ai_skill::{SkillDeclaration, SkillSource, SkillsConfig};
 use crate::github::GhSource;
 use crate::config::{sort_modules, DfilesConfig, ModuleConfig};
+use crate::vcs::{self, MigrateOutcome, VcsBackend};
 use crate::config::module::expand_tilde;
 use crate::fs::{apply_permissions, backup_file, copy_to_dest, write_to_dest};
 use crate::ignore::IgnoreList;
@@ -61,6 +62,9 @@ pub struct ApplyOptions<'a> {
     /// When true (combined with remove_unreferenced_brews), show the candidate list
     /// and prompt for confirmation before removing anything.
     pub interactive: bool,
+    /// VCS backend to use for new extdir clones. When set to Jj, also offers
+    /// `jj git init --colocate` for existing extdirs that don't have a `.jj/`.
+    pub vcs_backend: VcsBackend,
 }
 
 /// RAII guard that holds `~/.dfiles/apply.lock` for the duration of apply.
@@ -143,12 +147,14 @@ pub fn run(opts: &ApplyOptions<'_>) -> Result<()> {
         if opts.dry_run {
             println!("[files]");
         }
+        // Track whether user said "always" for jj migration prompts this session.
+        let mut jj_migrate_all = false;
         for entry in &entries {
             if opts.dry_run {
                 print_dry_run_entry(entry, opts.dest_root);
                 continue;
             }
-            apply_entry(entry, opts, &template_ctx)?;
+            apply_entry(entry, opts, &template_ctx, &mut jj_migrate_all)?;
             files_applied += 1;
         }
         if opts.dry_run && entries.is_empty() {
@@ -526,6 +532,7 @@ fn apply_entry(
     entry: &SourceEntry,
     opts: &ApplyOptions<'_>,
     template_ctx: &TemplateContext,
+    jj_migrate_all: &mut bool,
 ) -> Result<()> {
     // Expand dest and rebase onto dest_root.
     let dest = resolve_dest(
@@ -556,11 +563,12 @@ fn apply_entry(
                 entry.src.display()
             );
         }
-        apply_git_external(
+        apply_vcs_external(
             &content.url,
             content.ref_name.as_deref(),
             &dest,
-            opts.apply_externals,
+            opts,
+            jj_migrate_all,
         )?;
         println!("  ✓ {}", dest.display());
         return Ok(());
@@ -1174,10 +1182,29 @@ fn apply_symlink(
     Ok(backup_path)
 }
 
-// ─── Git external helper ─────────────────────────────────────────────────────
+// ─── External dir helper ──────────────────────────────────────────────────────
 
-fn apply_git_external(url: &str, ref_name: Option<&str>, dest: &Path, pull_if_exists: bool) -> Result<()> {
+/// Clone or update an external directory using the configured VCS backend.
+///
+/// - New dir: cloned via `vcs::clone_repo()` (git or jj, depth 1).
+/// - Existing dir: `git pull --ff-only` (works in both git and colocated jj repos).
+///   When backend is jj and `.jj/` is absent, offers `jj git init --colocate`.
+fn apply_vcs_external(
+    url: &str,
+    ref_name: Option<&str>,
+    dest: &Path,
+    opts: &ApplyOptions<'_>,
+    jj_migrate_all: &mut bool,
+) -> Result<()> {
     if dest.exists() {
+        // When backend is jj, offer migration for plain-git dirs.
+        if opts.vcs_backend == VcsBackend::Jj {
+            match vcs::ensure_colocated(dest, *jj_migrate_all)? {
+                MigrateOutcome::MigratedAll => { *jj_migrate_all = true; }
+                _ => {}
+            }
+        }
+
         let git_dir = dest.join(".git");
         if !git_dir.exists() {
             anyhow::bail!(
@@ -1185,7 +1212,7 @@ fn apply_git_external(url: &str, ref_name: Option<&str>, dest: &Path, pull_if_ex
                 dest.display()
             );
         }
-        if pull_if_exists {
+        if opts.apply_externals {
             println!("  Pulling {}…", dest.display());
             let status = std::process::Command::new("git")
                 .args(["-C", &dest.to_string_lossy(), "pull", "--ff-only"])
@@ -1198,16 +1225,7 @@ fn apply_git_external(url: &str, ref_name: Option<&str>, dest: &Path, pull_if_ex
         // else: already present, skip silently (caller prints ✓)
     } else {
         println!("  Cloning {} → {}…", url, dest.display());
-        let mut cmd = std::process::Command::new("git");
-        cmd.arg("clone").arg("--depth").arg("1");
-        if let Some(r) = ref_name {
-            cmd.args(["--branch", r]);
-        }
-        cmd.arg(url).arg(dest);
-        let status = cmd.status().context("Failed to run git clone")?;
-        if !status.success() {
-            anyhow::bail!("git clone failed for {}", url);
-        }
+        vcs::clone_repo(opts.vcs_backend, url, dest, Some(1), ref_name)?;
     }
     Ok(())
 }

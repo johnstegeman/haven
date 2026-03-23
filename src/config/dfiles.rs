@@ -12,6 +12,23 @@ pub struct DfilesConfig {
     /// Opt-in local telemetry.
     #[serde(default)]
     pub telemetry: TelemetryConfig,
+
+    /// VCS backend selection (git or jj colocated).
+    #[serde(default)]
+    pub vcs: VcsConfig,
+}
+
+/// VCS settings in `dfiles.toml`.
+///
+/// ```toml
+/// [vcs]
+/// backend = "jj"
+/// ```
+#[derive(Debug, Deserialize, Serialize, Default)]
+pub struct VcsConfig {
+    /// VCS backend: "git" (default) or "jj" (Jujutsu colocated).
+    /// Can also be set via `--vcs` CLI flag or `DFILES_VCS` env var.
+    pub backend: Option<String>,
 }
 
 /// Telemetry settings in `dfiles.toml`.

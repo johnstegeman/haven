@@ -8,7 +8,7 @@
 ///   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 ///
 /// Brewfile operations:
-///   apply  → `brew bundle install --file=<path> --no-lock`
+///   apply  → `brew bundle install --file=<path>`
 ///   status → `brew bundle check  --file=<path>`
 use anyhow::{Context, Result};
 use std::io::{self, Write};
@@ -114,12 +114,10 @@ pub fn ensure_brew(dry_run: bool) -> Result<Option<PathBuf>> {
     }
 }
 
-/// Run `brew bundle install --file=<brewfile> --no-lock`.
-///
-/// `--no-lock` prevents Brewfile.lock.json from being created (we manage state ourselves).
+/// Run `brew bundle install --file=<brewfile>`.
 pub fn bundle_install(brew: &Path, brewfile: &Path) -> Result<()> {
     let status = std::process::Command::new(brew)
-        .args(["bundle", "install", "--no-lock", "--file"])
+        .args(["bundle", "install", "--file"])
         .arg(brewfile)
         .stdin(std::process::Stdio::inherit())
         .stdout(std::process::Stdio::inherit())

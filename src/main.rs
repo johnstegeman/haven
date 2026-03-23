@@ -217,7 +217,7 @@ use config::dfiles::{DfilesConfig, repo_root};
 #[derive(Parser)]
 #[command(
     name = "dfiles",
-    version,
+    version = telemetry::BUILD_VERSION,
     about = "AI-first dotfiles & environment manager",
     long_about = "dfiles tracks dotfiles, packages, and AI tools across machines.\n\
                   \n\
@@ -880,10 +880,18 @@ fn run() -> Result<()> {
             profile,
             vcs: vcs_flag,
         } => {
-            let cli_backend = vcs_flag.as_deref().map(parse_vcs_flag).transpose()?;
-            let config_backend = vcs_from_config(&repo);
-            let resolved = vcs::resolve(cli_backend, config_backend, None)?;
-            let vcs_backend = resolved.map(|r| r.backend).unwrap_or(vcs::VcsBackend::Git);
+            // VCS resolution (and the jj prompt) only matters when cloning a source.
+            // Scaffold mode (`dfiles init` with no source) doesn't clone anything,
+            // so skip the prompt entirely to avoid asking about jj before erroring
+            // out on "already initialized".
+            let vcs_backend = if source.is_some() {
+                let cli_backend = vcs_flag.as_deref().map(parse_vcs_flag).transpose()?;
+                let config_backend = vcs_from_config(&repo);
+                let resolved = vcs::resolve(cli_backend, config_backend, None)?;
+                resolved.map(|r| r.backend).unwrap_or(vcs::VcsBackend::Git)
+            } else {
+                vcs::VcsBackend::Git
+            };
             commands::init::run(&commands::init::InitOptions {
                 repo_root: &repo,
                 source: source.as_deref(),

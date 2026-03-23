@@ -142,12 +142,15 @@ fn run_from_source(opts: &InitOptions<'_>, source_str: &str) -> Result<()> {
 
 /// Create a blank dfiles scaffold at `repo_root`. Refuses if already initialized.
 fn run_scaffold(repo_root: &Path) -> Result<()> {
-    // Refuse to re-initialize an existing repo.
+    // Already initialized — nothing to do.
     if repo_root.join("dfiles.toml").exists() {
-        bail!(
-            "{} is already initialized (dfiles.toml exists)",
+        println!(
+            "{} is already initialized.",
             repo_root.display()
         );
+        println!();
+        println!("To apply your config to this machine, run: dfiles apply");
+        return Ok(());
     }
 
     // Create the directory if it doesn't exist.

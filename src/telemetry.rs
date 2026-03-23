@@ -81,11 +81,21 @@ fn append_note_event(path: &PathBuf, event: &NoteEvent) -> std::io::Result<()> {
     file.write_all(line.as_bytes())
 }
 
+/// Build identity embedded at compile time: `"<version>+<short-commit>"`.
+/// Example: `"0.3.0+47625a5"`.
+pub const BUILD_VERSION: &str = concat!(
+    env!("CARGO_PKG_VERSION"),
+    "+",
+    env!("DFILES_GIT_COMMIT"),
+);
+
 /// A single telemetry event.
 #[derive(Debug, Serialize)]
 pub struct Event {
     /// RFC-3339 timestamp (UTC).
     pub ts: String,
+    /// Build version: `"<semver>+<short-commit>"` (e.g. `"0.3.0+47625a5"`).
+    pub version: &'static str,
     /// Top-level command name (e.g. "apply", "status", "diff").
     pub cmd: String,
     /// CLI flags that were passed (flag names only, no values that might be PII).
@@ -156,6 +166,7 @@ impl Recorder {
 
         let event = Event {
             ts: chrono::Utc::now().to_rfc3339(),
+            version: BUILD_VERSION,
             cmd: self.cmd,
             flags: self.flags,
             profile: self.profile,
@@ -255,6 +266,7 @@ mod tests {
 
         let event = Event {
             ts: "2026-03-21T12:00:00Z".into(),
+            version: "0.0.0+test",
             cmd: "apply".into(),
             flags: vec!["--dry-run".into()],
             profile: Some("default".into()),

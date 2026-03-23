@@ -96,6 +96,20 @@ fn run_from_source(opts: &InitOptions<'_>, source_str: &str) -> Result<()> {
 
     println!("Cloned successfully.");
 
+    // Ensure [profile.default] exists — add a stub if the cloned repo omits it.
+    let haven_toml = repo_root.join("haven.toml");
+    if haven_toml.exists() {
+        let config = crate::config::HavenConfig::load(repo_root).unwrap_or_default();
+        if !config.profile.contains_key("default") {
+            let mut contents = std::fs::read_to_string(&haven_toml)
+                .context("Cannot read haven.toml")?;
+            contents.push_str("\n[profile.default]\nmodules = []\n");
+            std::fs::write(&haven_toml, &contents)
+                .context("Cannot update haven.toml")?;
+            println!("note: added [profile.default] to haven.toml (none was present)");
+        }
+    }
+
     // Optionally apply.
     if opts.apply {
         if !repo_root.join("haven.toml").exists() {

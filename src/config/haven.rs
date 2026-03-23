@@ -148,10 +148,15 @@ impl HavenConfig {
         if depth > 10 {
             bail!("Profile inheritance too deep — possible circular extends");
         }
-        let profile = self
-            .profile
-            .get(name)
-            .with_context(|| format!("Profile '{}' not found in haven.toml", name))?;
+        let profile = match self.profile.get(name) {
+            Some(p) => p,
+            None if name == "default" => {
+                // The default profile is optional — treat it as empty rather than
+                // erroring, so repos without an explicit [profile.default] still work.
+                return Ok(());
+            }
+            None => bail!("Profile '{}' not found in haven.toml", name),
+        };
 
         // Apply parent first, then override with this profile's modules.
         if let Some(parent) = &profile.extends {

@@ -1,4 +1,4 @@
-/// Integration tests for dfiles Week 1–8 core loop:
+/// Integration tests for haven Week 1–8 core loop:
 /// init → add → apply → status, templates, packages, 1Password integration,
 /// AI module (gh: sources + CLAUDE.md generation), bootstrap, and chezmoi import.
 ///
@@ -14,18 +14,18 @@ use tempfile::TempDir;
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
-/// Build a `dfiles` command with `--dir` pointed at `repo` and the DFILES_DIR
-/// env var unset so it never falls back to `~/dfiles`.
+/// Build a `haven` command with `--dir` pointed at `repo` and the HAVEN_DIR
+/// env var unset so it never falls back to `~/haven`.
 fn cmd(repo: &TempDir) -> Command {
-    let mut c = Command::cargo_bin("dfiles").unwrap();
+    let mut c = Command::cargo_bin("haven").unwrap();
     c.arg("--dir").arg(repo.path());
-    // Prevent any real ~/dfiles or ~/.claude from leaking in.
-    c.env_remove("DFILES_DIR");
-    c.env_remove("DFILES_CLAUDE_DIR");
+    // Prevent any real ~/haven or ~/.claude from leaking in.
+    c.env_remove("HAVEN_DIR");
+    c.env_remove("HAVEN_CLAUDE_DIR");
     c
 }
 
-/// Build a `dfiles` command that also overrides HOME so `~` expands to `home`.
+/// Build a `haven` command that also overrides HOME so `~` expands to `home`.
 /// Required for any test that applies source files (magic-name paths use `~/`).
 fn cmd_home(repo: &TempDir, home: &TempDir) -> Command {
     let mut c = cmd(repo);
@@ -38,10 +38,10 @@ fn cmd_home(repo: &TempDir, home: &TempDir) -> Command {
 #[allow(dead_code)]
 fn cmd_home_with_state(repo: &TempDir, home: &TempDir, state_dir: &std::path::Path) -> Command {
     let c = cmd_home(repo, home);
-    // dfiles reads state from <home>/.dfiles by default. Override HOME so it lands
+    // haven reads state from <home>/.haven by default. Override HOME so it lands
     // in the provided state_dir's parent, but we just set HOME to ensure it's consistent.
-    // The state dir is HOME/.dfiles, so as long as HOME is stable between calls, it works.
-    let _ = state_dir; // state_dir is HOME/.dfiles which cmd_home already pins via HOME
+    // The state dir is HOME/.haven, so as long as HOME is stable between calls, it works.
+    let _ = state_dir; // state_dir is HOME/.haven which cmd_home already pins via HOME
     c
 }
 
@@ -54,9 +54,9 @@ fn init_creates_scaffold() {
         .arg("init")
         .assert()
         .success()
-        .stdout(predicate::str::contains("Initialized dfiles repo"));
+        .stdout(predicate::str::contains("Initialized haven repo"));
 
-    assert!(repo.path().join("dfiles.toml").exists(), "dfiles.toml missing");
+    assert!(repo.path().join("haven.toml").exists(), "haven.toml missing");
     assert!(repo.path().join("source").is_dir(), "source/ missing");
     assert!(repo.path().join("brew").is_dir(), "brew/ missing");
     assert!(
@@ -85,7 +85,7 @@ fn init_already_initialized_is_noop() {
 
 // ─── init from source ────────────────────────────────────────────────────────
 
-/// Create a local git repo containing a minimal `dfiles.toml` and return its
+/// Create a local git repo containing a minimal `haven.toml` and return its
 /// path as a `TempDir`. Used as a stand-in for a remote in clone tests so no
 /// network access is required.
 fn make_local_git_repo(extra_files: &[(&str, &str)]) -> TempDir {
@@ -110,7 +110,7 @@ fn make_local_git_repo(extra_files: &[(&str, &str)]) -> TempDir {
         .unwrap();
 
     fs::write(
-        r.join("dfiles.toml"),
+        r.join("haven.toml"),
         "[profile.default]\nmodules = []\n",
     )
     .unwrap();
@@ -133,14 +133,14 @@ fn make_local_git_repo(extra_files: &[(&str, &str)]) -> TempDir {
     remote
 }
 
-/// Build a `dfiles init <source>` command pointing at a fresh target dir.
+/// Build a `haven init <source>` command pointing at a fresh target dir.
 /// Returns both the target TempDir and the pre-built Command.
 fn init_from(source: &str) -> (TempDir, Command) {
     let target = TempDir::new().unwrap();
-    let mut c = Command::cargo_bin("dfiles").unwrap();
+    let mut c = Command::cargo_bin("haven").unwrap();
     c.arg("--dir").arg(target.path());
-    c.env_remove("DFILES_DIR");
-    c.env_remove("DFILES_CLAUDE_DIR");
+    c.env_remove("HAVEN_DIR");
+    c.env_remove("HAVEN_CLAUDE_DIR");
     c.arg("init").arg(source);
     (target, c)
 }
@@ -154,26 +154,26 @@ fn init_from_local_path_clones_repo() {
         .success()
         .stdout(predicate::str::contains("Cloned successfully."));
 
-    assert!(target.path().join("dfiles.toml").exists(), "dfiles.toml missing after clone");
+    assert!(target.path().join("haven.toml").exists(), "haven.toml missing after clone");
 }
 
 #[test]
 fn init_from_gh_notation_builds_https_url() {
     // We can't hit github.com in tests, but we can confirm the command fails
-    // with a git error (not a dfiles parse error) — proving we parsed the
+    // with a git error (not a haven parse error) — proving we parsed the
     // notation and tried to clone.
     let target = TempDir::new().unwrap();
-    let mut c = Command::cargo_bin("dfiles").unwrap();
+    let mut c = Command::cargo_bin("haven").unwrap();
     c.arg("--dir").arg(target.path());
-    c.env_remove("DFILES_DIR");
-    c.env_remove("DFILES_CLAUDE_DIR");
+    c.env_remove("HAVEN_DIR");
+    c.env_remove("HAVEN_CLAUDE_DIR");
     // Use a deliberately invalid owner so git fails fast with an auth/404 error
-    // rather than hanging. The important thing: dfiles must NOT produce a parse
+    // rather than hanging. The important thing: haven must NOT produce a parse
     // error — that would mean we mishandled the gh: notation.
-    c.arg("init").arg("gh:__invalid_dfiles_test__/no-such-repo");
+    c.arg("init").arg("gh:__invalid_haven_test__/no-such-repo");
 
     let output = c.output().unwrap();
-    // dfiles should not error about parsing — it should get as far as calling git
+    // haven should not error about parsing — it should get as far as calling git
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
         !stderr.contains("expected 'gh:' prefix"),
@@ -183,7 +183,7 @@ fn init_from_gh_notation_builds_https_url() {
         !stderr.contains("expected 'owner/repo'"),
         "gh: notation was not parsed correctly: {stderr}"
     );
-    // git should have been invoked (error from git, not from dfiles arg parsing)
+    // git should have been invoked (error from git, not from haven arg parsing)
     assert!(
         stderr.contains("git clone failed") || stderr.contains("https://github.com"),
         "expected git clone attempt, got: {stderr}"
@@ -218,11 +218,11 @@ fn init_from_source_with_branch() {
         .unwrap();
 
     let target = TempDir::new().unwrap();
-    Command::cargo_bin("dfiles")
+    Command::cargo_bin("haven")
         .unwrap()
         .arg("--dir").arg(target.path())
-        .env_remove("DFILES_DIR")
-        .env_remove("DFILES_CLAUDE_DIR")
+        .env_remove("HAVEN_DIR")
+        .env_remove("HAVEN_CLAUDE_DIR")
         .arg("init")
         .arg(remote.path().to_str().unwrap())
         .arg("--branch").arg("feature")
@@ -268,11 +268,11 @@ fn init_from_source_at_ref_uses_ref_as_branch() {
     // branch resolution logic directly via run() in the unit tests instead.
     // Here we verify that --branch achieves the same outcome.
     let target = TempDir::new().unwrap();
-    Command::cargo_bin("dfiles")
+    Command::cargo_bin("haven")
         .unwrap()
         .arg("--dir").arg(target.path())
-        .env_remove("DFILES_DIR")
-        .env_remove("DFILES_CLAUDE_DIR")
+        .env_remove("HAVEN_DIR")
+        .env_remove("HAVEN_CLAUDE_DIR")
         .arg("init")
         .arg(remote.path().to_str().unwrap())
         .arg("--branch").arg("dev")
@@ -288,11 +288,11 @@ fn init_from_source_at_ref_uses_ref_as_branch() {
 #[test]
 fn init_apply_fails_without_source() {
     let repo = TempDir::new().unwrap();
-    Command::cargo_bin("dfiles")
+    Command::cargo_bin("haven")
         .unwrap()
         .arg("--dir").arg(repo.path())
-        .env_remove("DFILES_DIR")
-        .env_remove("DFILES_CLAUDE_DIR")
+        .env_remove("HAVEN_DIR")
+        .env_remove("HAVEN_CLAUDE_DIR")
         .arg("init")
         .arg("--apply")
         .assert()
@@ -303,11 +303,11 @@ fn init_apply_fails_without_source() {
 #[test]
 fn init_profile_fails_without_source() {
     let repo = TempDir::new().unwrap();
-    Command::cargo_bin("dfiles")
+    Command::cargo_bin("haven")
         .unwrap()
         .arg("--dir").arg(repo.path())
-        .env_remove("DFILES_DIR")
-        .env_remove("DFILES_CLAUDE_DIR")
+        .env_remove("HAVEN_DIR")
+        .env_remove("HAVEN_CLAUDE_DIR")
         .arg("init")
         .arg("--profile").arg("work")
         .assert()
@@ -322,11 +322,11 @@ fn init_fails_if_target_dir_nonempty() {
     fs::write(target.path().join("existing.txt"), "already here").unwrap();
 
     let remote = make_local_git_repo(&[]);
-    Command::cargo_bin("dfiles")
+    Command::cargo_bin("haven")
         .unwrap()
         .arg("--dir").arg(target.path())
-        .env_remove("DFILES_DIR")
-        .env_remove("DFILES_CLAUDE_DIR")
+        .env_remove("HAVEN_DIR")
+        .env_remove("HAVEN_CLAUDE_DIR")
         .arg("init")
         .arg(remote.path().to_str().unwrap())
         .assert()
@@ -335,8 +335,8 @@ fn init_fails_if_target_dir_nonempty() {
 }
 
 #[test]
-fn init_apply_hard_fails_if_no_dfiles_toml() {
-    // A git repo with no dfiles.toml.
+fn init_apply_hard_fails_if_no_haven_toml() {
+    // A git repo with no haven.toml.
     let remote = TempDir::new().unwrap();
     let r = remote.path();
     std::process::Command::new("git")
@@ -354,7 +354,7 @@ fn init_apply_hard_fails_if_no_dfiles_toml() {
         .current_dir(r)
         .output()
         .unwrap();
-    fs::write(r.join("README.md"), "not a dfiles repo").unwrap();
+    fs::write(r.join("README.md"), "not a haven repo").unwrap();
     std::process::Command::new("git")
         .args(["add", "."])
         .current_dir(r)
@@ -367,17 +367,17 @@ fn init_apply_hard_fails_if_no_dfiles_toml() {
         .unwrap();
 
     let target = TempDir::new().unwrap();
-    Command::cargo_bin("dfiles")
+    Command::cargo_bin("haven")
         .unwrap()
         .arg("--dir").arg(target.path())
-        .env_remove("DFILES_DIR")
-        .env_remove("DFILES_CLAUDE_DIR")
+        .env_remove("HAVEN_DIR")
+        .env_remove("HAVEN_CLAUDE_DIR")
         .arg("init")
         .arg(r.to_str().unwrap())
         .arg("--apply")
         .assert()
         .failure()
-        .stderr(predicate::str::contains("does not appear to be a dfiles repository"));
+        .stderr(predicate::str::contains("does not appear to be a haven repository"));
 }
 
 #[test]
@@ -386,12 +386,12 @@ fn init_from_source_with_apply() {
     let remote = make_local_git_repo(&[]);
     let target = TempDir::new().unwrap();
 
-    Command::cargo_bin("dfiles")
+    Command::cargo_bin("haven")
         .unwrap()
         .arg("--dir").arg(target.path())
-        .env_remove("DFILES_DIR")
+        .env_remove("HAVEN_DIR")
         .env("HOME", home.path())
-        .env("DFILES_CLAUDE_DIR", home.path().join(".claude"))
+        .env("HAVEN_CLAUDE_DIR", home.path().join(".claude"))
         .arg("init")
         .arg(remote.path().to_str().unwrap())
         .arg("--apply")
@@ -458,7 +458,7 @@ fn add_fails_for_missing_file() {
     cmd(&repo).arg("init").assert().success();
 
     cmd(&repo)
-        .args(["add", "/tmp/dfiles-does-not-exist-xyz"])
+        .args(["add", "/tmp/haven-does-not-exist-xyz"])
         .assert()
         .failure()
         .stderr(predicate::str::contains("File not found"));
@@ -611,18 +611,18 @@ fn add_file_in_private_dir_encodes_private_prefix() {
 #[test]
 fn apply_uses_saved_profile_when_no_flag_given() {
     // Arrange: a repo with two profiles, and a state.json that says "work" was
-    // the last-used profile. Running `dfiles apply` without --profile should
+    // the last-used profile. Running `haven apply` without --profile should
     // pick up "work" and apply that profile's modules.
     let repo = TempDir::new().unwrap();
     let home = TempDir::new().unwrap();
-    let state_dir = home.path().join(".dfiles");
+    let state_dir = home.path().join(".haven");
 
     cmd(&repo).arg("init").assert().success();
 
     // Two profiles: default (no modules) and work (also no modules — we just
     // want to verify the profile name that ends up in the next state.json).
     fs::write(
-        repo.path().join("dfiles.toml"),
+        repo.path().join("haven.toml"),
         "[profile.default]\nmodules = []\n\n[profile.work]\nmodules = []\n",
     )
     .unwrap();
@@ -636,12 +636,12 @@ fn apply_uses_saved_profile_when_no_flag_given() {
     .unwrap();
 
     // Run apply with no --profile flag.
-    Command::cargo_bin("dfiles")
+    Command::cargo_bin("haven")
         .unwrap()
         .arg("--dir").arg(repo.path())
         .env("HOME", home.path())
-        .env("DFILES_CLAUDE_DIR", home.path().join(".claude"))
-        .env_remove("DFILES_DIR")
+        .env("HAVEN_CLAUDE_DIR", home.path().join(".claude"))
+        .env_remove("HAVEN_DIR")
         .arg("apply")
         .assert()
         .success()
@@ -659,12 +659,12 @@ fn apply_uses_saved_profile_when_no_flag_given() {
 fn apply_explicit_profile_overrides_saved_profile() {
     let repo = TempDir::new().unwrap();
     let home = TempDir::new().unwrap();
-    let state_dir = home.path().join(".dfiles");
+    let state_dir = home.path().join(".haven");
 
     cmd(&repo).arg("init").assert().success();
 
     fs::write(
-        repo.path().join("dfiles.toml"),
+        repo.path().join("haven.toml"),
         "[profile.default]\nmodules = []\n\n[profile.work]\nmodules = []\n",
     )
     .unwrap();
@@ -678,12 +678,12 @@ fn apply_explicit_profile_overrides_saved_profile() {
     .unwrap();
 
     // Explicit --profile default should override the saved "work".
-    Command::cargo_bin("dfiles")
+    Command::cargo_bin("haven")
         .unwrap()
         .arg("--dir").arg(repo.path())
         .env("HOME", home.path())
-        .env("DFILES_CLAUDE_DIR", home.path().join(".claude"))
-        .env_remove("DFILES_DIR")
+        .env("HAVEN_CLAUDE_DIR", home.path().join(".claude"))
+        .env_remove("HAVEN_DIR")
         .args(["apply", "--profile", "default"])
         .assert()
         .success()
@@ -698,18 +698,18 @@ fn apply_falls_back_to_default_when_no_state() {
     cmd(&repo).arg("init").assert().success();
 
     fs::write(
-        repo.path().join("dfiles.toml"),
+        repo.path().join("haven.toml"),
         "[profile.default]\nmodules = []\n",
     )
     .unwrap();
 
     // No state.json — should fall back to "default".
-    Command::cargo_bin("dfiles")
+    Command::cargo_bin("haven")
         .unwrap()
         .arg("--dir").arg(repo.path())
         .env("HOME", home.path())
-        .env("DFILES_CLAUDE_DIR", home.path().join(".claude"))
-        .env_remove("DFILES_DIR")
+        .env("HAVEN_CLAUDE_DIR", home.path().join(".claude"))
+        .env_remove("HAVEN_DIR")
         .arg("apply")
         .assert()
         .success()
@@ -738,7 +738,7 @@ fn setup_apply() -> (TempDir, TempDir) {
     // No externals — avoid real network calls in tests.
     // Source files are global and apply regardless of module list.
     fs::write(
-        repo.path().join("dfiles.toml"),
+        repo.path().join("haven.toml"),
         "[profile.default]\nmodules = []\n",
     )
     .unwrap();
@@ -834,7 +834,7 @@ fn apply_run_once_script_runs_only_once() {
     let lines_after_first = fs::read_to_string(&counter_file).unwrap_or_default();
     assert_eq!(lines_after_first.lines().count(), 1, "script should run once on first apply");
 
-    // Second apply with same HOME (state persists in HOME/.dfiles): script should NOT run again.
+    // Second apply with same HOME (state persists in HOME/.haven): script should NOT run again.
     cmd_home(&repo, &home)
         .args(["apply", "--run-scripts"])
         .assert()
@@ -1062,7 +1062,7 @@ fn source_extfile_flag_decoded_from_path() {
     )
     .unwrap();
 
-    Command::cargo_bin("dfiles")
+    Command::cargo_bin("haven")
         .unwrap()
         .args(["--dir", repo.path().to_str().unwrap()])
         .env("HOME", home.path())
@@ -1134,7 +1134,7 @@ fn setup_template_repo() -> (TempDir, TempDir) {
     .unwrap();
 
     fs::write(
-        repo.path().join("dfiles.toml"),
+        repo.path().join("haven.toml"),
         "[profile.default]\nmodules = []\n",
     )
     .unwrap();
@@ -1184,7 +1184,7 @@ fn apply_template_false_file_is_copied_verbatim() {
     let literal = "export FOO={{ BAR }}\n"; // shell brace expansion, not a Tera template
     fs::write(repo.path().join("source").join("literal.sh"), literal).unwrap();
     fs::write(
-        repo.path().join("dfiles.toml"),
+        repo.path().join("haven.toml"),
         "[profile.default]\nmodules = []\n",
     )
     .unwrap();
@@ -1267,9 +1267,9 @@ fn status_ai_flag_shows_only_ai_section() {
     let claude = TempDir::new().unwrap();
     // Skill is absent.
 
-    let mut c = Command::cargo_bin("dfiles").unwrap();
-    c.env_remove("DFILES_DIR");
-    c.env("DFILES_CLAUDE_DIR", claude.path());
+    let mut c = Command::cargo_bin("haven").unwrap();
+    c.env_remove("HAVEN_DIR");
+    c.env("HAVEN_CLAUDE_DIR", claude.path());
     c.args(["--dir", repo.path().to_str().unwrap(), "status", "--ai"]);
     c.assert()
         .success()
@@ -1290,7 +1290,7 @@ fn apply_fails_on_malformed_template() {
     )
     .unwrap();
     fs::write(
-        repo.path().join("dfiles.toml"),
+        repo.path().join("haven.toml"),
         "[profile.default]\nmodules = []\n",
     )
     .unwrap();
@@ -1312,7 +1312,7 @@ fn write_packages_module(repo: &TempDir, brewfile: &str) {
     )
     .unwrap();
     fs::write(
-        repo.path().join("dfiles.toml"),
+        repo.path().join("haven.toml"),
         "[profile.default]\nmodules = [\"packages\"]\n",
     )
     .unwrap();
@@ -1330,8 +1330,8 @@ fn packages_toml_parses_homebrew_section() {
     write_packages_module(&repo, "brew/Brewfile.packages");
 
     // dry-run apply should parse and print the plan without touching brew.
-    let mut c = Command::cargo_bin("dfiles").unwrap();
-    c.env_remove("DFILES_DIR");
+    let mut c = Command::cargo_bin("haven").unwrap();
+    c.env_remove("HAVEN_DIR");
     c.args(["--dir", repo.path().to_str().unwrap(), "apply", "--dry-run"]);
     c.assert()
         .success()
@@ -1351,13 +1351,13 @@ fn packages_toml_with_mise_section_parses() {
     )
     .unwrap();
     fs::write(
-        repo.path().join("dfiles.toml"),
+        repo.path().join("haven.toml"),
         "[profile.default]\nmodules = [\"packages\"]\n",
     )
     .unwrap();
 
-    let mut c = Command::cargo_bin("dfiles").unwrap();
-    c.env_remove("DFILES_DIR");
+    let mut c = Command::cargo_bin("haven").unwrap();
+    c.env_remove("HAVEN_DIR");
     c.args(["--dir", repo.path().to_str().unwrap(), "apply", "--dry-run"]);
     c.assert()
         .success()
@@ -1383,7 +1383,7 @@ fn apply_shows_files_and_brew_in_dry_run() {
     )
     .unwrap();
     fs::write(
-        repo.path().join("dfiles.toml"),
+        repo.path().join("haven.toml"),
         "[profile.default]\nmodules = [\"packages\"]\n",
     )
     .unwrap();
@@ -1404,8 +1404,8 @@ fn apply_skips_missing_brewfile_gracefully_when_brew_absent() {
 
     write_packages_module(&repo, "brew/Brewfile.missing");
 
-    let mut c = Command::cargo_bin("dfiles").unwrap();
-    c.env_remove("DFILES_DIR");
+    let mut c = Command::cargo_bin("haven").unwrap();
+    c.env_remove("HAVEN_DIR");
     c.args(["--dir", repo.path().to_str().unwrap(), "apply"]);
     // Either brew is absent (skipped, success) or brew is present and Brewfile is missing (skipped).
     // Both are valid outcomes — we just verify it doesn't panic.
@@ -1422,8 +1422,8 @@ fn status_shows_missing_when_brew_absent_and_brewfile_configured() {
     fs::write(repo.path().join("brew").join("Brewfile.packages"), "brew \"git\"\n").unwrap();
     write_packages_module(&repo, "brew/Brewfile.packages");
 
-    let mut c = Command::cargo_bin("dfiles").unwrap();
-    c.env_remove("DFILES_DIR");
+    let mut c = Command::cargo_bin("haven").unwrap();
+    c.env_remove("HAVEN_DIR");
     c.args(["--dir", repo.path().to_str().unwrap(), "status"]);
     let out = c.assert().success();
     // We can't enforce which marker without knowing the test environment.
@@ -1437,12 +1437,12 @@ fn remove_unreferenced_brews_dry_run_does_not_uninstall() {
     // --dry-run must never invoke brew uninstall, even when packages are unreferenced.
     // This is the safe way to verify the flag in a real environment.
     let (repo, home) = setup_apply();
-    Command::cargo_bin("dfiles")
+    Command::cargo_bin("haven")
         .unwrap()
         .arg("--dir").arg(repo.path())
         .env("HOME", home.path())
-        .env("DFILES_CLAUDE_DIR", home.path().join(".claude"))
-        .env_remove("DFILES_DIR")
+        .env("HAVEN_CLAUDE_DIR", home.path().join(".claude"))
+        .env_remove("HAVEN_DIR")
         .args(["apply", "--remove-unreferenced-brews", "--dry-run"])
         .assert()
         .success();
@@ -1453,12 +1453,12 @@ fn interactive_dry_run_does_not_prompt_or_uninstall() {
     // --interactive --dry-run: shows the list but exits before the [y/N] prompt,
     // so no stdin interaction is needed and nothing is uninstalled.
     let (repo, home) = setup_apply();
-    Command::cargo_bin("dfiles")
+    Command::cargo_bin("haven")
         .unwrap()
         .arg("--dir").arg(repo.path())
         .env("HOME", home.path())
-        .env("DFILES_CLAUDE_DIR", home.path().join(".claude"))
-        .env_remove("DFILES_DIR")
+        .env("HAVEN_CLAUDE_DIR", home.path().join(".claude"))
+        .env_remove("HAVEN_DIR")
         .args(["apply", "--interactive", "--dry-run"])
         .assert()
         .success();
@@ -1480,7 +1480,7 @@ fn write_secrets_module(repo: &TempDir) {
     )
     .unwrap();
     fs::write(
-        repo.path().join("dfiles.toml"),
+        repo.path().join("haven.toml"),
         "[profile.default]\nmodules = [\"secrets\"]\n",
     )
     .unwrap();
@@ -1579,7 +1579,7 @@ fn write_ai_module(repo: &TempDir) {
         .unwrap();
     }
     fs::write(
-        repo.path().join("dfiles.toml"),
+        repo.path().join("haven.toml"),
         "[profile.default]\nmodules = []\n",
     )
     .unwrap();
@@ -1593,9 +1593,9 @@ fn ai_toml_parses_skills_and_commands() {
     write_ai_module(&repo);
 
     let claude = TempDir::new().unwrap();
-    let mut c = Command::cargo_bin("dfiles").unwrap();
-    c.env_remove("DFILES_DIR");
-    c.env("DFILES_CLAUDE_DIR", claude.path());
+    let mut c = Command::cargo_bin("haven").unwrap();
+    c.env_remove("HAVEN_DIR");
+    c.env("HAVEN_CLAUDE_DIR", claude.path());
     c.args(["--dir", repo.path().to_str().unwrap(), "apply", "--dry-run"]);
     c.assert()
         .success()
@@ -1611,9 +1611,9 @@ fn ai_dry_run_prints_both_skills_and_commands() {
     write_ai_module(&repo);
 
     let claude = TempDir::new().unwrap();
-    let mut c = Command::cargo_bin("dfiles").unwrap();
-    c.env_remove("DFILES_DIR");
-    c.env("DFILES_CLAUDE_DIR", claude.path());
+    let mut c = Command::cargo_bin("haven").unwrap();
+    c.env_remove("HAVEN_DIR");
+    c.env("HAVEN_CLAUDE_DIR", claude.path());
     c.args(["--dir", repo.path().to_str().unwrap(), "apply", "--dry-run"]);
     // Dry-run must not touch the filesystem.
     c.assert().success();
@@ -1643,7 +1643,7 @@ fn apply_generates_claude_md_from_installed_skills() {
     .unwrap();
 
     cmd_home(&repo, &home)
-        .env("DFILES_CLAUDE_DIR", claude.path())
+        .env("HAVEN_CLAUDE_DIR", claude.path())
         .arg("apply")
         .assert()
         .success();
@@ -1663,7 +1663,7 @@ fn apply_generates_claude_md_even_when_no_skills_installed() {
     let claude = TempDir::new().unwrap();
 
     cmd_home(&repo, &home)
-        .env("DFILES_CLAUDE_DIR", claude.path())
+        .env("HAVEN_CLAUDE_DIR", claude.path())
         .arg("apply")
         .assert()
         .success();
@@ -1671,7 +1671,7 @@ fn apply_generates_claude_md_even_when_no_skills_installed() {
     let claude_md = claude.path().join("CLAUDE.md");
     assert!(claude_md.exists(), "CLAUDE.md should always be generated");
     let content = fs::read_to_string(&claude_md).unwrap();
-    assert!(content.contains("Generated by dfiles"));
+    assert!(content.contains("Generated by haven"));
 }
 
 #[test]
@@ -1684,9 +1684,9 @@ fn status_reports_missing_when_ai_skill_not_installed() {
     let claude = TempDir::new().unwrap();
     // Don't create the skill directory — it's absent.
 
-    let mut c = Command::cargo_bin("dfiles").unwrap();
-    c.env_remove("DFILES_DIR");
-    c.env("DFILES_CLAUDE_DIR", claude.path());
+    let mut c = Command::cargo_bin("haven").unwrap();
+    c.env_remove("HAVEN_DIR");
+    c.env("HAVEN_CLAUDE_DIR", claude.path());
     c.args(["--dir", repo.path().to_str().unwrap(), "status"]);
     c.assert()
         .success()
@@ -1706,9 +1706,9 @@ fn status_reports_clean_when_ai_skill_installed() {
     fs::create_dir_all(claude.path().join("skills").join("my-skills")).unwrap();
     fs::create_dir_all(claude.path().join("skills").join("my-commands")).unwrap();
 
-    let mut c = Command::cargo_bin("dfiles").unwrap();
-    c.env_remove("DFILES_DIR");
-    c.env("DFILES_CLAUDE_DIR", claude.path());
+    let mut c = Command::cargo_bin("haven").unwrap();
+    c.env_remove("HAVEN_DIR");
+    c.env("HAVEN_CLAUDE_DIR", claude.path());
     c.args(["--dir", repo.path().to_str().unwrap(), "status"]);
     c.assert()
         .success()
@@ -1722,15 +1722,15 @@ fn lock_file_is_written_after_noop_apply() {
 
     let claude = TempDir::new().unwrap();
     cmd_home(&repo, &home)
-        .env("DFILES_CLAUDE_DIR", claude.path())
+        .env("HAVEN_CLAUDE_DIR", claude.path())
         .arg("apply")
         .assert()
         .success();
     // The lock file is only written when AI sources are fetched.
     // File-only apply does not create a lock file.
     assert!(
-        !repo.path().join("dfiles.lock").exists(),
-        "dfiles.lock should not be written for file-only modules"
+        !repo.path().join("haven.lock").exists(),
+        "haven.lock should not be written for file-only modules"
     );
 }
 
@@ -1969,13 +1969,13 @@ fn import_uses_chezmoi_subprocess_when_on_path() {
 
 // ─── permissions (private / executable flags via filename encoding) ────────────
 
-/// Write a source file with a magic-name encoded filename and a minimal dfiles.toml.
+/// Write a source file with a magic-name encoded filename and a minimal haven.toml.
 #[cfg(unix)]
 fn write_permission_source(repo: &TempDir, encoded_name: &str) {
     let source_dir = repo.path().join("source");
     fs::write(source_dir.join(encoded_name), "content\n").unwrap();
     fs::write(
-        repo.path().join("dfiles.toml"),
+        repo.path().join("haven.toml"),
         "[profile.default]\nmodules = []\n",
     )
     .unwrap();
@@ -2047,7 +2047,7 @@ fn apply_dry_run_shows_private_annotation() {
     // private_id_rsa → ~/id_rsa; dry-run should show "(private)" annotation.
     fs::write(repo.path().join("source").join("private_id_rsa"), "content\n").unwrap();
     fs::write(
-        repo.path().join("dfiles.toml"),
+        repo.path().join("haven.toml"),
         "[profile.default]\nmodules = []\n",
     )
     .unwrap();
@@ -2106,7 +2106,7 @@ fn import_executable_prefix_preserves_encoding() {
 #[test]
 fn import_create_prefix_preserved_in_source() {
     // create_dot_seedrc in chezmoi source should be imported as source/create_dot_seedrc
-    // so that dfiles apply honours the create_only (seed-only) semantics.
+    // so that haven apply honours the create_only (seed-only) semantics.
     let repo = TempDir::new().unwrap();
     let chezmoi_src = TempDir::new().unwrap();
 
@@ -2130,7 +2130,7 @@ fn import_create_prefix_preserved_in_source() {
 #[test]
 fn import_exact_prefix_preserved_in_source() {
     // exact_dot_ssh/ in chezmoi source should be imported as source/exact_dot_ssh/
-    // so that dfiles apply enforces exact directory semantics on ~/.ssh/.
+    // so that haven apply enforces exact directory semantics on ~/.ssh/.
     let repo = TempDir::new().unwrap();
     let chezmoi_src = TempDir::new().unwrap();
 
@@ -2188,7 +2188,7 @@ fn write_externals_module(repo: &TempDir, dest: &str, url: &str, ref_name: Optio
     fs::write(&source_path, content).unwrap();
 
     fs::write(
-        repo.path().join("dfiles.toml"),
+        repo.path().join("haven.toml"),
         "[profile.default]\nmodules = []\n",
     )
     .unwrap();
@@ -2233,8 +2233,8 @@ fn apply_dry_run_shows_external_git_clone() {
         Some("main"),
     );
 
-    let mut c = Command::cargo_bin("dfiles").unwrap();
-    c.env_remove("DFILES_DIR");
+    let mut c = Command::cargo_bin("haven").unwrap();
+    c.env_remove("HAVEN_DIR");
     c.args(["--dir", repo.path().to_str().unwrap(), "apply", "--dry-run"]);
     c.assert()
         .success()
@@ -2344,13 +2344,13 @@ fn status_shows_external_missing() {
     // Write an extdir_ marker for a path that definitely does not exist.
     write_externals_module(
         &repo,
-        "~/.tmux/plugins/dfiles-test-nonexistent",
+        "~/.tmux/plugins/haven-test-nonexistent",
         "https://github.com/user/nvim-config",
         None,
     );
 
-    let mut c = Command::cargo_bin("dfiles").unwrap();
-    c.env_remove("DFILES_DIR");
+    let mut c = Command::cargo_bin("haven").unwrap();
+    c.env_remove("HAVEN_DIR");
     c.args(["--dir", repo.path().to_str().unwrap(), "status"]);
     c.assert()
         .success()
@@ -2372,7 +2372,7 @@ fn setup_link_apply() -> (TempDir, TempDir, std::path::PathBuf) {
     fs::write(source_dir.join("symlink_vscode_settings.json"), r#"{"editor.fontSize": 14}"#).unwrap();
 
     fs::write(
-        repo.path().join("dfiles.toml"),
+        repo.path().join("haven.toml"),
         "[profile.default]\nmodules = []\n",
     )
     .unwrap();
@@ -2459,7 +2459,7 @@ fn apply_warns_when_link_and_private_combined() {
     )
     .unwrap();
     fs::write(
-        repo.path().join("dfiles.toml"),
+        repo.path().join("haven.toml"),
         "[profile.default]\nmodules = []\n",
     )
     .unwrap();
@@ -2523,7 +2523,7 @@ fn status_shows_link_modified_when_wrong_target() {
 
 #[test]
 fn add_link_flag_encodes_symlink_in_filename() {
-    // `dfiles add --link` should encode the file as `symlink_<name>` in source/.
+    // `haven add --link` should encode the file as `symlink_<name>` in source/.
     let repo = TempDir::new().unwrap();
     cmd(&repo).arg("init").assert().success();
 
@@ -2843,11 +2843,11 @@ fn apply_multiple_section_flags_accepted() {
         .success();
 }
 
-// ─── dfiles diff ──────────────────────────────────────────────────────────────
+// ─── haven diff ───────────────────────────────────────────────────────────────
 
 /// Set up a repo+home pair for diff tests.
 /// Source: source/dot_diffrc  →  ~/.diffrc  (plain, content "v1\n")
-/// The dfiles.toml has no modules (no brew/AI to invoke).
+/// The haven.toml has no modules (no brew/AI to invoke).
 fn setup_diff() -> (TempDir, TempDir) {
     let repo = TempDir::new().unwrap();
     let home = TempDir::new().unwrap();
@@ -2857,7 +2857,7 @@ fn setup_diff() -> (TempDir, TempDir) {
     let source_dir = repo.path().join("source");
     fs::write(source_dir.join("dot_diffrc"), "v1\n").unwrap();
     fs::write(
-        repo.path().join("dfiles.toml"),
+        repo.path().join("haven.toml"),
         "[profile.default]\nmodules = []\n",
     )
     .unwrap();
@@ -2865,7 +2865,7 @@ fn setup_diff() -> (TempDir, TempDir) {
     (repo, home)
 }
 
-/// Helper: run `dfiles diff` with the given extra args.
+/// Helper: run `haven diff` with the given extra args.
 fn diff_cmd<'a>(repo: &'a TempDir, home: &'a TempDir) -> Command {
     let mut c = cmd_home(repo, home);
     c.arg("diff").arg("--profile").arg("default");
@@ -3576,7 +3576,7 @@ fn ai_add_local_copies_files_and_writes_skill_toml() {
         .success()
         .stdout(predicates::str::contains("Added local skill 'myskill'"))
         .stdout(predicates::str::contains("ai/skills/myskill/files/"))
-        .stdout(predicates::str::contains("dfiles apply --ai"));
+        .stdout(predicates::str::contains("haven apply --ai"));
 
     // skill.toml should have source = "repo:"
     let skill_toml = repo.path().join("ai").join("skills").join("myskill").join("skill.toml");
@@ -3683,7 +3683,7 @@ fn ai_apply_deploys_repo_skill_as_symlink() {
 
     let claude_skills = home.path().join(".claude").join("skills");
     cmd_home(&repo, &home)
-        .env("DFILES_CLAUDE_DIR", home.path().join(".claude"))
+        .env("HAVEN_CLAUDE_DIR", home.path().join(".claude"))
         .args(["apply", "--ai"])
         .assert()
         .success();
@@ -3754,7 +3754,7 @@ fn skill_source_parses_repo() {
     ).unwrap();
 
     cmd_home(&repo, &home)
-        .env("DFILES_CLAUDE_DIR", home.path().join(".claude"))
+        .env("HAVEN_CLAUDE_DIR", home.path().join(".claude"))
         .args(["apply", "--dry-run", "--ai"])
         .assert()
         .success();

@@ -23,9 +23,9 @@ This has two friction points:
 
 1. **Split source of truth.** Files live under `source/`, but externals live in
    `config/modules/`. There is no single place to look to understand everything
-   dfiles manages.
+   haven manages.
 
-2. **`dfiles diff` cannot see externals via `source::scan()`.** The diff command
+2. **`haven diff` cannot see externals via `source::scan()`.** The diff command
    scans `source/` for files to compare; externals require a separate code path.
    This makes the diff/status/apply logic inconsistent — externals are second-class
    citizens.
@@ -91,7 +91,7 @@ source/
     plugins/
       extdir_tpm          ← "clone tmux-plugins/tpm into ~/.tmux/plugins/tpm"
 
-dfiles apply
+haven apply
   source::scan()
     ├─ plain files  → copy to dest
     ├─ templates    → render + copy
@@ -99,13 +99,13 @@ dfiles apply
     └─ extdir_*     → git clone/pull url into dest directory
                        (skip if already present and up to date)
 
-dfiles diff
+haven diff
   source::scan()
     └─ extdir_*     → check if dest dir exists
                        missing → "? ~/.tmux/plugins/tpm"
                        present → (v2: check HEAD vs pinned ref)
 
-dfiles status
+haven status
   source::scan()
     └─ extdir_*     → ✓ / ? / M markers (same as files)
 ```
@@ -214,7 +214,7 @@ deferred TODO.
 - `extfile_` (single-file fetch) — P2 TODO
 - Archive/tarball externals — P2 TODO
 - Version drift checking (HEAD vs pinned ref) in diff — P2 TODO
-- Auto-update of externals on `dfiles apply` — configurable, P2
+- Auto-update of externals on `haven apply` — configurable, P2
 
 ---
 
@@ -229,5 +229,5 @@ deferred TODO.
    `dot_config/nvim.tmpl/extdir_lazy` — should template expansion apply to the
    parent path? Probably not; template files should not contain `extdir_` children.
 
-3. **Deprecation timeline for `[[externals]]`.** Warn on first `dfiles apply` if
-   old-style entries are found, auto-migrate on `dfiles apply --migrate` (or similar)?
+3. **Deprecation timeline for `[[externals]]`.** Warn on first `haven apply` if
+   old-style entries are found, auto-migrate on `haven apply --migrate` (or similar)?

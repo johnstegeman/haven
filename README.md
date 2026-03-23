@@ -1,10 +1,6 @@
 <p align="center">
-  <img src="assets/logo.svg" width="120" height="120" alt="haven logo"/>
+  <img src="assets/logo-wide.svg" width="520" height="100" alt="haven — AI-first dotfiles &amp; environment manager"/>
 </p>
-
-<h1 align="center">haven</h1>
-
-<p align="center"><em>dotfiles · packages · AI tools · managed as one</em></p>
 
 ---
 

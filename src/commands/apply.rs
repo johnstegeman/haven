@@ -622,6 +622,36 @@ fn apply_entry(
         return Ok(());
     }
 
+    // Render template or read source content, then skip if dest is already identical.
+    let new_content: Option<String>; // Some(_) for templates, None for plain copies
+    if entry.flags.template {
+        let source_text = std::fs::read_to_string(&entry.src)
+            .with_context(|| format!("Cannot read template {}", entry.src.display()))?;
+        let rendered = crate::template::render(&source_text, template_ctx)
+            .with_context(|| format!("Cannot render template '{}'", entry.src.display()))?;
+        new_content = Some(rendered);
+    } else {
+        new_content = None;
+    }
+
+    // Skip backup + write when dest is already up to date.
+    if dest.exists() && !dest.is_symlink() {
+        let already_matches = match &new_content {
+            Some(rendered) => std::fs::read_to_string(&dest)
+                .map(|existing| existing == *rendered)
+                .unwrap_or(false),
+            None => files_equal(&entry.src, &dest),
+        };
+        if already_matches {
+            // Re-apply permissions in case they drifted, then silently return.
+            if entry.flags.private || entry.flags.executable {
+                apply_permissions(&dest, entry.flags.private, entry.flags.executable)
+                    .with_context(|| format!("Cannot set permissions on {}", dest.display()))?;
+            }
+            return Ok(());
+        }
+    }
+
     // Back up existing file before overwriting.
     if dest.exists() {
         let backup = backup_file(&dest, opts.backup_dir)
@@ -629,16 +659,15 @@ fn apply_entry(
         println!("  backed up {} → {}", dest.display(), backup.display());
     }
 
-    if entry.flags.template {
-        let source_text = std::fs::read_to_string(&entry.src)
-            .with_context(|| format!("Cannot read template {}", entry.src.display()))?;
-        let rendered = crate::template::render(&source_text, template_ctx)
-            .with_context(|| format!("Cannot render template '{}'", entry.src.display()))?;
-        write_to_dest(&rendered, &dest)
-            .with_context(|| format!("Cannot write rendered file to {}", dest.display()))?;
-    } else {
-        copy_to_dest(&entry.src, &dest)
-            .with_context(|| format!("Cannot copy {} → {}", entry.src.display(), dest.display()))?;
+    match &new_content {
+        Some(rendered) => {
+            write_to_dest(rendered, &dest)
+                .with_context(|| format!("Cannot write rendered file to {}", dest.display()))?;
+        }
+        None => {
+            copy_to_dest(&entry.src, &dest)
+                .with_context(|| format!("Cannot copy {} → {}", entry.src.display(), dest.display()))?;
+        }
     }
 
     if entry.flags.private || entry.flags.executable {
@@ -648,6 +677,14 @@ fn apply_entry(
 
     println!("  ✓ {}", dest.display());
     Ok(())
+}
+
+/// Return true if both paths exist and have identical byte content.
+fn files_equal(a: &Path, b: &Path) -> bool {
+    match (std::fs::read(a), std::fs::read(b)) {
+        (Ok(ca), Ok(cb)) => ca == cb,
+        _ => false,
+    }
 }
 
 fn print_dry_run_entry(entry: &SourceEntry, dest_root: &Path) {

@@ -160,21 +160,11 @@ up 2026-03-21.
 
 ---
 
-## P2: `dfiles upgrade` command — self-update
+## ✅ DONE: `dfiles upgrade` command — self-update
 
-**What:** Add a `dfiles upgrade` command that fetches the latest release from GitHub, verifies SHA256, and replaces the installed binary in-place.
-
-**Why:** Users who installed via the curl installer have no clean upgrade path today — they'd need to re-run the install script manually. `dfiles upgrade` makes this a single command. Opens the door to optional periodic update checks (see below).
-
-**Pros:** Zero friction for existing installs. Self-contained: no dependency on brew or any package manager. Natural place to add `--check` (report if update is available without installing) and future auto-check behavior.
-
-**Cons:** Binary self-replacement requires care on Windows (file locking). On Unix it's straightforward: download to a temp path, `chmod +x`, `mv` over the existing binary (mv is atomic within the same filesystem).
-
-**Context:** Reuse most of `install.sh` logic in Rust: detect the current install path (`std::env::current_exe()`), call the GitHub releases API for the latest version, compare with `env!("CARGO_PKG_VERSION")`, download and verify SHA256, replace the binary. Add `--check` flag (exit 0 if current, exit 1 with message if update available — useful for scripts and shell prompts). Future P3: `[update] check = "weekly"` in `dfiles.toml` for periodic background checks triggered on `dfiles apply`.
-
-**Effort:** S (human) → S (CC+gstack)
-**Priority:** P2
-**Depends on:** v0.3.0 release; stable GitHub Releases asset naming
+Shipped in v0.3.0. `dfiles upgrade` / `dfiles upgrade --check` / `dfiles upgrade --force`.
+SHA256 verified, atomic rename, supports macOS + Linux. Future P3: periodic
+automatic update checks via `[update] check = "weekly"` in `dfiles.toml`.
 
 ---
 

@@ -26,6 +26,7 @@ dfiles ai update [<name>]
 dfiles ai remove <name> [--yes]
 dfiles ai search <query> [--limit <n>]
 dfiles ai scan <path> [--dry-run]
+dfiles upgrade [--check] [--force]
 dfiles security-scan [--entropy]
 dfiles completions fish|zsh|bash
 ```
@@ -373,6 +374,42 @@ For each unmanaged skill found, dfiles tries to identify its GitHub source via:
 If a source is found it is shown as a suggestion; the user is prompted to
 confirm (`y`), edit the source (`e`), or skip (`n`) each skill. Skills that
 are already tracked in `ai/skills.toml` are silently skipped.
+
+---
+
+## `dfiles upgrade`
+
+Upgrade dfiles to the latest version by downloading the release from GitHub,
+verifying its SHA256 checksum, and atomically replacing the running binary.
+
+```
+dfiles upgrade [--check] [--force]
+```
+
+| Flag | Description |
+|------|-------------|
+| `--check` | Check whether an update is available without installing it. Exits 0 when up to date, exits 1 when an update is available. |
+| `--force` | Install the latest version even if the current version is already the latest. |
+
+```sh
+# Check for an update (CI-friendly — exits 1 if update is available)
+dfiles upgrade --check
+
+# Upgrade to the latest version
+dfiles upgrade
+
+# Reinstall the current version (useful after path changes)
+dfiles upgrade --force
+```
+
+**How it works:**
+
+1. Queries the GitHub releases API for the latest tag.
+2. Downloads the platform-specific tarball and `SHA256SUMS` file.
+3. Verifies the tarball checksum before extracting.
+4. Atomically replaces the running binary (write to `dfiles.new`, then rename).
+
+Supported platforms: macOS (arm64, x86_64), Linux (x86_64, aarch64, armv7, i686).
 
 ---
 

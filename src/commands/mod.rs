@@ -8,3 +8,4 @@ pub mod init;
 pub mod remove;
 pub mod security_scan;
 pub mod status;
+pub mod upgrade;

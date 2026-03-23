@@ -34,6 +34,11 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   removes the file from `source/` with no partial state left behind.
 - **`dfiles completions <shell>`** — print shell completion scripts to stdout.
   Supports `fish`, `zsh`, and `bash`. All subcommands and flags are included.
+- **`dfiles upgrade`** — self-update command. Downloads the latest release
+  tarball from GitHub, verifies the SHA256 checksum, extracts the binary, and
+  atomically replaces the running executable. `--check` flag exits 0 when
+  up to date, 1 when an update is available (CI-friendly). Supports macOS
+  (arm64, x86_64) and Linux (x86_64, aarch64, armv7, i686 musl).
 - **Jujutsu (jj) VCS backend** — configure dfiles to use `jj git clone
   --colocate` for all new clone and init operations. Set via `--vcs jj` flag,
   `DFILES_VCS=jj` env var, or `[vcs] backend = "jj"` in `dfiles.toml`. On

@@ -554,6 +554,26 @@ enum Commands {
         entropy: bool,
     },
 
+    /// Upgrade dfiles to the latest version.
+    ///
+    /// Downloads the latest release from GitHub, verifies the SHA256 checksum,
+    /// and atomically replaces the running binary in place.
+    ///
+    /// Examples:
+    ///   dfiles upgrade              # install the latest version
+    ///   dfiles upgrade --check      # check without installing (exits 1 if update available)
+    ///   dfiles upgrade --force      # reinstall even if already on latest
+    Upgrade {
+        /// Check whether an update is available without installing it.
+        /// Exits 0 when up to date, 1 when an update is available.
+        #[arg(long)]
+        check: bool,
+
+        /// Install the latest version even if the current version is already up to date.
+        #[arg(long)]
+        force: bool,
+    },
+
     /// Import dotfiles from another dotfile manager.
     ///
     /// Reads the source manager's directory, decodes its naming conventions,
@@ -961,6 +981,13 @@ fn run() -> Result<()> {
 
         // Already handled above before repo resolution — unreachable here.
         Commands::Completions { .. } => unreachable!(),
+
+        Commands::Upgrade { check, force } => {
+            commands::upgrade::run(&commands::upgrade::UpgradeOptions {
+                check_only: *check,
+                force: *force,
+            })?;
+        }
 
         Commands::Import { from, source, dry_run, include_ignored_files } => {
             if from != "chezmoi" {

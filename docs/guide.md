@@ -664,6 +664,33 @@ hostnames, or other personal data.
 
 ---
 
+## Upgrading dfiles
+
+`dfiles upgrade` downloads the latest release from GitHub, verifies the SHA256
+checksum, and atomically replaces the running binary in one command.
+
+```sh
+dfiles upgrade           # upgrade to the latest version
+dfiles upgrade --check   # check without installing (exits 1 if update available)
+dfiles upgrade --force   # reinstall even if already on latest
+```
+
+**Checking in CI or a setup script:**
+
+```sh
+if dfiles upgrade --check; then
+    echo "dfiles is up to date"
+else
+    dfiles upgrade
+fi
+```
+
+The `--check` flag is non-destructive — it only queries the GitHub releases API
+and exits with a status code. Safe to run in scripts that must not modify the
+binary.
+
+---
+
 ## Shell completions
 
 `dfiles completions` prints a completion script for your shell to stdout.

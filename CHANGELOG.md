@@ -70,6 +70,14 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   an ignore pattern, the add is skipped with a clear message explaining how to
   remove the pattern.
 
+### Added (docs)
+
+- **`docs/from-chezmoi.md`** — getting started guide for chezmoi users. Covers
+  the automated migration path, template syntax conversion table, command
+  equivalence table, Brewfile/module/profile setup, AI skill import, new-machine
+  bootstrap, daily workflow comparison, and a gap table of chezmoi features not
+  yet in dfiles.
+
 ### Fixed
 
 - Installer URL typo (affected the guide; the binary download URL was correct).

@@ -306,21 +306,33 @@ enum Commands {
         vcs: Option<String>,
     },
 
-    /// List all tracked files with their decoded destination paths.
+    /// List all tracked items: files, Homebrew packages, and AI skills.
     ///
-    /// Prints one line per tracked file. Flag annotations are shown in parentheses
-    /// when present.
+    /// Without flags, shows all sections. Use --files, --brews, or --ai to
+    /// show only that section.
     ///
     /// Examples:
     ///   haven list
-    ///
-    /// Example output:
-    ///   ~/.zshrc
-    ///   ~/.gitconfig          (template)
-    ///   ~/.ssh/config         (private)
-    ///   ~/.local/bin/delta    (extfile)
-    ///   ~/.config/nvim        (extdir)
-    List,
+    ///   haven list --files
+    ///   haven list --brews
+    ///   haven list --ai
+    List {
+        /// Show only tracked dotfiles.
+        #[arg(long, conflicts_with_all = ["brews", "ai"])]
+        files: bool,
+
+        /// Show only Homebrew packages.
+        #[arg(long, conflicts_with_all = ["files", "ai"])]
+        brews: bool,
+
+        /// Show only AI skills.
+        #[arg(long, conflicts_with_all = ["files", "brews"])]
+        ai: bool,
+
+        /// Profile to resolve modules for (default: "default").
+        #[arg(long, default_value = "default")]
+        profile: String,
+    },
 
     /// Start tracking a dotfile by copying it into the repo's source/ directory.
     Add {
@@ -950,9 +962,13 @@ fn run() -> Result<()> {
             })?;
         }
 
-        Commands::List => {
+        Commands::List { files, brews, ai, profile } => {
             commands::list::run(&commands::list::ListOptions {
                 repo_root: &repo,
+                profile,
+                show_files: *files,
+                show_brews: *brews,
+                show_ai: *ai,
             })?;
         }
 

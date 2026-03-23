@@ -22,7 +22,7 @@ mod telemetry;
 mod template;
 mod vcs;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::{Shell, generate};
 use std::path::PathBuf;
@@ -554,6 +554,34 @@ enum Commands {
         entropy: bool,
     },
 
+    /// Manage local telemetry: enable, disable, or annotate the telemetry log.
+    ///
+    /// Enable / disable writes `[telemetry] enabled = true/false` to `dfiles.toml`.
+    /// Notes write a `{"kind":"note","note":"..."}` entry to `~/.dfiles/telemetry.jsonl`
+    /// regardless of whether telemetry is currently enabled.
+    ///
+    /// Without any flags, prints the current telemetry status.
+    ///
+    /// Examples:
+    ///   dfiles telemetry --enable
+    ///   dfiles telemetry --disable
+    ///   dfiles telemetry --note "starting fresh config — prior data is from testing"
+    ///   dfiles telemetry --note "onboarding a new machine"
+    Telemetry {
+        /// Enable telemetry by setting `[telemetry] enabled = true` in dfiles.toml.
+        #[arg(long, conflicts_with_all = ["disable", "note"])]
+        enable: bool,
+
+        /// Disable telemetry by setting `[telemetry] enabled = false` in dfiles.toml.
+        #[arg(long, conflicts_with_all = ["enable", "note"])]
+        disable: bool,
+
+        /// Append a free-form annotation to the telemetry log.
+        /// Always writes regardless of whether telemetry is enabled.
+        #[arg(long, conflicts_with_all = ["enable", "disable"])]
+        note: Option<String>,
+    },
+
     /// Upgrade dfiles to the latest version.
     ///
     /// Downloads the latest release from GitHub, verifies the SHA256 checksum,
@@ -716,6 +744,35 @@ fn flags_from_args(args: &[String]) -> Vec<String> {
         .collect()
 }
 
+/// Set `[telemetry] enabled` in `dfiles.toml` using `toml_edit` so all other
+/// content (comments, formatting, other keys) is preserved.
+fn set_telemetry_in_config(repo: &std::path::Path, enabled: bool) -> Result<()> {
+    let path = repo.join("dfiles.toml");
+    let text = if path.exists() {
+        std::fs::read_to_string(&path)
+            .with_context(|| format!("Cannot read {}", path.display()))?
+    } else {
+        String::new()
+    };
+
+    let mut doc: toml_edit::DocumentMut = text
+        .parse()
+        .context("dfiles.toml contains invalid TOML")?;
+
+    // `doc["telemetry"]["enabled"]` creates the [telemetry] table if absent.
+    doc["telemetry"]["enabled"] = toml_edit::value(enabled);
+
+    std::fs::write(&path, doc.to_string())
+        .with_context(|| format!("Cannot write {}", path.display()))?;
+
+    println!(
+        "Telemetry {}. ({} updated)",
+        if enabled { "enabled" } else { "disabled" },
+        path.display()
+    );
+    Ok(())
+}
+
 /// Load the telemetry.enabled setting from dfiles.toml (best-effort, never panics).
 fn try_load_telemetry_config() -> bool {
     (|| -> Option<bool> {
@@ -732,6 +789,13 @@ fn run() -> Result<()> {
     // Completions don't need a repo — handle before repo_root() resolution.
     if let Commands::Completions { shell } = &cli.command {
         generate(*shell, &mut Cli::command(), "dfiles", &mut std::io::stdout());
+        return Ok(());
+    }
+
+    // Telemetry notes don't need a repo — handle before repo_root() resolution.
+    if let Commands::Telemetry { note: Some(note), .. } = &cli.command {
+        telemetry::append_note(note)?;
+        println!("Note recorded in ~/.dfiles/telemetry.jsonl");
         return Ok(());
     }
 
@@ -981,6 +1045,24 @@ fn run() -> Result<()> {
 
         // Already handled above before repo resolution — unreachable here.
         Commands::Completions { .. } => unreachable!(),
+        // --note is handled above; --enable/--disable and bare status fall through here.
+        Commands::Telemetry { note: Some(_), .. } => unreachable!(),
+        Commands::Telemetry { enable, disable, .. } => {
+            if *enable {
+                set_telemetry_in_config(&repo, true)?;
+            } else if *disable {
+                set_telemetry_in_config(&repo, false)?;
+            } else {
+                let is_on = telemetry::is_enabled(try_load_telemetry_config());
+                println!(
+                    "Telemetry is currently {}.",
+                    if is_on { "enabled" } else { "disabled" }
+                );
+                println!("  dfiles telemetry --enable   # turn on");
+                println!("  dfiles telemetry --disable  # turn off");
+                println!("  dfiles telemetry --note \"<text>\"  # annotate the log");
+            }
+        }
 
         Commands::Upgrade { check, force } => {
             commands::upgrade::run(&commands::upgrade::UpgradeOptions {

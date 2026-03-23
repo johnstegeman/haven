@@ -36,6 +36,51 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::time::Instant;
 
+/// A user-written note in the telemetry log.
+///
+/// Notes are written by `dfiles telemetry --note "..."` and stand out from
+/// command events via the `kind` field. During analysis, filter for
+/// `kind == "note"` to find context annotations the user left.
+///
+/// Example JSON line:
+/// ```json
+/// {"ts":"2026-03-23T12:00:00Z","kind":"note","note":"starting fresh config for testing"}
+/// ```
+#[derive(Debug, Serialize)]
+pub struct NoteEvent {
+    pub ts: String,
+    pub kind: &'static str,
+    pub note: String,
+}
+
+/// Append a user note to the telemetry JSONL file.
+///
+/// Always writes regardless of whether `[telemetry] enabled` is set — the user
+/// explicitly invoked the command, so the intent is unambiguous.
+pub fn append_note(note: &str) -> anyhow::Result<()> {
+    let path = default_telemetry_path();
+    let event = NoteEvent {
+        ts: chrono::Utc::now().to_rfc3339(),
+        kind: "note",
+        note: note.to_string(),
+    };
+    append_note_event(&path, &event)?;
+    Ok(())
+}
+
+fn append_note_event(path: &PathBuf, event: &NoteEvent) -> std::io::Result<()> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let mut line = serde_json::to_string(event).map_err(std::io::Error::other)?;
+    line.push('\n');
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)?;
+    file.write_all(line.as_bytes())
+}
+
 /// A single telemetry event.
 #[derive(Debug, Serialize)]
 pub struct Event {
@@ -226,6 +271,23 @@ mod tests {
         assert!(contents.contains("\"cmd\":\"apply\""));
         assert!(contents.contains("\"exit_ok\":true"));
         // Ensure it's valid JSON.
+        let _: serde_json::Value = serde_json::from_str(contents.trim()).unwrap();
+    }
+
+    #[test]
+    fn append_note_event_writes_valid_jsonl() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("telemetry.jsonl");
+        let event = NoteEvent {
+            ts: "2026-03-23T12:00:00Z".into(),
+            kind: "note",
+            note: "starting fresh config — prior data is from testing".into(),
+        };
+        append_note_event(&path, &event).unwrap();
+
+        let contents = std::fs::read_to_string(&path).unwrap();
+        assert!(contents.contains("\"kind\":\"note\""));
+        assert!(contents.contains("starting fresh config"));
         let _: serde_json::Value = serde_json::from_str(contents.trim()).unwrap();
     }
 

@@ -34,6 +34,13 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   removes the file from `source/` with no partial state left behind.
 - **`dfiles completions <shell>`** — print shell completion scripts to stdout.
   Supports `fish`, `zsh`, and `bash`. All subcommands and flags are included.
+- **`dfiles telemetry`** — manage local telemetry from the CLI. `--enable` /
+  `--disable` flip `[telemetry] enabled` in `dfiles.toml` using surgical
+  `toml_edit` (preserves comments and formatting). `--note "<text>"` appends a
+  `{"kind":"note"}` entry to `~/.dfiles/telemetry.jsonl` regardless of whether
+  telemetry is enabled — useful for annotating test runs, onboarding sessions,
+  or observed issues so the log has context during analysis. Bare `dfiles
+  telemetry` prints the current enabled/disabled status.
 - **`dfiles upgrade`** — self-update command. Downloads the latest release
   tarball from GitHub, verifies the SHA256 checksum, extracts the binary, and
   atomically replaces the running executable. `--check` flag exits 0 when

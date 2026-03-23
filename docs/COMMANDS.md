@@ -27,6 +27,7 @@ dfiles ai remove <name> [--yes]
 dfiles ai search <query> [--limit <n>]
 dfiles ai scan <path> [--dry-run]
 dfiles upgrade [--check] [--force]
+dfiles telemetry [--enable] [--disable] [--note "<message>"]
 dfiles security-scan [--entropy]
 dfiles completions fish|zsh|bash
 ```
@@ -374,6 +375,44 @@ For each unmanaged skill found, dfiles tries to identify its GitHub source via:
 If a source is found it is shown as a suggestion; the user is prompted to
 confirm (`y`), edit the source (`e`), or skip (`n`) each skill. Skills that
 are already tracked in `ai/skills.toml` are silently skipped.
+
+---
+
+## `dfiles telemetry`
+
+Manage local telemetry: enable, disable, or annotate the telemetry log.
+
+```
+dfiles telemetry [--enable] [--disable] [--note "<message>"]
+```
+
+Without flags, prints the current telemetry status.
+
+| Flag | Description |
+|------|-------------|
+| `--enable` | Set `[telemetry] enabled = true` in `dfiles.toml`. |
+| `--disable` | Set `[telemetry] enabled = false` in `dfiles.toml`. |
+| `--note "<text>"` | Append a free-form note to `~/.dfiles/telemetry.jsonl`. Always writes regardless of whether telemetry is enabled. |
+
+```sh
+# Turn telemetry on or off
+dfiles telemetry --enable
+dfiles telemetry --disable
+
+# Check current status
+dfiles telemetry
+
+# Annotate the log with context
+dfiles telemetry --note "starting fresh config — prior runs were testing"
+dfiles telemetry --note "hit an error with extfile_ on m4 mac, will investigate"
+dfiles telemetry --note "onboarding new work macbook"
+```
+
+Notes appear in the JSONL file alongside command events and are easy to filter:
+
+```sh
+grep '"kind":"note"' ~/.dfiles/telemetry.jsonl | jq .
+```
 
 ---
 

@@ -213,7 +213,10 @@ pub fn make_allow_list(patterns: &[String]) -> IgnoreList {
     }
     let normalised: Vec<String> = patterns
         .iter()
-        .map(|p| p.strip_prefix("~/").unwrap_or(p).to_string())
+        .map(|p| {
+            let p = p.trim();
+            p.strip_prefix("~/").unwrap_or(p).to_string()
+        })
         .collect();
     IgnoreList::from_str(&normalised.join("\n"))
 }
@@ -568,6 +571,19 @@ mod tests {
         let allow_list = make_allow_list(&config.security.allow);
 
         // ~/.env should be allowed.
+        assert!(allow_list.is_ignored("~/.env"));
+    }
+
+    #[test]
+    fn allow_list_trims_whitespace() {
+        // Patterns with leading/trailing spaces (e.g. from TOML inline formatting)
+        // must still match correctly.
+        let patterns = vec![
+            " ~/.ssh/id_rsa.pub".to_string(),
+            "~/.env  ".to_string(),
+        ];
+        let allow_list = make_allow_list(&patterns);
+        assert!(allow_list.is_ignored("~/.ssh/id_rsa.pub"));
         assert!(allow_list.is_ignored("~/.env"));
     }
 

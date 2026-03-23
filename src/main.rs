@@ -608,8 +608,11 @@ enum Commands {
     /// Manage local telemetry: enable, disable, or annotate the telemetry log.
     ///
     /// Enable / disable writes `[telemetry] enabled = true/false` to `haven.toml`.
-    /// Notes write a `{"kind":"note","note":"..."}` entry to `~/.haven/telemetry.jsonl`
-    /// regardless of whether telemetry is currently enabled.
+    /// Annotations write a structured entry to `~/.haven/telemetry.jsonl` regardless
+    /// of whether telemetry is currently enabled.
+    ///
+    /// Typed annotations (--action, --bug, --question) auto-generate sequential IDs
+    /// (A000001, B000001, Q000001) by scanning the existing log.
     ///
     /// Without any flags, prints the current telemetry status.
     ///
@@ -617,20 +620,39 @@ enum Commands {
     ///   haven telemetry --enable
     ///   haven telemetry --disable
     ///   haven telemetry --note "starting fresh config — prior data is from testing"
-    ///   haven telemetry --note "onboarding a new machine"
+    ///   haven telemetry --action "testing chezmoi migration guide"
+    ///   haven telemetry --bug "security scan flags ~/.ssh/id_rsa.pub despite allowlist"
+    ///   haven telemetry --question "should allowlist use repo name or target name?"
+    ///   haven telemetry --list
     Telemetry {
         /// Enable telemetry by setting `[telemetry] enabled = true` in haven.toml.
-        #[arg(long, conflicts_with_all = ["disable", "note"])]
+        #[arg(long, conflicts_with_all = ["disable", "note", "action", "bug", "question", "list"])]
         enable: bool,
 
         /// Disable telemetry by setting `[telemetry] enabled = false` in haven.toml.
-        #[arg(long, conflicts_with_all = ["enable", "note"])]
+        #[arg(long, conflicts_with_all = ["enable", "note", "action", "bug", "question", "list"])]
         disable: bool,
 
         /// Append a free-form annotation to the telemetry log.
         /// Always writes regardless of whether telemetry is enabled.
-        #[arg(long, conflicts_with_all = ["enable", "disable"])]
+        #[arg(long, conflicts_with_all = ["enable", "disable", "action", "bug", "question", "list"])]
         note: Option<String>,
+
+        /// Record an action you took. Auto-generates an ID (A000001, A000002, …).
+        #[arg(long, conflicts_with_all = ["enable", "disable", "note", "bug", "question", "list"])]
+        action: Option<String>,
+
+        /// Record a bug you found. Auto-generates an ID (B000001, B000002, …).
+        #[arg(long, conflicts_with_all = ["enable", "disable", "note", "action", "question", "list"])]
+        bug: Option<String>,
+
+        /// Record a question you have. Auto-generates an ID (Q000001, Q000002, …).
+        #[arg(long, conflicts_with_all = ["enable", "disable", "note", "action", "bug", "list"])]
+        question: Option<String>,
+
+        /// Print the contents of the telemetry log to stdout.
+        #[arg(long, conflicts_with_all = ["enable", "disable", "note", "action", "bug", "question"])]
+        list: bool,
     },
 
     /// Upgrade haven to the latest version.
@@ -843,11 +865,33 @@ fn run() -> Result<()> {
         return Ok(());
     }
 
-    // Telemetry notes don't need a repo — handle before repo_root() resolution.
-    if let Commands::Telemetry { note: Some(note), .. } = &cli.command {
-        telemetry::append_note(note)?;
-        println!("Note recorded in ~/.haven/telemetry.jsonl");
-        return Ok(());
+    // Telemetry annotations and --list don't need a repo — handle before repo_root().
+    match &cli.command {
+        Commands::Telemetry { note: Some(note), .. } => {
+            telemetry::append_note(note)?;
+            println!("Note recorded in ~/.haven/telemetry.jsonl");
+            return Ok(());
+        }
+        Commands::Telemetry { action: Some(text), .. } => {
+            let id = telemetry::append_typed("action", 'A', text)?;
+            println!("Action {} recorded in ~/.haven/telemetry.jsonl", id);
+            return Ok(());
+        }
+        Commands::Telemetry { bug: Some(text), .. } => {
+            let id = telemetry::append_typed("bug", 'B', text)?;
+            println!("Bug {} recorded in ~/.haven/telemetry.jsonl", id);
+            return Ok(());
+        }
+        Commands::Telemetry { question: Some(text), .. } => {
+            let id = telemetry::append_typed("question", 'Q', text)?;
+            println!("Question {} recorded in ~/.haven/telemetry.jsonl", id);
+            return Ok(());
+        }
+        Commands::Telemetry { list: true, .. } => {
+            telemetry::list()?;
+            return Ok(());
+        }
+        _ => {}
     }
 
     let repo = match &cli.dir {
@@ -1143,8 +1187,12 @@ fn run() -> Result<()> {
 
         // Already handled above before repo resolution — unreachable here.
         Commands::Completions { .. } => unreachable!(),
-        // --note is handled above; --enable/--disable and bare status fall through here.
-        Commands::Telemetry { note: Some(_), .. } => unreachable!(),
+        // Annotations and --list are handled above; --enable/--disable and bare status fall through.
+        Commands::Telemetry { note: Some(_), .. }
+        | Commands::Telemetry { action: Some(_), .. }
+        | Commands::Telemetry { bug: Some(_), .. }
+        | Commands::Telemetry { question: Some(_), .. }
+        | Commands::Telemetry { list: true, .. } => unreachable!(),
         Commands::Telemetry { enable, disable, .. } => {
             if *enable {
                 set_telemetry_in_config(&repo, true)?;
@@ -1156,9 +1204,13 @@ fn run() -> Result<()> {
                     "Telemetry is currently {}.",
                     if is_on { "enabled" } else { "disabled" }
                 );
-                println!("  haven telemetry --enable   # turn on");
-                println!("  haven telemetry --disable  # turn off");
-                println!("  haven telemetry --note \"<text>\"  # annotate the log");
+                println!("  haven telemetry --enable                    # turn on");
+                println!("  haven telemetry --disable                   # turn off");
+                println!("  haven telemetry --note \"<text>\"             # free-form annotation");
+                println!("  haven telemetry --action \"<text>\"           # record an action (A000001…)");
+                println!("  haven telemetry --bug \"<text>\"              # record a bug (B000001…)");
+                println!("  haven telemetry --question \"<text>\"         # record a question (Q000001…)");
+                println!("  haven telemetry --list                      # show the log");
             }
         }
 

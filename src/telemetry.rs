@@ -64,11 +64,79 @@ pub fn append_note(note: &str) -> anyhow::Result<()> {
         kind: "note",
         note: note.to_string(),
     };
-    append_note_event(&path, &event)?;
+    append_jsonl(&path, &event)?;
     Ok(())
 }
 
-fn append_note_event(path: &PathBuf, event: &NoteEvent) -> std::io::Result<()> {
+/// A typed telemetry annotation — action, bug, or question.
+///
+/// Written by `haven telemetry --action/--bug/--question "..."`.
+/// The `id` is auto-generated (e.g. `A000001`, `B000001`, `Q000001`) by
+/// scanning the existing log for the highest sequence number of that prefix.
+///
+/// Example JSON line:
+/// ```json
+/// {"ts":"2026-03-23T12:00:00Z","kind":"action","id":"A000001","note":"testing chezmoi migration guide"}
+/// ```
+#[derive(Debug, Serialize)]
+pub struct TypedEvent {
+    pub ts: String,
+    pub kind: &'static str,
+    pub id: String,
+    pub note: String,
+}
+
+/// Append a typed annotation (action / bug / question) to the telemetry log.
+///
+/// Scans the existing log to determine the next sequence number for the given
+/// prefix character (`A`, `B`, or `Q`) and returns the generated ID.
+pub fn append_typed(kind: &'static str, prefix: char, text: &str) -> anyhow::Result<String> {
+    let path = default_telemetry_path();
+    let seq = next_seq_for_prefix(&path, prefix);
+    let id = format!("{}{:06}", prefix, seq);
+    let event = TypedEvent {
+        ts: chrono::Utc::now().to_rfc3339(),
+        kind,
+        id: id.clone(),
+        note: text.to_string(),
+    };
+    append_jsonl(&path, &event)?;
+    Ok(id)
+}
+
+/// Print the raw contents of the telemetry JSONL file to stdout.
+pub fn list() -> anyhow::Result<()> {
+    let path = default_telemetry_path();
+    if !path.exists() {
+        println!("No telemetry data yet ({} does not exist).", path.display());
+        return Ok(());
+    }
+    let contents = std::fs::read_to_string(&path)?;
+    print!("{}", contents);
+    Ok(())
+}
+
+/// Return the next sequence number for IDs starting with `prefix`.
+///
+/// Scans every line in `path` looking for `"id":"<prefix><digits>"` and
+/// returns `max + 1` (or `1` if no matches are found).
+fn next_seq_for_prefix(path: &PathBuf, prefix: char) -> u32 {
+    let Ok(contents) = std::fs::read_to_string(path) else { return 1 };
+    let mut max = 0u32;
+    for line in contents.lines() {
+        let Ok(val) = serde_json::from_str::<serde_json::Value>(line) else { continue };
+        if let Some(id) = val.get("id").and_then(|v| v.as_str()) {
+            if id.starts_with(prefix) {
+                if let Ok(n) = id[prefix.len_utf8()..].parse::<u32>() {
+                    if n > max { max = n; }
+                }
+            }
+        }
+    }
+    max + 1
+}
+
+fn append_jsonl<T: serde::Serialize>(path: &PathBuf, event: &T) -> std::io::Result<()> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }
@@ -295,11 +363,56 @@ mod tests {
             kind: "note",
             note: "starting fresh config — prior data is from testing".into(),
         };
-        append_note_event(&path, &event).unwrap();
+        append_jsonl(&path, &event).unwrap();
 
         let contents = std::fs::read_to_string(&path).unwrap();
         assert!(contents.contains("\"kind\":\"note\""));
         assert!(contents.contains("starting fresh config"));
+        let _: serde_json::Value = serde_json::from_str(contents.trim()).unwrap();
+    }
+
+    #[test]
+    fn next_seq_starts_at_1_when_empty() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("telemetry.jsonl");
+        assert_eq!(next_seq_for_prefix(&path, 'A'), 1);
+    }
+
+    #[test]
+    fn next_seq_increments_correctly() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("telemetry.jsonl");
+        // Seed two action events and one bug event.
+        for id in &["A000001", "A000002", "B000001"] {
+            let line = format!("{{\"kind\":\"action\",\"id\":\"{}\",\"note\":\"x\"}}\n", id);
+            std::fs::write(&path, line).unwrap();
+        }
+        // Overwrite with all three lines.
+        let content = "{\"id\":\"A000001\"}\n{\"id\":\"A000002\"}\n{\"id\":\"B000003\"}\n";
+        std::fs::write(&path, content).unwrap();
+        assert_eq!(next_seq_for_prefix(&path, 'A'), 3);
+        assert_eq!(next_seq_for_prefix(&path, 'B'), 4);
+        assert_eq!(next_seq_for_prefix(&path, 'Q'), 1);
+    }
+
+    #[test]
+    fn append_typed_writes_valid_jsonl() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("telemetry.jsonl");
+        // Call append_typed via the internal helpers directly.
+        let seq = next_seq_for_prefix(&path, 'B');
+        assert_eq!(seq, 1);
+        let id = format!("B{:06}", seq);
+        let event = TypedEvent {
+            ts: "2026-03-23T12:00:00Z".into(),
+            kind: "bug",
+            id: id.clone(),
+            note: "security scan flags allowlisted file".into(),
+        };
+        append_jsonl(&path, &event).unwrap();
+        let contents = std::fs::read_to_string(&path).unwrap();
+        assert!(contents.contains("\"kind\":\"bug\""));
+        assert!(contents.contains("\"id\":\"B000001\""));
         let _: serde_json::Value = serde_json::from_str(contents.trim()).unwrap();
     }
 

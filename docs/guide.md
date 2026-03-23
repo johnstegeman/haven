@@ -145,6 +145,48 @@ drifted, which are missing. `dfiles diff` shows you the exact lines that differ.
 | `?`    | Destination does not exist (never applied) |
 | `!`    | Source file is missing from the repo |
 
+### Ignoring files
+
+Files stored in the repo can be excluded from `apply`, `status`, and `diff` using
+`config/ignore` at the repo root. Patterns use gitignore-style glob syntax.
+
+```
+# config/ignore
+
+# Ignore a specific file
+.zshrc
+
+# Glob patterns
+.ssh/id_*
+.config/*/history
+
+# Match everything under a directory
+.local/share/some-app/**
+
+# Negate a previous match (un-ignore)
+!.local/share/some-app/keep-this
+```
+
+**Pattern rules:**
+
+| Syntax | Meaning |
+|--------|---------|
+| `#` at start of line | Comment — ignored |
+| `*` | Any sequence of non-`/` characters |
+| `**` | Any sequence of characters including `/` |
+| `?` | Any single non-`/` character |
+| `!` prefix | Negate — un-ignores a previously matched path |
+| Pattern with no `/` | Matches the **basename** only (last path component) |
+| Pattern with `/` | Matches the **full path** from the home root |
+
+Ignored files are committed to the repo like any other file — they just aren't
+applied to the destination. This is useful for machine-specific files that you
+want to keep in the repo for reference but not deploy everywhere.
+
+If you try to `dfiles add` a file that matches an ignore pattern, dfiles will
+print a message and skip it. Remove the pattern from `config/ignore` first if
+you want the file to be tracked and applied normally.
+
 ---
 
 ## Magic-name encoding

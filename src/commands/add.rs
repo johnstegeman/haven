@@ -6,6 +6,7 @@ use walkdir::WalkDir;
 
 use crate::config::module::expand_tilde;
 use crate::fs::{is_sensitive, tilde_path};
+use crate::ignore::IgnoreList;
 use crate::source::{encode_filename, extdir_source_path};
 
 pub fn run(repo_root: &Path, file: &Path, link: bool, apply: bool, update: bool) -> Result<()> {
@@ -15,8 +16,10 @@ pub fn run(repo_root: &Path, file: &Path, link: bool, apply: bool, update: bool)
         bail!("File not found: {}", file.display());
     }
 
+    let ignore = IgnoreList::load(repo_root);
+
     if file.is_dir() {
-        return run_dir(repo_root, &file);
+        return run_dir(repo_root, &file, &ignore);
     }
 
     // Sensitive file check.
@@ -30,6 +33,16 @@ pub fn run(repo_root: &Path, file: &Path, link: bool, apply: bool, update: bool)
     let rel = file
         .strip_prefix(&home)
         .with_context(|| format!("{} is not under your home directory", file.display()))?;
+
+    // Ignore check — must happen after we have the dest_tilde.
+    let dest_tilde = tilde_path(&file);
+    if ignore.is_ignored(&dest_tilde) {
+        println!(
+            "Skipped: {} (matches a pattern in config/ignore — remove the pattern first if you want to track this file)",
+            dest_tilde,
+        );
+        return Ok(());
+    }
 
     // Auto-detect flags from the file's actual permissions.
     let metadata = std::fs::metadata(&file)?;
@@ -79,7 +92,6 @@ pub fn run(repo_root: &Path, file: &Path, link: bool, apply: bool, update: bool)
         })?;
     }
 
-    let dest_tilde = tilde_path(&file);
     println!("Added: {} → source/{}", dest_tilde, encoded.display());
 
     // --apply: immediately replace the original file with a symlink back into source/.
@@ -130,14 +142,14 @@ fn install_symlink(dest: &Path, source_file: &Path) -> Result<()> {
 
 // ─── Directory handling ───────────────────────────────────────────────────────
 
-fn run_dir(repo_root: &Path, dir: &Path) -> Result<()> {
+fn run_dir(repo_root: &Path, dir: &Path, ignore: &IgnoreList) -> Result<()> {
     let remotes = get_git_remotes(dir);
 
     if !remotes.is_empty() {
         match prompt_dir_mode(dir, &remotes)? {
             DirMode::Extdir(idx) => {
                 let (remote_name, url) = &remotes[idx];
-                add_as_extdir(repo_root, dir, remote_name, url)?;
+                add_as_extdir(repo_root, dir, remote_name, url, ignore)?;
                 return Ok(());
             }
             DirMode::Recursive => {} // fall through to recursive add
@@ -148,13 +160,22 @@ fn run_dir(repo_root: &Path, dir: &Path) -> Result<()> {
         }
     }
 
-    add_dir_recursive(repo_root, dir)
+    add_dir_recursive(repo_root, dir, ignore)
 }
 
-fn add_as_extdir(repo_root: &Path, dir: &Path, _remote_name: &str, url: &str) -> Result<()> {
+fn add_as_extdir(repo_root: &Path, dir: &Path, _remote_name: &str, url: &str, ignore: &IgnoreList) -> Result<()> {
     let home = dirs::home_dir().context("Cannot determine home directory")?;
     let dest_tilde = tilde_path(dir);
     let repo_source = repo_root.join("source");
+
+    if ignore.is_ignored(&dest_tilde) {
+        println!(
+            "Skipped: {} (matches a pattern in config/ignore — remove the pattern first if you want to track this directory)",
+            dest_tilde,
+        );
+        return Ok(());
+    }
+
     let extdir_path = extdir_source_path(&repo_source, &dest_tilde);
 
     if extdir_path.exists() {
@@ -188,7 +209,7 @@ fn add_as_extdir(repo_root: &Path, dir: &Path, _remote_name: &str, url: &str) ->
     Ok(())
 }
 
-fn add_dir_recursive(repo_root: &Path, dir: &Path) -> Result<()> {
+fn add_dir_recursive(repo_root: &Path, dir: &Path, ignore: &IgnoreList) -> Result<()> {
     let home = dirs::home_dir().context("Cannot determine home directory")?;
     let repo_source = repo_root.join("source");
     let mut count = 0;
@@ -211,6 +232,12 @@ fn add_dir_recursive(repo_root: &Path, dir: &Path) -> Result<()> {
 
         if is_sensitive(&file) && !confirm_sensitive(&file)? {
             println!("  ~ Skipped (sensitive): {}", tilde_path(&file));
+            continue;
+        }
+
+        let file_tilde = tilde_path(&file);
+        if ignore.is_ignored(&file_tilde) {
+            println!("  ~ Skipped (ignored): {}", file_tilde);
             continue;
         }
 

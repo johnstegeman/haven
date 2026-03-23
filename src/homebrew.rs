@@ -173,11 +173,14 @@ pub fn brew_install(brew: &Path, name: &str, cask: bool) -> Result<()> {
 }
 
 /// Run `brew uninstall [--cask] <name>`.
-pub fn brew_uninstall(brew: &Path, name: &str, cask: bool) -> Result<()> {
+pub fn brew_uninstall(brew: &Path, name: &str, cask: bool, zap: bool) -> Result<()> {
     let mut cmd = std::process::Command::new(brew);
     cmd.arg("uninstall");
     if cask {
         cmd.arg("--cask");
+        if zap {
+            cmd.arg("--zap");
+        }
     }
     cmd.arg(name)
         .stdin(std::process::Stdio::inherit())

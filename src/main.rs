@@ -419,6 +419,12 @@ enum Commands {
         #[arg(long)]
         interactive: bool,
 
+        /// When removing unreferenced casks, also delete their associated data and
+        /// files (passes --zap to `brew uninstall --cask`). Implies
+        /// --remove-unreferenced-brews.
+        #[arg(long)]
+        zap: bool,
+
         /// Pull (update) existing extdir_ clones in addition to cloning missing ones.
         /// By default, extdir_ entries that are already cloned are left as-is.
         #[arg(long)]
@@ -1031,6 +1037,7 @@ fn run() -> Result<()> {
             run_scripts,
             remove_unreferenced_brews,
             interactive,
+            zap,
             vcs: vcs_flag,
             dest,
         } => {
@@ -1058,8 +1065,9 @@ fn run() -> Result<()> {
                 apply_ai: *ai || none_specified,
                 apply_externals: *apply_externals,
                 run_scripts: *run_scripts,
-                remove_unreferenced_brews: *remove_unreferenced_brews || *interactive,
+                remove_unreferenced_brews: *remove_unreferenced_brews || *interactive || *zap,
                 interactive: *interactive,
+                zap: *zap,
                 vcs_backend,
             })?;
         }

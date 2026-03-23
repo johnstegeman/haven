@@ -139,6 +139,7 @@ fn run_from_source(opts: &InitOptions<'_>, source_str: &str) -> Result<()> {
             run_scripts: false,
             remove_unreferenced_brews: false,
             interactive: false,
+            zap: false,
             vcs_backend: opts.vcs_backend,
         })?;
 

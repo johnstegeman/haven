@@ -87,7 +87,7 @@ pub fn uninstall(repo_root: &Path, name: &str, cask: bool) -> Result<()> {
 
     // Run brew uninstall.
     println!();
-    homebrew::brew_uninstall(&brew, name, cask)?;
+    homebrew::brew_uninstall(&brew, name, cask, false)?;
 
     Ok(())
 }

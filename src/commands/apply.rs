@@ -62,6 +62,9 @@ pub struct ApplyOptions<'a> {
     /// When true (combined with remove_unreferenced_brews), show the candidate list
     /// and prompt for confirmation before removing anything.
     pub interactive: bool,
+    /// When removing unreferenced casks, also remove their associated data/files
+    /// (`brew uninstall --cask --zap`). Implies `remove_unreferenced_brews`.
+    pub zap: bool,
     /// VCS backend to use for new extdir clones. When set to Jj, also offers
     /// `jj git init --colocate` for existing extdirs that don't have a `.jj/`.
     pub vcs_backend: VcsBackend,
@@ -155,8 +158,9 @@ pub fn run(opts: &ApplyOptions<'_>) -> Result<()> {
                 print_dry_run_entry(entry, opts.dest_root);
                 continue;
             }
-            apply_entry(entry, opts, &template_ctx, &mut jj_migrate_all)?;
-            files_applied += 1;
+            if apply_entry(entry, opts, &template_ctx, &mut jj_migrate_all)? {
+                files_applied += 1;
+            }
         }
         if opts.dry_run && entries.is_empty() {
             println!("  (no files in source/)");
@@ -529,12 +533,13 @@ fn purge_exact_dir(dir_path: &Path, tracked: &HashSet<String>, backup_dir: &Path
 
 // ─── File application ─────────────────────────────────────────────────────────
 
+/// Returns `true` if the file was actually written or updated, `false` if skipped as up-to-date.
 fn apply_entry(
     entry: &SourceEntry,
     opts: &ApplyOptions<'_>,
     template_ctx: &TemplateContext,
     jj_migrate_all: &mut bool,
-) -> Result<()> {
+) -> Result<bool> {
     // Expand dest and rebase onto dest_root.
     let dest = resolve_dest(
         expand_tilde(&entry.dest_tilde)?,
@@ -572,7 +577,7 @@ fn apply_entry(
             jj_migrate_all,
         )?;
         println!("  ✓ {}", dest.display());
-        return Ok(());
+        return Ok(true);
     }
 
     if entry.flags.extfile {
@@ -585,7 +590,7 @@ fn apply_entry(
                 .with_context(|| format!("Cannot set permissions on {}", dest.display()))?;
         }
         println!("  ✓ {}", dest.display());
-        return Ok(());
+        return Ok(true);
     }
 
     if entry.flags.symlink {
@@ -613,13 +618,13 @@ fn apply_entry(
             println!("  backed up {} → {}", dest.display(), b.display());
         }
         println!("  ✓ {} ⟶ {}", dest.display(), link_target.display());
-        return Ok(());
+        return Ok(true);
     }
 
     // create_only: seed-only file — don't overwrite if destination already exists.
     if entry.flags.create_only && dest.exists() {
         println!("  ~ {} (create_only — already exists, not overwritten)", dest.display());
-        return Ok(());
+        return Ok(false);
     }
 
     // Render template or read source content, then skip if dest is already identical.
@@ -648,7 +653,7 @@ fn apply_entry(
                 apply_permissions(&dest, entry.flags.private, entry.flags.executable)
                     .with_context(|| format!("Cannot set permissions on {}", dest.display()))?;
             }
-            return Ok(());
+            return Ok(false);
         }
     }
 
@@ -676,7 +681,7 @@ fn apply_entry(
     }
 
     println!("  ✓ {}", dest.display());
-    Ok(())
+    Ok(true)
 }
 
 /// Return true if both paths exist and have identical byte content.
@@ -1392,14 +1397,14 @@ fn purge_unreferenced_brews(opts: &ApplyOptions<'_>, sorted_modules: &[String]) 
     for name in &unreferenced_formulas {
         print!("  Removing formula {}… ", name);
         let _ = std::io::Write::flush(&mut std::io::stdout());
-        crate::homebrew::brew_uninstall(&brew, name, false)
+        crate::homebrew::brew_uninstall(&brew, name, false, false)
             .with_context(|| format!("Failed to uninstall formula '{}'", name))?;
         println!("✓");
     }
     for name in &unreferenced_casks {
         print!("  Removing cask {}… ", name);
         let _ = std::io::Write::flush(&mut std::io::stdout());
-        crate::homebrew::brew_uninstall(&brew, name, true)
+        crate::homebrew::brew_uninstall(&brew, name, true, opts.zap)
             .with_context(|| format!("Failed to uninstall cask '{}'", name))?;
         println!("✓");
     }

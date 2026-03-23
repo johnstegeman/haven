@@ -7,7 +7,10 @@
       "Bash(cargo build:*)",
       "Bash(jj new:*)",
       "Bash(jj log:*)",
-      "mcp__memory__write-cypher"
+      "mcp__memory__write-cypher",
+      "mcp__memory__read-cypher",
+      "Skill(jujutsu)",
+      "Bash(ls:*)"
     ]
   }
 }

@@ -883,12 +883,17 @@ fn try_resolve_symlink(
     chezmoi_file: &Path,
     rel_path: &Path,
 ) -> Option<ChezmoiEntry> {
-    // Read the file content — this is the symlink target path.
+    // Read the file content — this is the symlink target path (or a template of it).
     let content = std::fs::read_to_string(chezmoi_file).ok()?;
     let target_str = content.trim();
 
-    // Reject Go template expressions.
+    // `symlink_*.tmpl`: the content is a Go template that renders to the target path.
+    // Convert to Tera and create a link+template entry.
     if target_str.contains("{{") {
+        if rel_path.to_string_lossy().ends_with(".tmpl") {
+            return try_resolve_symlink_template(rel_path, target_str);
+        }
+        // Non-template symlink with template content — cannot resolve.
         return None;
     }
 
@@ -917,6 +922,46 @@ fn try_resolve_symlink(
         template_warnings: Vec::new(),
         copy_from: Some(target),
     })
+}
+
+/// Convert a `symlink_*.tmpl` entry: the file content is a Go template that renders
+/// to the symlink target path at apply time.
+///
+/// Creates a `link: true, template: true` entry. At apply time, dfiles will render the
+/// template to obtain the target path, then create the symlink.
+fn try_resolve_symlink_template(rel_path: &Path, template_content: &str) -> Option<ChezmoiEntry> {
+    // Convert Go template syntax to Tera.
+    let result = crate::chezmoi_template::convert(template_content);
+
+    // Destination: strip `symlink_` prefix AND `.tmpl` suffix.
+    let dest_abs = decode_symlink_dest_strip_tmpl(rel_path);
+    let dest_tilde = crate::fs::tilde_path(&dest_abs);
+    // source_name keeps `.tmpl` suffix so source.rs recognises it as a template.
+    let sname = source_name(rel_path);
+    let module = infer_module(&dest_abs).to_string();
+
+    Some(ChezmoiEntry {
+        chezmoi_path: rel_path.to_path_buf(),
+        dest_tilde,
+        source_name: sname,
+        module,
+        private: false,
+        executable: false,
+        link: true,
+        template: true,
+        converted_content: Some(result.text),
+        template_warnings: result.warnings,
+        copy_from: None,
+    })
+}
+
+/// Decode the destination path for a `symlink_*.tmpl` entry:
+/// strip `symlink_` from the first component AND `.tmpl` from the last component.
+fn decode_symlink_dest_strip_tmpl(rel_path: &Path) -> PathBuf {
+    // Strip `.tmpl` from the last component first, then delegate to decode_symlink_dest.
+    let stripped = strip_tmpl_suffix(rel_path);
+    let path = stripped.as_deref().unwrap_or(rel_path);
+    decode_symlink_dest(path)
 }
 
 /// Decode the destination path for a `symlink_` entry by stripping the `symlink_`
@@ -1441,5 +1486,55 @@ mod tests {
     fn brewfile_module_name_suffix_gives_suffix() {
         assert_eq!(brewfile_module_name("Brewfile.work"), "work");
         assert_eq!(brewfile_module_name("Brewfile.personal"), "personal");
+    }
+
+    // ── symlink_ + .tmpl: template renders to symlink target ──────────────────
+
+    #[test]
+    fn symlink_tmpl_decodes_dest_without_tmpl_suffix() {
+        // `symlink_dot_gitconfig.tmpl` → dest `~/.gitconfig` (both symlink_ and .tmpl stripped)
+        let dest = decode_symlink_dest_strip_tmpl(Path::new("symlink_dot_gitconfig.tmpl"));
+        let tilde = crate::fs::tilde_path(&dest);
+        assert!(tilde.ends_with("/.gitconfig"), "expected ~/.gitconfig, got {}", tilde);
+    }
+
+    #[test]
+    fn try_resolve_symlink_template_creates_link_template_entry() {
+        use tempfile::TempDir;
+
+        // Write a temp file with Go template content (as chezmoi would).
+        let dir = TempDir::new().unwrap();
+        let p = dir.path().join("symlink_dot_gitconfig.tmpl");
+        std::fs::write(&p, "{{ .chezmoi.homeDir }}/.config/git/config\n").unwrap();
+
+        let rel = Path::new("symlink_dot_gitconfig.tmpl");
+        let entry = try_resolve_symlink(&p, rel)
+            .expect("expected Some(entry) for symlink+tmpl with template content");
+
+        assert!(entry.link, "expected link=true");
+        assert!(entry.template, "expected template=true");
+        // source_name keeps the .tmpl suffix.
+        assert_eq!(entry.source_name, "symlink_dot_gitconfig.tmpl");
+        // dest should be ~/.gitconfig (not ~/.gitconfig.tmpl).
+        assert!(entry.dest_tilde.ends_with("/.gitconfig"),
+            "expected dest ~/.gitconfig, got {}", entry.dest_tilde);
+        // converted_content should contain Tera syntax.
+        let content = entry.converted_content.unwrap();
+        assert!(content.contains("home_dir"),
+            "expected converted Tera content with home_dir, got: {}", content);
+    }
+
+    #[test]
+    fn try_resolve_symlink_without_tmpl_suffix_with_template_content_returns_none() {
+        use tempfile::TempDir;
+
+        // Symlink file (no .tmpl suffix) but with template-like content — should be None.
+        let dir = TempDir::new().unwrap();
+        let p = dir.path().join("symlink_dot_gitconfig");
+        std::fs::write(&p, "{{ .chezmoi.homeDir }}/config\n").unwrap();
+
+        let rel = Path::new("symlink_dot_gitconfig");
+        let result = try_resolve_symlink(&p, rel);
+        assert!(result.is_none(), "expected None for symlink without .tmpl but template content");
     }
 }

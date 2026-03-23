@@ -1104,29 +1104,45 @@ fn apply_ai_skills(
 // ─── Brew ─────────────────────────────────────────────────────────────────────
 
 fn apply_brew(opts: &ApplyOptions<'_>, sorted_modules: &[String]) -> Result<()> {
-    let brewfile_path = if let Some(module) = opts.module_filter {
-        // --module specified: use that module's brewfile.
+    // Collect all brewfiles to install: master + each module's brewfile.
+    // When --module is set, only that module's brewfile is used.
+    let brewfiles: Vec<PathBuf> = if let Some(module) = opts.module_filter {
         let config = ModuleConfig::load(opts.repo_root, module)?;
-        config.homebrew.map(|hb| opts.repo_root.join(&hb.brewfile))
+        config.homebrew
+            .map(|hb| opts.repo_root.join(&hb.brewfile))
+            .into_iter()
+            .filter(|p| p.exists())
+            .collect()
     } else {
-        // No module filter: use the master Brewfile if it exists.
+        let mut paths = Vec::new();
         let master = opts.repo_root.join("brew").join("Brewfile");
-        if master.exists() { Some(master) } else { None }
+        if master.exists() {
+            paths.push(master);
+        }
+        for module_name in sorted_modules {
+            if let Ok(config) = ModuleConfig::load(opts.repo_root, module_name) {
+                if let Some(hb) = config.homebrew {
+                    let bf = opts.repo_root.join(&hb.brewfile);
+                    if bf.exists() {
+                        paths.push(bf);
+                    }
+                }
+            }
+        }
+        paths
     };
 
-    let brewfile = match brewfile_path {
-        None => return Ok(()),
-        Some(p) => p,
-    };
-    if !brewfile.exists() {
+    if brewfiles.is_empty() {
         return Ok(());
     }
 
     if opts.dry_run {
-        println!(
-            "[brew] brew bundle --file {}",
-            brewfile.strip_prefix(opts.repo_root).unwrap_or(&brewfile).display()
-        );
+        for bf in &brewfiles {
+            println!(
+                "[brew] brew bundle --file {}",
+                bf.strip_prefix(opts.repo_root).unwrap_or(bf).display()
+            );
+        }
         println!();
         return Ok(());
     }
@@ -1136,18 +1152,17 @@ fn apply_brew(opts: &ApplyOptions<'_>, sorted_modules: &[String]) -> Result<()> 
             println!("[brew] skipped (brew not available)");
         }
         Some(brew) => {
-            println!(
-                "Installing packages from {}…",
-                brewfile.strip_prefix(opts.repo_root).unwrap_or(&brewfile).display()
-            );
-            crate::homebrew::bundle_install(&brew, &brewfile)
-                .with_context(|| {
-                    format!("brew bundle install failed for {}", brewfile.display())
-                })?;
-            println!("  ✓ brew bundle");
+            for bf in &brewfiles {
+                println!(
+                    "Installing packages from {}…",
+                    bf.strip_prefix(opts.repo_root).unwrap_or(bf).display()
+                );
+                crate::homebrew::bundle_install(&brew, bf)
+                    .with_context(|| format!("brew bundle install failed for {}", bf.display()))?;
+                println!("  ✓ brew bundle");
+            }
         }
     }
-    let _ = sorted_modules;
     Ok(())
 }
 

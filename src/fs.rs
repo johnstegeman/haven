@@ -31,6 +31,26 @@ const SENSITIVE_SUFFIXES: &[&str] = &[
     ".cer",
 ];
 
+/// Returns the matched rule name if the (decoded) filename matches a sensitive pattern,
+/// or `None` if it does not.
+///
+/// `name` should be the **decoded** filename (e.g. `id_rsa`, `.env`),
+/// not the encoded source path name (e.g. `private_id_rsa`, `dot_env`).
+pub fn is_sensitive_with_rule(name: &str) -> Option<&'static str> {
+    let lower = name.to_lowercase();
+    for &p in SENSITIVE_PATTERNS {
+        if lower == p || lower.ends_with(p) {
+            return Some(p);
+        }
+    }
+    for &s in SENSITIVE_SUFFIXES {
+        if lower.ends_with(s) {
+            return Some(s);
+        }
+    }
+    None
+}
+
 /// Returns true if the filename matches a sensitive pattern.
 pub fn is_sensitive(path: &Path) -> bool {
     let name = path

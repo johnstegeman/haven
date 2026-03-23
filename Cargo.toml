@@ -35,6 +35,7 @@ tera = "1"
 ureq = "2"
 similar = "2"
 is-terminal = "0.4"
+regex = "1"
 flate2 = "1"
 tar = "0.4"
 

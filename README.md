@@ -117,6 +117,7 @@ dfiles diff                    # show file-level diff between source and live
 dfiles source-path             # print the path to the dfiles repo
 dfiles brew install <formula>  # brew install + update Brewfile
 dfiles brew uninstall <formula># brew uninstall + remove from Brewfile
+dfiles security-scan           # scan tracked files for secrets and credentials
 dfiles import --from chezmoi   # migrate from chezmoi
 dfiles init gh:you/env --apply # new machine: clone and apply in one command
 ```
@@ -281,6 +282,12 @@ modules = ["shell"]
 
 ## Security
 
+- **Secret scanning** — `dfiles security-scan` checks every tracked file for secrets,
+  sensitive filenames (`.env`, `id_rsa`, `.pem`…), and credential paths
+  (`~/.aws/credentials`, `~/.kube/**`, `~/.ssh/**`…). Content patterns cover GitHub
+  tokens, AWS keys, PEM private keys, OpenAI/Anthropic keys, and generic password
+  assignments. `dfiles add` also runs a content scan automatically and prompts before
+  saving any file that matches.
 - **Supply chain protection** — `dfiles.lock` pins the SHA of every fetched skill.
   A mismatch between the live fetch and the recorded SHA is an error; you must run
   `dfiles ai update` to explicitly accept changed content.

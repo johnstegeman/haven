@@ -16,6 +16,23 @@ pub struct DfilesConfig {
     /// VCS backend selection (git or jj colocated).
     #[serde(default)]
     pub vcs: VcsConfig,
+
+    /// Security scanning settings.
+    #[serde(default)]
+    pub security: SecurityConfig,
+}
+
+/// Security settings in `dfiles.toml`.
+///
+/// ```toml
+/// [security]
+/// allow = ["~/.config/gh/hosts.yml", "~/.config/gcloud/**"]
+/// ```
+#[derive(Debug, Deserialize, Serialize, Default)]
+pub struct SecurityConfig {
+    /// Paths to exclude from security scanning (glob patterns matched against dest_tilde).
+    #[serde(default)]
+    pub allow: Vec<String>,
 }
 
 /// VCS settings in `dfiles.toml`.

@@ -568,6 +568,56 @@ a warning instead of failing with an error. All other modules are applied normal
 
 ---
 
+## Secret scanning
+
+`dfiles security-scan` audits every file tracked in `source/` for accidentally
+committed secrets, sensitive filenames, and credential paths.
+
+```sh
+dfiles security-scan          # scan all tracked files
+dfiles security-scan --entropy  # also flag high-entropy strings
+```
+
+Exits 0 when clean, 1 when findings are reported (suitable for CI or pre-push hooks).
+
+### What is checked
+
+| Check | Examples flagged |
+|-------|-----------------|
+| Filename patterns | `.env`, `id_rsa`, `credentials`, `.pem`, `.key`, `.p12` |
+| Path patterns | `~/.aws/credentials`, `~/.kube/**`, `~/.ssh/**`, `~/.config/gh/hosts.yml`, `~/.docker/config.json`, `~/.gnupg/**` |
+| Content patterns | GitHub tokens (`ghp_`/`ghs_`/`github_pat_`), AWS keys (`AKIA…`), PEM private keys, OpenAI/Anthropic keys, generic `password =`/`secret =` assignments |
+| High-entropy strings (opt-in) | Random-looking tokens ≥16 chars with Shannon entropy >4.5 bits/char |
+
+### Suppressing false positives
+
+Add paths to `[security] allow` in `dfiles.toml`. Patterns use the same glob
+syntax as `config/ignore`:
+
+```toml
+[security]
+allow = [
+  "~/.config/gh/hosts.yml",   # intentionally tracked — personal access
+  "~/.config/gcloud/**",      # managed by gcloud CLI; not a raw secret
+]
+```
+
+### Integration with `dfiles add`
+
+When you run `dfiles add`, dfiles scans the file's content before saving it.
+If a sensitive pattern is matched, you are prompted:
+
+```
+warning: ~/.env may contain sensitive content (1 pattern(s) found).
+  · Generic secret assignment (MEDIUM)
+Track it anyway? [y/N]
+```
+
+Declining removes the file from `source/` immediately — no partial state is left.
+Files in the `[security] allow` list bypass this prompt.
+
+---
+
 ## The lock file
 
 `dfiles.lock` pins the SHA of every fetched GitHub source for reproducible installs.

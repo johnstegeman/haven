@@ -26,6 +26,7 @@ dfiles ai update [<name>]
 dfiles ai remove <name> [--yes]
 dfiles ai search <query> [--limit <n>]
 dfiles ai scan <path> [--dry-run]
+dfiles security-scan [--entropy]
 ```
 
 ---
@@ -371,6 +372,42 @@ For each unmanaged skill found, dfiles tries to identify its GitHub source via:
 If a source is found it is shown as a suggestion; the user is prompted to
 confirm (`y`), edit the source (`e`), or skip (`n`) each skill. Skills that
 are already tracked in `ai/skills.toml` are silently skipped.
+
+---
+
+## `dfiles security-scan`
+
+Scan all tracked source files for secrets, sensitive filenames, and credential paths.
+
+Checks each tracked file for:
+- **Filename patterns** — `.env`, `id_rsa`, `.pem`, `credentials`, `secrets`, `.key`, etc.
+- **Path patterns** — `~/.aws/credentials`, `~/.kube/**`, `~/.ssh/**`, `~/.config/gh/hosts.yml`, `~/.docker/config.json`, etc.
+- **Content patterns** — GitHub tokens (`ghp_`/`ghs_`/`github_pat_`), AWS access keys (`AKIA…`), PEM private keys, OpenAI keys (`sk-…`), Anthropic keys (`sk-ant-…`), generic password/secret assignments
+- **High-entropy strings** — opt-in via `--entropy` (disabled by default to reduce false positives)
+
+Exits 0 when clean, 1 when findings are reported.
+
+```
+dfiles security-scan [--entropy]
+```
+
+| Option | Description |
+|--------|-------------|
+| `--entropy` | Also flag high-entropy strings (≥16 chars, Shannon entropy >4.5 bits/char). Opt-in: may produce false positives on base64 data. |
+
+**Suppressing false positives** — add paths to `[security] allow` in `dfiles.toml`:
+
+```toml
+[security]
+allow = [
+  "~/.config/gh/hosts.yml",     # intentionally tracked
+  "~/.config/gcloud/**",        # managed by gcloud CLI, not a secret
+]
+```
+
+Patterns follow the same glob syntax as `config/ignore` (`*` matches within a path segment, `**` crosses separators).
+
+**Integration with `dfiles add`** — when a file is added with `dfiles add`, its content is automatically scanned. If sensitive patterns are found, you are prompted before the file is saved to `source/`. Declining removes it immediately with no partial state left behind.
 
 ---
 

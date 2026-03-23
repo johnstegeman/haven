@@ -6,4 +6,5 @@ pub mod diff;
 pub mod import;
 pub mod init;
 pub mod remove;
+pub mod security_scan;
 pub mod status;

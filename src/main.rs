@@ -516,6 +516,26 @@ enum Commands {
     ///   dfiles vcs
     Vcs,
 
+    /// Scan tracked source files for secrets, sensitive filenames, and credentials.
+    ///
+    /// Checks each tracked file for:
+    ///   - Sensitive filename patterns (.env, id_rsa, .pem, credentials, etc.)
+    ///   - Sensitive destination paths (~/.ssh/**, ~/.aws/credentials, ~/.kube/**, etc.)
+    ///   - Content patterns (GitHub tokens, AWS keys, PEM keys, OpenAI keys, etc.)
+    ///
+    /// Exits 0 when clean, 1 when findings are reported.
+    /// Add paths to `[security] allow` in dfiles.toml to suppress false positives.
+    ///
+    /// Examples:
+    ///   dfiles security-scan
+    ///   dfiles security-scan --entropy
+    #[command(name = "security-scan")]
+    SecurityScan {
+        /// Also report high-entropy strings (opt-in: may produce false positives).
+        #[arg(long)]
+        entropy: bool,
+    },
+
     /// Import dotfiles from another dotfile manager.
     ///
     /// Reads the source manager's directory, decodes its naming conventions,
@@ -906,6 +926,13 @@ fn run() -> Result<()> {
                     return Ok(());
                 }
             }
+        }
+
+        Commands::SecurityScan { entropy } => {
+            commands::security_scan::run(&commands::security_scan::ScanOptions {
+                repo_root: &repo,
+                entropy: *entropy,
+            })?;
         }
 
         Commands::Import { from, source, dry_run, include_ignored_files } => {

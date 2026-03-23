@@ -4,6 +4,8 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
+use crate::commands::security_scan::scan_single_file_content;
+use crate::config::dfiles::DfilesConfig;
 use crate::config::module::expand_tilde;
 use crate::fs::{is_sensitive, tilde_path};
 use crate::ignore::IgnoreList;
@@ -93,6 +95,35 @@ pub fn run(repo_root: &Path, file: &Path, link: bool, apply: bool, update: bool)
     }
 
     println!("Added: {} → source/{}", dest_tilde, encoded.display());
+
+    // Content scan: warn if the newly-added file contains sensitive patterns.
+    // Respect [security] allow list from dfiles.toml.
+    let config = DfilesConfig::load(repo_root).unwrap_or_default();
+    let allow_list = crate::commands::security_scan::make_allow_list(&config.security.allow);
+    if !allow_list.is_ignored(&dest_tilde) {
+        let content_findings = scan_single_file_content(&source_dest, &dest_tilde);
+        if !content_findings.is_empty() {
+            println!(
+                "warning: {} may contain sensitive content ({} pattern(s) found).",
+                dest_tilde,
+                content_findings.len()
+            );
+            for f in &content_findings {
+                println!("  · {} ({})", f.rule, f.severity.label());
+            }
+            print!("Track it anyway? [y/N] ");
+            io::stdout().flush()?;
+            let mut line = String::new();
+            io::stdin().read_line(&mut line)?;
+            if !matches!(line.trim().to_lowercase().as_str(), "y" | "yes") {
+                std::fs::remove_file(&source_dest).with_context(|| {
+                    format!("Cannot remove {}", source_dest.display())
+                })?;
+                println!("Removed from tracking: {}", dest_tilde);
+                return Ok(());
+            }
+        }
+    }
 
     // --apply: immediately replace the original file with a symlink back into source/.
     if apply {

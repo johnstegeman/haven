@@ -42,30 +42,15 @@ use std::time::Instant;
 /// command events via the `kind` field. During analysis, filter for
 /// `kind == "note"` to find context annotations the user left.
 ///
-/// Example JSON line:
-/// ```json
-/// {"ts":"2026-03-23T12:00:00Z","kind":"note","note":"starting fresh config for testing"}
-/// ```
-#[derive(Debug, Serialize)]
-pub struct NoteEvent {
-    pub ts: String,
-    pub kind: &'static str,
-    pub note: String,
-}
 
 /// Append a user note to the telemetry JSONL file.
 ///
 /// Always writes regardless of whether `[telemetry] enabled` is set — the user
 /// explicitly invoked the command, so the intent is unambiguous.
-pub fn append_note(note: &str) -> anyhow::Result<()> {
-    let path = default_telemetry_path();
-    let event = NoteEvent {
-        ts: chrono::Utc::now().to_rfc3339(),
-        kind: "note",
-        note: note.to_string(),
-    };
-    append_jsonl(&path, &event)?;
-    Ok(())
+///
+/// Returns the auto-generated ID (N000001, N000002, …).
+pub fn append_note(note: &str) -> anyhow::Result<String> {
+    append_typed("note", 'N', note)
 }
 
 /// A typed telemetry annotation — action, bug, or question.
@@ -104,15 +89,26 @@ pub fn append_typed(kind: &'static str, prefix: char, text: &str) -> anyhow::Res
     Ok(id)
 }
 
-/// Print the raw contents of the telemetry JSONL file to stdout.
-pub fn list() -> anyhow::Result<()> {
+/// Print the telemetry JSONL file to stdout.
+///
+/// If `kind_filter` is `Some("bug")` etc., only lines with that `"kind"` are shown.
+/// Pass `None` to show all lines.
+pub fn list(kind_filter: Option<&str>) -> anyhow::Result<()> {
     let path = default_telemetry_path();
     if !path.exists() {
         println!("No telemetry data yet ({} does not exist).", path.display());
         return Ok(());
     }
     let contents = std::fs::read_to_string(&path)?;
-    print!("{}", contents);
+    for line in contents.lines() {
+        if let Some(kind) = kind_filter {
+            let Ok(val) = serde_json::from_str::<serde_json::Value>(line) else { continue };
+            if val.get("kind").and_then(|v| v.as_str()) != Some(kind) {
+                continue;
+            }
+        }
+        println!("{}", line);
+    }
     Ok(())
 }
 
@@ -358,9 +354,10 @@ mod tests {
     fn append_note_event_writes_valid_jsonl() {
         let dir = TempDir::new().unwrap();
         let path = dir.path().join("telemetry.jsonl");
-        let event = NoteEvent {
+        let event = TypedEvent {
             ts: "2026-03-23T12:00:00Z".into(),
             kind: "note",
+            id: "N000001".into(),
             note: "starting fresh config — prior data is from testing".into(),
         };
         append_jsonl(&path, &event).unwrap();

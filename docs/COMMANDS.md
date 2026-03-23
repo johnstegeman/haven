@@ -27,6 +27,7 @@ dfiles ai remove <name> [--yes]
 dfiles ai search <query> [--limit <n>]
 dfiles ai scan <path> [--dry-run]
 dfiles security-scan [--entropy]
+dfiles completions fish|zsh|bash
 ```
 
 ---
@@ -408,6 +409,33 @@ allow = [
 Patterns follow the same glob syntax as `config/ignore` (`*` matches within a path segment, `**` crosses separators).
 
 **Integration with `dfiles add`** — when a file is added with `dfiles add`, its content is automatically scanned. If sensitive patterns are found, you are prompted before the file is saved to `source/`. Declining removes it immediately with no partial state left behind.
+
+---
+
+## `dfiles completions`
+
+Print a shell completion script to stdout.
+
+```
+dfiles completions <shell>
+```
+
+| Argument | Description |
+|----------|-------------|
+| `shell` | `fish`, `zsh`, or `bash` |
+
+**Setup:**
+
+```sh
+# Fish — write once to the completions directory:
+dfiles completions fish > ~/.config/fish/completions/dfiles.fish
+
+# Zsh — add to ~/.zshrc:
+source <(dfiles completions zsh)
+
+# Bash — add to ~/.bashrc:
+source <(dfiles completions bash)
+```
 
 ---
 

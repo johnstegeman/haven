@@ -23,7 +23,8 @@ mod template;
 mod vcs;
 
 use anyhow::Result;
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
+use clap_complete::{Shell, generate};
 use std::path::PathBuf;
 
 #[derive(Subcommand)]
@@ -235,6 +236,23 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Generate shell completion scripts for dfiles.
+    ///
+    /// Print the completion script to stdout and source it in your shell config.
+    ///
+    /// Fish:
+    ///   dfiles completions fish > ~/.config/fish/completions/dfiles.fish
+    ///
+    /// Zsh (add to ~/.zshrc):
+    ///   source <(dfiles completions zsh)
+    ///
+    /// Bash (add to ~/.bashrc):
+    ///   source <(dfiles completions bash)
+    Completions {
+        /// Shell to generate completions for: fish, zsh, or bash.
+        shell: Shell,
+    },
+
     /// Print the path to the dfiles repo directory and exit.
     ///
     /// Useful in shell scripts and aliases:
@@ -691,6 +709,12 @@ fn try_load_telemetry_config() -> bool {
 fn run() -> Result<()> {
     let cli = Cli::parse();
 
+    // Completions don't need a repo — handle before repo_root() resolution.
+    if let Commands::Completions { shell } = &cli.command {
+        generate(*shell, &mut Cli::command(), "dfiles", &mut std::io::stdout());
+        return Ok(());
+    }
+
     let repo = match &cli.dir {
         Some(d) => d.clone(),
         None => repo_root()?,
@@ -934,6 +958,9 @@ fn run() -> Result<()> {
                 entropy: *entropy,
             })?;
         }
+
+        // Already handled above before repo resolution — unreachable here.
+        Commands::Completions { .. } => unreachable!(),
 
         Commands::Import { from, source, dry_run, include_ignored_files } => {
             if from != "chezmoi" {

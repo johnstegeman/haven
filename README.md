@@ -118,6 +118,7 @@ dfiles source-path             # print the path to the dfiles repo
 dfiles brew install <formula>  # brew install + update Brewfile
 dfiles brew uninstall <formula># brew uninstall + remove from Brewfile
 dfiles security-scan           # scan tracked files for secrets and credentials
+dfiles completions fish        # generate fish shell completions
 dfiles import --from chezmoi   # migrate from chezmoi
 dfiles init gh:you/env --apply # new machine: clone and apply in one command
 ```

@@ -28,6 +28,7 @@ dfiles ai remove <name> [--yes]
 dfiles ai search <query> [--limit <n>]
 dfiles ai scan <path> [--dry-run]
 dfiles data
+dfiles unmanaged [--path <p>] [--depth <n>]
 dfiles upgrade [--check] [--force]
 dfiles telemetry [--enable] [--disable] [--note "<message>"]
 dfiles security-scan [--entropy]
@@ -526,6 +527,48 @@ dfiles upgrade --force
 4. Atomically replaces the running binary (write to `dfiles.new`, then rename).
 
 Supported platforms: macOS (arm64, x86_64), Linux (x86_64, aarch64, armv7, i686).
+
+---
+
+## `dfiles unmanaged`
+
+Find files in `~` that are not tracked by dfiles.
+
+```
+dfiles unmanaged                    # scan ~ up to depth 3
+dfiles unmanaged --path ~/.config   # scan a specific directory
+dfiles unmanaged --depth 5          # scan deeper
+```
+
+Walks the home directory and reports any files that have no corresponding entry
+in `source/`. At the home root, only dotfiles and dotdirs (names starting with
+`.`) are examined — `Documents/`, `Downloads/`, `Projects/` etc. are skipped.
+
+High-noise directories are automatically excluded:
+
+| Category | Skipped |
+|----------|---------|
+| VCS | `.git`, `.jj`, `.hg`, `.svn` |
+| Caches | `.cache`, `.npm`, `.cargo`, `.rustup`, `node_modules` |
+| dfiles state | `.dfiles` |
+| macOS | `Library`, `.Trash`, `.Spotlight-V100` |
+| App state | `.android`, `.kube`, `.docker`, `.minikube` |
+
+Example output:
+
+```
+~/.gitconfig
+~/.zshenv
+~/.config/bat/config
+~/.local/bin/my-script
+```
+
+Pipe to `dfiles add` to start tracking discovered files:
+
+```sh
+dfiles unmanaged | head -5
+dfiles add ~/.config/bat/config
+```
 
 ---
 

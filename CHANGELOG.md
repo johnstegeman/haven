@@ -53,6 +53,11 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `DFILES_VCS=jj` env var, or `[vcs] backend = "jj"` in `dfiles.toml`. On
   first use without a config, dfiles detects whether jj is on your PATH and
   prompts once. `dfiles vcs` shows the active backend and how it was resolved.
+- **`dfiles unmanaged`** — walk `~` and report files not tracked by dfiles.
+  Only dotfiles and dotdirs are examined at the home root. High-noise directories
+  (`.cache`, `.cargo`, `node_modules`, `.git`, `Library`, etc.) are skipped.
+  `--path <dir>` scans a specific directory; `--depth <n>` controls recursion depth
+  (default: 3). Useful for discovering dotfiles to add.
 - **`[data]` custom template variables** — define arbitrary string variables
   in `dfiles.toml` under `[data]` (e.g. `host = "my-laptop"`). Available in all
   `.tmpl` files as `{{ data.host }}`. `dfiles import --from chezmoi` automatically

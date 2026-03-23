@@ -562,6 +562,29 @@ enum Commands {
     ///   dfiles data
     Data,
 
+    /// Find files in ~ that are not tracked by dfiles.
+    ///
+    /// Walks the home directory (or a specified path) and reports any files
+    /// that have no corresponding entry in `source/`. Only dotfiles and
+    /// dotdirs (names starting with `.`) are examined at the home root.
+    ///
+    /// High-noise directories (`.cache`, `.cargo`, `node_modules`, `.git`,
+    /// `Library`, etc.) are automatically skipped.
+    ///
+    /// Examples:
+    ///   dfiles unmanaged
+    ///   dfiles unmanaged --path ~/.config
+    ///   dfiles unmanaged --depth 2
+    Unmanaged {
+        /// Root path to walk. Defaults to `~`.
+        #[arg(long, value_name = "PATH")]
+        path: Option<PathBuf>,
+
+        /// Maximum depth below the root. 0 means unlimited.
+        #[arg(long, default_value = "3")]
+        depth: usize,
+    },
+
     /// Scan tracked source files for secrets, sensitive filenames, and credentials.
     ///
     /// Checks each tracked file for:
@@ -1092,6 +1115,15 @@ fn run() -> Result<()> {
                     println!("data.{:<20} = {}", k, ctx.data[k]);
                 }
             }
+        }
+
+        Commands::Unmanaged { path, depth } => {
+            let root = path.as_deref();
+            commands::unmanaged::run(&commands::unmanaged::UnmanagedOptions {
+                repo_root: &repo,
+                root,
+                depth: *depth,
+            })?;
         }
 
         Commands::SecurityScan { entropy } => {

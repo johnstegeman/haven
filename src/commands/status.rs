@@ -82,20 +82,55 @@ pub fn run(opts: &StatusOptions<'_>) -> Result<()> {
     }
 
     // ── Brew drift ────────────────────────────────────────────────────────────────
+    // Collect all Brewfile paths (master + module) for a single unified diff.
     if show_brews {
-        let master_brewfile = opts.repo_root.join("brew").join("Brewfile");
-        if master_brewfile.exists() {
-            if let Some(brew) = crate::homebrew::brew_path() {
-                if !crate::homebrew::bundle_check(&brew, &master_brewfile) {
+        if let Some(brew) = crate::homebrew::brew_path() {
+            let mut brewfile_paths: Vec<PathBuf> = Vec::new();
+
+            let master = opts.repo_root.join("brew").join("Brewfile");
+            if master.exists() {
+                brewfile_paths.push(master);
+            }
+
+            for module_name in &sorted {
+                if let Ok(module) = ModuleConfig::load(opts.repo_root, module_name) {
+                    if let Some(hb) = &module.homebrew {
+                        let bf = opts.repo_root.join(&hb.brewfile);
+                        if bf.exists() {
+                            brewfile_paths.push(bf);
+                        } else {
+                            any_drift = true;
+                            println!("[{}]", module_name);
+                            println!("  ! {} (Brewfile not found)", hb.brewfile);
+                        }
+                    }
+                }
+            }
+
+            if !brewfile_paths.is_empty() {
+                let refs: Vec<&Path> = brewfile_paths.iter().map(PathBuf::as_path).collect();
+                let diff = crate::homebrew::brewfile_diff(&brew, &refs)?;
+                if !diff.is_clean() {
                     any_drift = true;
                     println!("[brew]");
-                    println!("  M brew/Brewfile");
+                    for name in &diff.missing_formulas {
+                        println!("  ? {}  (missing — haven apply --brews)", name);
+                    }
+                    for name in &diff.missing_casks {
+                        println!("  ? {} --cask  (missing — haven apply --brews)", name);
+                    }
+                    for name in &diff.extra_formulas {
+                        println!("  + {}  (installed, not in Brewfile)", name);
+                    }
+                    for name in &diff.extra_casks {
+                        println!("  + {} --cask  (installed, not in Brewfile)", name);
+                    }
                 }
             }
         }
     }
 
-    // ── Per-module drift (module brewfile, mise, AI) ──────────────────────────────
+    // ── Per-module drift (mise, AI — brew handled above) ─────────────────────────
     for module_name in &sorted {
         let module = ModuleConfig::load(opts.repo_root, module_name)?;
         if module.is_empty() {
@@ -103,25 +138,6 @@ pub fn run(opts: &StatusOptions<'_>) -> Result<()> {
         }
 
         let mut module_drift: Vec<(String, DriftKind)> = vec![];
-
-        // Module Brewfile drift
-        if show_brews {
-            if let Some(hb) = &module.homebrew {
-                match crate::homebrew::brew_path() {
-                    None => {
-                        module_drift.push((hb.brewfile.clone(), DriftKind::Missing));
-                    }
-                    Some(brew) => {
-                        let brewfile = opts.repo_root.join(&hb.brewfile);
-                        if !brewfile.exists() {
-                            module_drift.push((hb.brewfile.clone(), DriftKind::SourceMissing));
-                        } else if !crate::homebrew::bundle_check(&brew, &brewfile) {
-                            module_drift.push((hb.brewfile.clone(), DriftKind::Modified));
-                        }
-                    }
-                }
-            }
-        }
 
         // Mise drift (grouped with brews — tool installs)
         if show_brews {

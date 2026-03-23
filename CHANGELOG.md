@@ -11,6 +11,51 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [v0.5.0] — 2026-03-23
+
+### Added
+
+- **`haven apply --zap`** — when removing unreferenced casks, also delete their
+  associated app data and support files (`brew uninstall --cask --zap`). Implies
+  `--remove-unreferenced-brews`.
+- **`haven telemetry --action/--bug/--question "<text>"`** — typed telemetry
+  annotations with auto-generated, sequenced IDs (`A000001`, `B000001`,
+  `Q000001`). The ID is printed after the command so you can reference it in
+  follow-up notes. Complements `--note` (which uses `N` prefix).
+- **`haven telemetry --list-notes/--list-bugs/--list-actions/--list-questions`**
+  — filter the telemetry log to a specific annotation kind.
+- **`haven list`** — rewritten to show files, Homebrew packages, and AI skills
+  in a unified view. `[files]`, `[brew]`, and `[ai]` section headers appear when
+  no filter is active. `--files`, `--brews`, and `--ai` flags scope the output
+  to one section. `--profile <p>` scopes to a specific profile.
+- **`haven status --brews`** — now shows both missing packages (`?`) and
+  packages installed but not in any Brewfile (`+`), giving a unified
+  install/extra drift view in one pass.
+
+### Fixed
+
+- **`haven apply` file counter** (B000002) — the `Applied N file(s)` summary
+  now counts only files actually written. Previously it counted every entry
+  processed, including files silently skipped because the destination was
+  already identical to the source.
+- **`haven apply --brews`** — now runs `brew bundle install` for the master
+  Brewfile and every active module Brewfile. Previously only the master
+  `brew/Brewfile` was used, silently ignoring module-level packages.
+- **`brew leaves` tap-qualified names** — `haven status --brews` and
+  `haven apply --remove-unreferenced-brews` no longer report tap formulae (e.g.
+  `qmk/qmk/qmk`) as extra when their short name (`qmk`) is declared in a
+  Brewfile. Matching is now done by short name in both directions.
+- **`haven brew install`** — when there is no master `brew/Brewfile` but exactly
+  one module Brewfile exists, it is used automatically. If multiple module
+  Brewfiles exist and `--module` is not given, haven errors with a clear hint.
+- **`haven init`** — scaffold always appends a `[profile.default]` section to
+  `haven.toml` if one is not present, so bare `haven apply` works out of the
+  box.
+- **Removed `--no-lock` from `brew bundle install`** — the flag was removed from
+  modern Homebrew and caused an error on recent versions.
+
+---
+
 ## [v0.4.0] — 2026-03-23
 
 ### Breaking

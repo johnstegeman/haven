@@ -4,13 +4,13 @@
 
 ```
 haven init [source] [--branch <b>] [--apply] [--profile <p>]
-haven list
+haven list [--profile <p>] [--files] [--brews] [--ai]
 haven add <file> [--link] [--apply] [--update]
 haven remove <file> [--dry-run]
 haven apply [--profile <p>] [--module <m>] [--dry-run]
             [--files] [--brews] [--ai]
             [--apply-externals]
-            [--remove-unreferenced-brews] [--interactive]
+            [--remove-unreferenced-brews] [--interactive] [--zap]
 haven diff  [--profile <p>] [--module <m>]
             [--files] [--brews] [--ai]
             [--stat] [--color always|never|auto]
@@ -30,7 +30,9 @@ haven ai scan <path> [--dry-run]
 haven data
 haven unmanaged [--path <p>] [--depth <n>]
 haven upgrade [--check] [--force]
-haven telemetry [--enable] [--disable] [--note "<message>"]
+haven telemetry [--enable] [--disable]
+                [--note|--action|--bug|--question "<message>"]
+                [--list] [--list-notes] [--list-actions] [--list-bugs] [--list-questions]
 haven security-scan [--entropy]
 haven completions fish|zsh|bash
 ```
@@ -85,16 +87,17 @@ haven init [source] [--branch <b>] [--apply] [--profile <p>]
 
 ## `haven list`
 
-List all tracked files with their decoded destination paths.
+List tracked files, Homebrew packages, and AI skills.
 
 ```
-haven list
+haven list [--profile <p>] [--files] [--brews] [--ai]
 ```
 
-Prints one line per tracked file. Flag annotations appear in parentheses when
-present.
+Without filter flags, all three sections are shown under `[files]`, `[brew]`,
+and `[ai]` headers. Pass one or more flags to show only those sections.
 
 ```
+[files]
 ~/.zshrc
 ~/.gitconfig          (template)
 ~/.ssh/config         (private)
@@ -102,7 +105,24 @@ present.
 ~/.config/nvim        (extdir)
 ~/.vimrc              (symlink)
 ~/.env.example        (create-only)
+
+[brew]
+brew bat
+brew ripgrep
+cask ghostty
+
+[ai]
+skill pomodoro  (gh:user/pomodoro)
 ```
+
+| Option | Description |
+|--------|-------------|
+| `--profile <p>` | Scope to a specific profile. Default: active profile. |
+| `--files` | Show tracked files only. |
+| `--brews` | Show Homebrew packages only (master + module Brewfiles). |
+| `--ai` | Show AI skills only. |
+
+**File annotations** (appear in parentheses):
 
 | Annotation | Meaning |
 |------------|---------|
@@ -208,7 +228,7 @@ apply only specific sections.
 haven apply [--profile <p>] [--module <m>] [--dry-run]
             [--files] [--brews] [--ai]
             [--apply-externals]
-            [--remove-unreferenced-brews] [--interactive]
+            [--remove-unreferenced-brews] [--interactive] [--zap]
 ```
 
 | Option | Description |
@@ -223,6 +243,7 @@ haven apply [--profile <p>] [--module <m>] [--dry-run]
 | *(AI injection)* | When `--ai` is active, skill snippets from `ai/skills/<name>/all.md` and `ai/skills/<name>/<platform>.md` are injected into platform config files (e.g. `~/.claude/CLAUDE.md`) between `<!-- haven managed start -->` / `<!-- haven managed end -->` markers. If the config file has no markers and the session is interactive, you are prompted to add them. |
 | `--remove-unreferenced-brews` | After installing, uninstall any leaf formula/cask not referenced by any active Brewfile. |
 | `--interactive` | Like `--remove-unreferenced-brews` but prompts for confirmation before removing. Implies `--remove-unreferenced-brews`. |
+| `--zap` | Like `--remove-unreferenced-brews` but also passes `--zap` to `brew uninstall --cask`, removing associated app data and support files. Implies `--remove-unreferenced-brews`. |
 
 **Section filter behavior:** If none of `--files/--brews/--ai` are given, all sections
 are applied. If any are given, only those sections run.
@@ -458,19 +479,34 @@ are already tracked in `ai/skills.toml` are silently skipped.
 
 ## `haven telemetry`
 
-Manage local telemetry: enable, disable, or annotate the telemetry log.
+Manage local telemetry: enable, disable, annotate, or query the telemetry log.
 
 ```
-haven telemetry [--enable] [--disable] [--note "<message>"]
+haven telemetry [--enable] [--disable]
+                [--note|--action|--bug|--question "<message>"]
+                [--list] [--list-notes] [--list-actions] [--list-bugs] [--list-questions]
 ```
 
-Without flags, prints the current telemetry status.
+Without flags, prints the current telemetry status (enabled/disabled).
 
 | Flag | Description |
 |------|-------------|
 | `--enable` | Set `[telemetry] enabled = true` in `haven.toml`. |
 | `--disable` | Set `[telemetry] enabled = false` in `haven.toml`. |
-| `--note "<text>"` | Append a free-form note to `~/.haven/telemetry.jsonl`. Always writes regardless of whether telemetry is enabled. |
+| `--note "<text>"` | Append a free-form note (`kind: "note"`, ID prefix `N`). |
+| `--action "<text>"` | Record a deliberate action taken (`kind: "action"`, ID prefix `A`). |
+| `--bug "<text>"` | Record a bug observed (`kind: "bug"`, ID prefix `B`). |
+| `--question "<text>"` | Record a question for later investigation (`kind: "question"`, ID prefix `Q`). |
+| `--list` | Print all telemetry entries to stdout. |
+| `--list-notes` | Print only `kind: "note"` entries. |
+| `--list-actions` | Print only `kind: "action"` entries. |
+| `--list-bugs` | Print only `kind: "bug"` entries. |
+| `--list-questions` | Print only `kind: "question"` entries. |
+
+Annotation flags (`--note`, `--action`, `--bug`, `--question`) always write to
+`~/.haven/telemetry.jsonl` regardless of whether telemetry is enabled. Each
+annotation is assigned an auto-generated, sequenced ID (e.g. `B000001`,
+`B000002`) that is printed to stdout after the command.
 
 ```sh
 # Turn telemetry on or off
@@ -480,16 +516,22 @@ haven telemetry --disable
 # Check current status
 haven telemetry
 
-# Annotate the log with context
+# Annotate the log
 haven telemetry --note "starting fresh config — prior runs were testing"
-haven telemetry --note "hit an error with extfile_ on m4 mac, will investigate"
-haven telemetry --note "onboarding new work macbook"
+haven telemetry --bug "apply --brews not running module brewfiles"
+haven telemetry --action "reset brewfile to last known good state"
+haven telemetry --question "why does brew leaves return tap-qualified names?"
+
+# List annotations
+haven telemetry --list-bugs
+haven telemetry --list-notes
+haven telemetry --list
 ```
 
-Notes appear in the JSONL file alongside command events and are easy to filter:
+Entries are JSONL and easy to filter directly:
 
 ```sh
-grep '"kind":"note"' ~/.haven/telemetry.jsonl | jq .
+jq 'select(.kind=="bug")' ~/.haven/telemetry.jsonl
 ```
 
 ---

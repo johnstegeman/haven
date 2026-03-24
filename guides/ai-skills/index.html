@@ -128,6 +128,10 @@
 </li>
                                     
 <li>
+    <a href="../../reference/skill-backends/" class="dropdown-item">Skill Backends</a>
+</li>
+                                    
+<li>
     <a href="../../reference/magic-names/" class="dropdown-item">Magic-Name Encoding</a>
 </li>
                                     
@@ -222,6 +226,10 @@
               </ul>
             </li>
             <li class="nav-item" data-bs-level="2"><a href="#importing-existing-skills" class="nav-link">Importing existing skills</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#backend-selection" class="nav-link">Backend selection</a>
               <ul class="nav flex-column">
               </ul>
             </li>
@@ -374,6 +382,28 @@ haven ai scan ~/.agents/skills
 <p>For each unmanaged skill, haven tries to identify its GitHub source by inspecting git remotes or searching the skills.sh registry. You confirm, edit, or skip each one. Confirmed skills are added to <code>ai/skills/</code>.</p>
 <pre><code class="language-sh">haven ai scan ~/.claude/skills --dry-run    # preview only
 </code></pre>
+<h2 id="backend-selection">Backend selection<a class="headerlink" href="#backend-selection" title="Permanent link">&para;</a></h2>
+<p>haven ships with a built-in skill backend (<code>native</code>) and supports external backends as opt-in alternatives. The backend controls how skills are fetched, cached, and deployed.</p>
+<pre><code class="language-sh">haven ai backends          # list all backends and their availability
+</code></pre>
+<p>Configure via <code>ai/config.toml</code> (optional — defaults to <code>native</code>):</p>
+<pre><code class="language-toml">[skills]
+backend = &quot;native&quot;         # &quot;native&quot; (default) | &quot;skillkit&quot;
+</code></pre>
+<h3 id="native-default">native (default)<a class="headerlink" href="#native-default" title="Permanent link">&para;</a></h3>
+<p>Built-in, zero dependencies. Haven fetches skills directly from GitHub with SHA-256 verification, deploys via symlink or copy, and records every installed skill in <code>haven.lock</code>.</p>
+<p>No configuration required. This is what you get without any <code>ai/config.toml</code>.</p>
+<h3 id="skillkit">skillkit<a class="headerlink" href="#skillkit" title="Permanent link">&para;</a></h3>
+<p>Delegates to the <a href="https://skillkit.dev">SkillKit</a> CLI for access to its 400K+ skill marketplace, cross-agent skill translation, and AI-powered recommendations.</p>
+<p><strong>Prerequisites:</strong> Node.js + <code>npm install -g skillkit</code> (or Bun).</p>
+<pre><code class="language-toml">[skills]
+backend = &quot;skillkit&quot;
+runner  = &quot;npx&quot;       # &quot;npx&quot; (default) | &quot;bunx&quot; | &quot;bun&quot; | path to binary
+</code></pre>
+<p>With SkillKit as backend, <code>haven apply --ai</code> generates a <code>.skills</code> manifest from your declared skills and calls <code>skillkit team install</code> once — a single bulk operation rather than per-skill deploys. State tracking and CLAUDE.md generation still happen in haven.</p>
+<p><strong>Note:</strong> <code>haven.lock</code> does not record SHAs for SkillKit-managed skills. Version pinning is delegated to SkillKit.</p>
+<p>If SkillKit is configured but unavailable, <code>haven apply</code> exits immediately with an actionable error — haven never silently falls back to the native backend.</p>
+<p>See <a href="../../reference/skill-backends/">Skill Backends</a> for full configuration reference, per-backend behavior, and step-by-step switching instructions.</p>
 <h2 id="supply-chain-protection">Supply chain protection<a class="headerlink" href="#supply-chain-protection" title="Permanent link">&para;</a></h2>
 <p>Every <code>gh:</code> skill source is pinned by SHA256 in <code>haven.lock</code>. On cache miss, the fetched content is verified against the recorded SHA. A mismatch is a hard error:</p>
 <pre><code class="language-toml"># haven.lock (auto-generated — do not edit by hand)

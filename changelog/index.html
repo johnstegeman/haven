@@ -128,6 +128,10 @@
 </li>
                                     
 <li>
+    <a href="../reference/skill-backends/" class="dropdown-item">Skill Backends</a>
+</li>
+                                    
+<li>
     <a href="../reference/magic-names/" class="dropdown-item">Magic-Name Encoding</a>
 </li>
                                     
@@ -193,6 +197,10 @@
               <ul class="nav flex-column">
               </ul>
             </li>
+            <li class="nav-item" data-bs-level="2"><a href="#v060-2026-03-24" class="nav-link">[v0.6.0] — 2026-03-24</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
             <li class="nav-item" data-bs-level="2"><a href="#v055-2026-03-24" class="nav-link">[v0.5.5] — 2026-03-24</a>
               <ul class="nav flex-column">
               </ul>
@@ -231,8 +239,53 @@ Versioning: <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a
 <hr />
 <h2 id="unreleased">[Unreleased]<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <hr />
-<h2 id="v055-2026-03-24">[v0.5.5] — 2026-03-24<a class="headerlink" href="#v055-2026-03-24" title="Permanent link">&para;</a></h2>
+<h2 id="v060-2026-03-24">[v0.6.0] — 2026-03-24<a class="headerlink" href="#v060-2026-03-24" title="Permanent link">&para;</a></h2>
 <h3 id="added">Added<a class="headerlink" href="#added" title="Permanent link">&para;</a></h3>
+<ul>
+<li>
+<p><strong>Swappable skill backends</strong> — the AI skills pipeline now delegates to a
+  configurable backend. Configure via <code>ai/config.toml</code>:
+  <code>toml
+  [skills]
+  backend = "skillkit"   # "native" (default) | "skillkit"</code>
+  Existing repos need no changes — the <code>native</code> backend is the default and
+  behaves identically to before.</p>
+</li>
+<li>
+<p><strong><code>haven ai backends</code></strong> — new subcommand that lists all known backends with
+  availability status and the currently active backend marked:
+  <code>Skill backends:
+    ✓ native   (active) — built-in, zero dependencies
+    ✗ skillkit — runner 'npx' not found — install Node.js or set runner = "bunx"
+      akm      — not yet implemented</code></p>
+</li>
+<li>
+<p><strong>SkillKitBackend</strong> — opt-in backend that delegates to the
+  <a href="https://skillkit.dev">SkillKit</a> CLI. On <code>haven apply --ai</code>, haven generates
+  a <code>.skills</code> manifest from your declared skills and calls
+  <code>skillkit team install</code> once (bulk, not per-skill). Gives access to
+  SkillKit's 400K+ marketplace, cross-agent skill translation, and
+  <code>skillkit recommend</code> for discovery. Runner is configurable:
+  <code>toml
+  [skills]
+  backend = "skillkit"
+  runner  = "npx"   # "npx" (default) | "bunx" | "bun" | /path/to/binary</code>
+  If the configured runner is not on PATH, <code>haven apply</code> exits immediately
+  with an actionable error — never a silent fallback to native.</p>
+</li>
+<li>
+<p><strong><code>docs/reference/skill-backends.md</code></strong> — new reference page covering all
+  backends, their configuration, and step-by-step switching instructions.</p>
+</li>
+</ul>
+<h3 id="changed">Changed<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong><code>docs/guides/ai-skills.md</code></strong> — new "Backend selection" section covering
+  native vs skillkit configuration and a link to the full reference.</li>
+</ul>
+<hr />
+<h2 id="v055-2026-03-24">[v0.5.5] — 2026-03-24<a class="headerlink" href="#v055-2026-03-24" title="Permanent link">&para;</a></h2>
+<h3 id="added_1">Added<a class="headerlink" href="#added_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Brewfile auto-sort</strong> — set <code>[homebrew] sort = true</code> in any module config to
   keep the Brewfile sorted alphabetically after every <code>haven brew install</code> or
@@ -267,7 +320,7 @@ Versioning: <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a
 </ul>
 <hr />
 <h2 id="v050-2026-03-23">[v0.5.0] — 2026-03-23<a class="headerlink" href="#v050-2026-03-23" title="Permanent link">&para;</a></h2>
-<h3 id="added_1">Added<a class="headerlink" href="#added_1" title="Permanent link">&para;</a></h3>
+<h3 id="added_2">Added<a class="headerlink" href="#added_2" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong><code>haven apply --zap</code></strong> — when removing unreferenced casks, also delete their
   associated app data and support files (<code>brew uninstall --cask --zap</code>). Implies
@@ -360,7 +413,7 @@ Versioning: <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a
 <p>The source encoding (<code>dot_</code>, <code>private_</code>, <code>.tmpl</code>, etc.) and repo layout are
   unchanged — existing repos continue to work by moving <code>dfiles.toml</code> →
   <code>haven.toml</code> and <code>~/.dfiles/</code> → <code>~/.haven/</code>.</p>
-<h3 id="added_2">Added<a class="headerlink" href="#added_2" title="Permanent link">&para;</a></h3>
+<h3 id="added_3">Added<a class="headerlink" href="#added_3" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong><code>config/ignore</code> is now a Tera template</strong> — the ignore file is rendered against
   the current machine context (<code>os</code>, <code>hostname</code>, <code>username</code>, <code>profile</code>, <code>data.*</code>)
@@ -390,7 +443,7 @@ Versioning: <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a
   <code>haven apply</code>. See <code>.gstack/security-reports/2026-03-23.json</code> for the full
   audit record.</li>
 </ul>
-<h3 id="added_3">Added<a class="headerlink" href="#added_3" title="Permanent link">&para;</a></h3>
+<h3 id="added_4">Added<a class="headerlink" href="#added_4" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong><code>haven security-scan</code></strong> — audit all tracked source files for secrets,
   sensitive filenames, and credential paths. Checks filename patterns (<code>.env</code>,
@@ -456,7 +509,7 @@ Versioning: <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a
 </ul>
 <hr />
 <h2 id="v020-2026-03-21">[v0.2.0] — 2026-03-21<a class="headerlink" href="#v020-2026-03-21" title="Permanent link">&para;</a></h2>
-<h3 id="added_4">Added<a class="headerlink" href="#added_4" title="Permanent link">&para;</a></h3>
+<h3 id="added_5">Added<a class="headerlink" href="#added_5" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong><code>haven ai add-local</code></strong> — import a locally developed skill directory into
   the haven repo. Moves the skill into <code>ai/skills/&lt;name&gt;/files/</code>, writes
@@ -515,7 +568,7 @@ Versioning: <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a
 </ul>
 <hr />
 <h2 id="v010-2026-03-20-initial-release">[v0.1.0] — 2026-03-20 (initial release)<a class="headerlink" href="#v010-2026-03-20-initial-release" title="Permanent link">&para;</a></h2>
-<h3 id="added_5">Added<a class="headerlink" href="#added_5" title="Permanent link">&para;</a></h3>
+<h3 id="added_6">Added<a class="headerlink" href="#added_6" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong><code>haven init</code></strong> — create a blank scaffold or clone an existing haven repo.
   Supports <code>gh:owner/repo[@ref]</code> shorthand, <code>--apply</code>, <code>--profile</code>, <code>--branch</code>.</li>

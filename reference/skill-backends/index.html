@@ -6,9 +6,9 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         
         
-        <link rel="canonical" href="https://johnstegeman.github.io/haven/reference/environment/">
+        <link rel="canonical" href="https://johnstegeman.github.io/haven/reference/skill-backends/">
         <link rel="shortcut icon" href="../../img/favicon.ico">
-        <title>Environment Variables - haven</title>
+        <title>Skill Backends - haven</title>
         <link href="../../css/bootstrap.min.css" rel="stylesheet">
         <link href="../../css/fontawesome.min.css" rel="stylesheet">
         <link href="../../css/brands.min.css" rel="stylesheet">
@@ -128,7 +128,7 @@
 </li>
                                     
 <li>
-    <a href="../skill-backends/" class="dropdown-item">Skill Backends</a>
+    <a href="./" class="dropdown-item active" aria-current="page">Skill Backends</a>
 </li>
                                     
 <li>
@@ -140,7 +140,7 @@
 </li>
                                     
 <li>
-    <a href="./" class="dropdown-item active" aria-current="page">Environment Variables</a>
+    <a href="../environment/" class="dropdown-item">Environment Variables</a>
 </li>
                                     
 <li>
@@ -160,17 +160,17 @@
                             </a>
                         </li>
                             <li class="nav-item">
-                                <a rel="prev" href="../template-variables/" class="nav-link">
+                                <a rel="prev" href="../configuration/" class="nav-link">
                                     <i class="fa fa-arrow-left"></i> Previous
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <a rel="next" href="../repo-layout/" class="nav-link">
+                                <a rel="next" href="../magic-names/" class="nav-link">
                                     Next <i class="fa fa-arrow-right"></i>
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <a href="https://github.com/johnstegeman/haven/edit/main/docs/reference/environment.md" class="nav-link">Edit on johnstegeman/haven
+                                <a href="https://github.com/johnstegeman/haven/edit/main/docs/reference/skill-backends.md" class="nav-link">Edit on johnstegeman/haven
                                     </a>
                             </li>
                     </ul>
@@ -191,13 +191,25 @@
     <div id="toc-collapse" class="navbar-collapse collapse card bg-body-tertiary">
         <ul class="nav flex-column">
             
-            <li class="nav-item" data-bs-level="1"><a href="#environment-variables" class="nav-link">Environment Variables</a>
+            <li class="nav-item" data-bs-level="1"><a href="#skill-backends" class="nav-link">Skill Backends</a>
               <ul class="nav flex-column">
-            <li class="nav-item" data-bs-level="2"><a href="#priority-order" class="nav-link">Priority order</a>
+            <li class="nav-item" data-bs-level="2"><a href="#listing-available-backends" class="nav-link">Listing available backends</a>
               <ul class="nav flex-column">
               </ul>
             </li>
-            <li class="nav-item" data-bs-level="2"><a href="#examples" class="nav-link">Examples</a>
+            <li class="nav-item" data-bs-level="2"><a href="#configuring-a-backend" class="nav-link">Configuring a backend</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#backend-reference" class="nav-link">Backend reference</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#what-haven-always-manages" class="nav-link">What haven always manages</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#switching-backends" class="nav-link">Switching backends</a>
               <ul class="nav flex-column">
               </ul>
             </li>
@@ -208,72 +220,168 @@
 </div></div>
                     <div class="col-md-9" role="main">
 
-<h1 id="environment-variables">Environment Variables<a class="headerlink" href="#environment-variables" title="Permanent link">&para;</a></h1>
-<p>Environment variables for configuring haven's behavior without editing config files.</p>
+<h1 id="skill-backends">Skill Backends<a class="headerlink" href="#skill-backends" title="Permanent link">&para;</a></h1>
+<p>haven delegates AI skill management to a pluggable backend. The backend controls how skills are fetched, cached, and deployed to platform directories. Everything else — skill declarations (<code>ai/skills/</code>), platform targeting (<code>ai/platforms.toml</code>), ownership tracking (<code>state.json</code>), and CLAUDE.md generation — is always managed by haven regardless of which backend is active.</p>
+<h2 id="listing-available-backends">Listing available backends<a class="headerlink" href="#listing-available-backends" title="Permanent link">&para;</a></h2>
+<pre><code class="language-sh">haven ai backends
+</code></pre>
+<p>Output example:</p>
+<pre><code>Skill backends:
+  ✓ native   (active) — built-in, zero dependencies
+  ✗ skillkit — runner 'npx' not found — install Node.js or set runner = &quot;bunx&quot;
+    akm      — not yet implemented
+</code></pre>
+<h2 id="configuring-a-backend">Configuring a backend<a class="headerlink" href="#configuring-a-backend" title="Permanent link">&para;</a></h2>
+<p>Create <code>ai/config.toml</code> in your repository root (optional — the native backend is the default):</p>
+<pre><code class="language-toml">[skills]
+backend = &quot;native&quot;   # &quot;native&quot; | &quot;skillkit&quot;
+</code></pre>
+<h2 id="backend-reference">Backend reference<a class="headerlink" href="#backend-reference" title="Permanent link">&para;</a></h2>
+<h3 id="native">native<a class="headerlink" href="#native" title="Permanent link">&para;</a></h3>
+<p><strong>Default.</strong> Built-in, zero external dependencies.</p>
+<ul>
+<li><strong>Fetch:</strong> git sparse checkout with tarball fallback; SHA-256 content verification on every fetch.</li>
+<li><strong>Cache:</strong> <code>~/.haven/skills/{owner}--{repo}[--{subpath}]/</code> — one directory per skill.</li>
+<li><strong>Deploy:</strong> symlink (default) or copy to the platform's <code>skills_dir</code>. Collision detection: skills owned by another tool are skipped with a warning.</li>
+<li><strong>Lock:</strong> every <code>gh:</code> skill is pinned by SHA in <code>haven.lock</code>. Supply-chain-safe: a content hash mismatch is a hard error, not a warning.</li>
+</ul>
+<p><strong>Configuration:</strong> none required.</p>
+<p><strong>When to use:</strong> default for all users. Fully reproducible and offline-capable after first fetch.</p>
+<hr />
+<h3 id="skillkit">skillkit<a class="headerlink" href="#skillkit" title="Permanent link">&para;</a></h3>
+<p>Delegates to the <a href="https://skillkit.dev">SkillKit</a> CLI. Provides access to the SkillKit marketplace, cross-agent translation, and AI-powered skill recommendations.</p>
+<p><strong>Prerequisites:</strong> Node.js (for <code>npx</code>) or Bun (for <code>bunx</code>), with SkillKit installed globally:</p>
+<pre><code class="language-sh">npm install -g skillkit
+# or
+bun add -g skillkit
+</code></pre>
+<p><strong>Configuration:</strong></p>
+<pre><code class="language-toml">[skills]
+backend      = &quot;skillkit&quot;
+runner       = &quot;npx&quot;        # &quot;npx&quot; (default) | &quot;bunx&quot; | &quot;bun&quot; | /path/to/binary
+timeout_secs = 60           # subprocess timeout (default: 60)
+</code></pre>
+<p><strong>How it works:</strong></p>
+<p>On <code>haven apply --ai</code>, haven:
+1. Builds a <code>.skills</code> manifest from your <code>ai/skills/</code> declarations:
+   <code>json
+   [
+     {"name": "pdf-processing", "source": "anthropics/skills/pdf-processing", "version": "latest"},
+     {"name": "find-skills",    "source": "vercel-labs/skills/find-skills",    "version": "latest"}
+   ]</code>
+2. Calls <code>skillkit team install --manifest &lt;tmpfile&gt; --json</code> once (bulk, not per-skill).
+3. Reads the JSON stdout to record deployed paths in <code>state.json</code>.
+4. Regenerates CLAUDE.md from the deployed state.</p>
+<p><strong>Manifest format:</strong> <code>source</code> is the SkillKit marketplace ID — the <code>gh:</code> prefix is stripped and the path is preserved. <code>version</code> defaults to <code>"latest"</code> unless a pinned version is declared in <code>skill.toml</code>.</p>
+<p><strong>Lock file behavior:</strong> <code>haven.lock</code> does NOT record SHAs for SkillKit-managed skills. Version pinning is delegated to SkillKit internally. The <code>fetch()</code> step returns a synthetic <code>sha: "managed-by-skillkit"</code> and is otherwise a no-op — SkillKit handles downloading during deployment.</p>
+<p><strong>Source restrictions:</strong> SkillKit only supports <code>gh:</code> sources. Skills declared with <code>repo:</code> or <code>dir:</code> sources cause an immediate error when the SkillKit backend is active.</p>
+<p><strong>Unavailability behavior:</strong> If the configured runner is not on PATH, <code>haven apply</code> exits immediately:</p>
+<pre><code>error: skill backend 'skillkit' requires 'npx' but it was not found on PATH
+hint: install Node.js, or set `runner = &quot;bunx&quot;` in ai/config.toml
+</code></pre>
+<p>Haven never silently falls back to the native backend — the configuration is always honored exactly.</p>
+<p><strong>Runner detection:</strong> If <code>runner</code> is <code>"npx"</code>, <code>"bunx"</code>, or <code>"bun"</code>, haven prepends <code>"skillkit"</code> to the argument list (<code>npx skillkit team install ...</code>). If <code>runner</code> is an absolute or relative path (contains <code>/</code>), haven calls it directly — useful for a standalone <code>skillkit</code> binary.</p>
+<p><strong>When to use:</strong> when you want access to the SkillKit marketplace, cross-agent skill translation, or <code>skillkit recommend</code> for discovery. Note: <code>haven.lock</code> no longer pins skill versions for SkillKit-managed skills when you switch to this backend.</p>
+<hr />
+<h3 id="akm">akm<a class="headerlink" href="#akm" title="Permanent link">&para;</a></h3>
+<p>Not yet implemented. Reserved for a future <a href="https://github.com/agentikit/akm">akm</a> backend.</p>
+<pre><code>error: skill backend 'akm' is not yet implemented in this version of haven
+hint: switch to the native backend: echo 'backend = &quot;native&quot;' &gt;&gt; ai/config.toml
+</code></pre>
+<h2 id="what-haven-always-manages">What haven always manages<a class="headerlink" href="#what-haven-always-manages" title="Permanent link">&para;</a></h2>
+<p>Regardless of backend:</p>
 <table>
 <thead>
 <tr>
-<th>Variable</th>
-<th>Default</th>
-<th>Description</th>
+<th>Concern</th>
+<th>Who handles it</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>HAVEN_DIR</code></td>
-<td><code>~/.local/share/haven</code></td>
-<td>haven repo root directory. Equivalent to <code>--dir</code> flag.</td>
+<td>Skill declarations (<code>ai/skills/</code>)</td>
+<td>haven</td>
 </tr>
 <tr>
-<td><code>HAVEN_CLAUDE_DIR</code></td>
-<td><code>~/.claude</code></td>
-<td>Claude Code directory (skills, CLAUDE.md).</td>
+<td>Platform targeting (<code>ai/platforms.toml</code>)</td>
+<td>haven</td>
 </tr>
 <tr>
-<td><code>HAVEN_TELEMETRY</code></td>
-<td>unset</td>
-<td>Set to <code>1</code> to enable telemetry, <code>0</code> to force-disable (overrides <code>haven.toml</code>).</td>
+<td>Ownership tracking (<code>state.json</code>)</td>
+<td>haven</td>
 </tr>
 <tr>
-<td><code>HAVEN_VCS</code></td>
-<td>unset</td>
-<td>Set to <code>git</code> or <code>jj</code> to override the VCS backend.</td>
+<td>CLAUDE.md generation</td>
+<td>haven</td>
+</tr>
+<tr>
+<td>Collision detection warnings</td>
+<td>haven (native) / not available (skillkit)</td>
+</tr>
+<tr>
+<td><code>haven ai discover</code> / <code>search</code> / <code>scan</code></td>
+<td>haven</td>
+</tr>
+<tr>
+<td>SHA lock file</td>
+<td>haven (native only)</td>
+</tr>
+<tr>
+<td>Fetch + cache</td>
+<td>haven (native) / skillkit (skillkit)</td>
 </tr>
 </tbody>
 </table>
-<h2 id="priority-order">Priority order<a class="headerlink" href="#priority-order" title="Permanent link">&para;</a></h2>
-<p>When the same setting can be configured in multiple places, haven uses this priority (first match wins):</p>
-<p><strong>VCS backend:</strong></p>
+<h2 id="switching-backends">Switching backends<a class="headerlink" href="#switching-backends" title="Permanent link">&para;</a></h2>
+<p>Your skill declarations (<code>ai/skills/</code>), platform config (<code>ai/platforms.toml</code>), and deployed skill names stay exactly the same when switching backends. Only <code>ai/config.toml</code> changes.</p>
+<h3 id="native-skillkit">native → skillkit<a class="headerlink" href="#native-skillkit" title="Permanent link">&para;</a></h3>
 <ol>
-<li><code>--vcs</code> CLI flag</li>
-<li><code>HAVEN_VCS</code> environment variable</li>
-<li><code>vcs.backend</code> in <code>haven.toml</code></li>
-<li>Interactive detection (if jj is on PATH and nothing is configured, haven prompts)</li>
-<li>Default: <code>git</code></li>
+<li>
+<p>Install SkillKit:
+   <code>sh
+   npm install -g skillkit
+   # or: bun add -g skillkit</code></p>
+</li>
+<li>
+<p>Create or update <code>ai/config.toml</code>:
+   <code>toml
+   [skills]
+   backend = "skillkit"
+   runner  = "npx"   # or "bunx" if you installed via bun</code></p>
+</li>
+<li>
+<p>Run apply:
+   <code>sh
+   haven apply --ai</code>
+   haven generates a <code>.skills</code> manifest from your existing <code>ai/skills/</code> declarations and calls <code>skillkit team install</code>. Your skills are redeployed to the same <code>skills_dir</code> locations as before.</p>
+</li>
+<li>
+<p>(Optional) Commit the change:
+   <code>sh
+   git add ai/config.toml &amp;&amp; git commit -m "chore: switch to skillkit backend"</code>
+   Note: <code>haven.lock</code> SHA entries for your skills are no longer updated by haven when using SkillKit. They become stale but are harmlessly ignored.</p>
+</li>
 </ol>
-<p><strong>Repo directory:</strong></p>
+<h3 id="skillkit-native">skillkit → native<a class="headerlink" href="#skillkit-native" title="Permanent link">&para;</a></h3>
 <ol>
-<li><code>--dir</code> CLI flag</li>
-<li><code>HAVEN_DIR</code> environment variable</li>
-<li>Default: <code>~/.local/share/haven</code></li>
+<li>
+<p>Update <code>ai/config.toml</code>:
+   <code>toml
+   [skills]
+   backend = "native"</code>
+   Or remove <code>ai/config.toml</code> entirely — <code>native</code> is the default.</p>
+</li>
+<li>
+<p>Run apply:
+   <code>sh
+   haven apply --ai</code>
+   haven fetches each skill directly from its <code>gh:</code> source, verifies SHA, and redeploys. SHA entries in <code>haven.lock</code> are rebuilt from scratch.</p>
+</li>
 </ol>
-<p><strong>Telemetry:</strong></p>
-<ol>
-<li><code>HAVEN_TELEMETRY=0</code> (force-disable)</li>
-<li><code>HAVEN_TELEMETRY=1</code> (force-enable)</li>
-<li><code>[telemetry] enabled</code> in <code>haven.toml</code></li>
-<li>Default: disabled</li>
-</ol>
-<h2 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">&para;</a></h2>
-<pre><code class="language-sh"># Use a custom repo location for this session
-HAVEN_DIR=~/work-env haven apply --profile work
-
-# Use jj for this command only
-HAVEN_VCS=jj haven init gh:alice/dotfiles
-
-# Enable telemetry for one command
-HAVEN_TELEMETRY=1 haven apply
-</code></pre></div>
+<h3 id="checking-whats-active">Checking what's active<a class="headerlink" href="#checking-whats-active" title="Permanent link">&para;</a></h3>
+<pre><code class="language-sh">haven ai backends
+</code></pre>
+<p>The active backend is marked with <code>(active)</code>. Use this to confirm the switch took effect.</p></div>
             </div>
         </div>
 

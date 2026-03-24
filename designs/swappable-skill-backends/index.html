@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        
+        
+        <link rel="canonical" href="https://johnstegeman.github.io/haven/designs/swappable-skill-backends/">
+        <link rel="shortcut icon" href="../../img/favicon.ico">
+        <title>Swappable Skill Backends for Haven - haven</title>
+        <link href="../../css/bootstrap.min.css" rel="stylesheet">
+        <link href="../../css/fontawesome.min.css" rel="stylesheet">
+        <link href="../../css/brands.min.css" rel="stylesheet">
+        <link href="../../css/solid.min.css" rel="stylesheet">
+        <link href="../../css/v4-font-face.min.css" rel="stylesheet">
+        <link href="../../css/base.css" rel="stylesheet">
+        <link id="hljs-light" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" >
+        <link id="hljs-dark" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css" disabled>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script>hljs.highlightAll();</script> 
+    </head>
+
+    <body>
+        <div class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary">
+            <div class="container">
+                <a class="navbar-brand" href="../..">haven</a>
+                <!-- Expander button -->
+                <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar-collapse" aria-controls="navbar-collapse" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <!-- Expanded navigation -->
+                <div id="navbar-collapse" class="navbar-collapse collapse">
+                        <!-- Main navigation -->
+                        <ul class="nav navbar-nav">
+                            <li class="nav-item">
+                                <a href="../.." class="nav-link">Home</a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="../../concepts/" class="nav-link">Concepts</a>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Getting Started</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../getting-started/installation/" class="dropdown-item">Installation</a>
+</li>
+                                    
+<li>
+    <a href="../../getting-started/quickstart/" class="dropdown-item">Quick Start</a>
+</li>
+                                    
+<li>
+    <a href="../../getting-started/new-machine/" class="dropdown-item">New Machine Setup</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Guides</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../guides/tracking-files/" class="dropdown-item">Tracking Files</a>
+</li>
+                                    
+<li>
+    <a href="../../guides/packages/" class="dropdown-item">Managing Packages</a>
+</li>
+                                    
+<li>
+    <a href="../../guides/ai-skills/" class="dropdown-item">AI Skills</a>
+</li>
+                                    
+<li>
+    <a href="../../guides/templates/" class="dropdown-item">Templates & Secrets</a>
+</li>
+                                    
+<li>
+    <a href="../../guides/profiles-modules/" class="dropdown-item">Profiles & Modules</a>
+</li>
+                                    
+<li>
+    <a href="../../guides/security/" class="dropdown-item">Security Scanning</a>
+</li>
+                                    
+<li>
+    <a href="../../guides/vcs/" class="dropdown-item">VCS Backend</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">For chezmoi Users</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../for-chezmoi-users/" class="dropdown-item">Overview</a>
+</li>
+                                    
+<li>
+    <a href="../../for-chezmoi-users/migration/" class="dropdown-item">Migration Guide</a>
+</li>
+                                    
+<li>
+    <a href="../../for-chezmoi-users/commands/" class="dropdown-item">Command Equivalence</a>
+</li>
+                                    
+<li>
+    <a href="../../for-chezmoi-users/templates/" class="dropdown-item">Template Conversion</a>
+</li>
+                                    
+<li>
+    <a href="../../for-chezmoi-users/gaps/" class="dropdown-item">Feature Gaps</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Reference</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../reference/commands/" class="dropdown-item">Command Reference</a>
+</li>
+                                    
+<li>
+    <a href="../../reference/configuration/" class="dropdown-item">Configuration</a>
+</li>
+                                    
+<li>
+    <a href="../../reference/skill-backends/" class="dropdown-item">Skill Backends</a>
+</li>
+                                    
+<li>
+    <a href="../../reference/magic-names/" class="dropdown-item">Magic-Name Encoding</a>
+</li>
+                                    
+<li>
+    <a href="../../reference/template-variables/" class="dropdown-item">Template Variables</a>
+</li>
+                                    
+<li>
+    <a href="../../reference/environment/" class="dropdown-item">Environment Variables</a>
+</li>
+                                    
+<li>
+    <a href="../../reference/repo-layout/" class="dropdown-item">Repo Layout</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item">
+                                <a href="../../changelog/" class="nav-link">Changelog</a>
+                            </li>
+                        </ul>
+
+                    <ul class="nav navbar-nav ms-md-auto">
+                        <li class="nav-item">
+                            <a href="#" class="nav-link" data-bs-toggle="modal" data-bs-target="#mkdocs_search_modal">
+                                <i class="fa fa-search"></i> Search
+                            </a>
+                        </li>
+                            <li class="nav-item">
+                                <a href="https://github.com/johnstegeman/haven/edit/main/docs/designs/swappable-skill-backends.md" class="nav-link">Edit on johnstegeman/haven
+                                    </a>
+                            </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="row">
+                    <div class="col-md-3"><div class="navbar-expand-md bs-sidebar hidden-print affix" role="complementary">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggler collapsed" data-bs-toggle="collapse" data-bs-target="#toc-collapse" title="Table of Contents">
+            <span class="fa fa-angle-down"></span>
+        </button>
+    </div>
+
+    
+    <div id="toc-collapse" class="navbar-collapse collapse card bg-body-tertiary">
+        <ul class="nav flex-column">
+            
+            <li class="nav-item" data-bs-level="1"><a href="#swappable-skill-backends-for-haven" class="nav-link">Swappable Skill Backends for Haven</a>
+              <ul class="nav flex-column">
+            <li class="nav-item" data-bs-level="2"><a href="#problem" class="nav-link">Problem</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#proposed-architecture" class="nav-link">Proposed Architecture</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#the-agentskills-spec-as-interface-contract" class="nav-link">The agentskills Spec as Interface Contract</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#the-skillbackend-trait" class="nav-link">The SkillBackend Trait</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#backend-implementations" class="nav-link">Backend Implementations</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#implementation-plan" class="nav-link">Implementation Plan</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#what-haven-retains-regardless-of-backend" class="nav-link">What Haven retains regardless of backend</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#what-haven-does-not-need-to-build" class="nav-link">What Haven does NOT need to build</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#resolved-design-decisions" class="nav-link">Resolved design decisions</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#ecosystem-context" class="nav-link">Ecosystem context</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#gstack-review-report" class="nav-link">GSTACK REVIEW REPORT</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+              </ul>
+            </li>
+        </ul>
+    </div>
+</div></div>
+                    <div class="col-md-9" role="main">
+
+<h1 id="swappable-skill-backends-for-haven">Swappable Skill Backends for Haven<a class="headerlink" href="#swappable-skill-backends-for-haven" title="Permanent link">&para;</a></h1>
+<h2 id="problem">Problem<a class="headerlink" href="#problem" title="Permanent link">&para;</a></h2>
+<p>Haven's AI skills layer currently has a single, built-in implementation: it fetches skills from GitHub (with SHA-256 locking), deploys them via symlink or copy, tracks ownership in <code>state.json</code>, and generates <code>CLAUDE.md</code>. This works well, but it means Haven must evolve its own skills ecosystem rather than leveraging the rapidly growing set of external skill managers.</p>
+<p>The AI skill management space has exploded in 2025–2026:
+- <strong>SkillKit</strong> — cross-agent translation, 400K+ skill registry, AI-powered recommendations
+- <strong>akm (agentikit)</strong> — pluggable providers, 6 asset types (skills, scripts, agents, knowledge, memories)
+- <strong>skm (skills-management)</strong> — sparse checkout, simple CLI
+- <strong>agentskills</strong> — official Anthropic open specification (14.1k stars), the emerging standard
+- Multiple desktop GUI managers (xingkongliang/skills-manager with 372 stars, etc.)</p>
+<p>None of these tools are as mature as Homebrew. But the space is moving fast, and building Haven's entire skill pipeline in-house forfeits the marketplace, cross-agent translation, and community ecosystem these tools provide.</p>
+<p><strong>The core insight:</strong> Haven already follows the pattern of "declare intent in config → invoke backend → backend handles mechanics" for packages (Homebrew) and runtime versions (mise). Skills should follow the same pattern.</p>
+<h2 id="proposed-architecture">Proposed Architecture<a class="headerlink" href="#proposed-architecture" title="Permanent link">&para;</a></h2>
+<h3 id="design-principle">Design principle<a class="headerlink" href="#design-principle" title="Permanent link">&para;</a></h3>
+<p>Haven declares <em>what</em> skills to use. A configurable backend handles <em>how</em> to fetch, cache, and deploy them. The interface between Haven and any backend is defined by the <strong>agentskills specification</strong> — the official Anthropic open standard that these tools are converging on.</p>
+<pre><code>haven apply
+  └── SkillManager
+        ├── reads: ai/skills/&lt;name&gt;/skill.toml  (what to install)
+        ├── reads: ai/platforms.toml            (where to deploy)
+        └── delegates to: SkillBackend trait
+              ├── NativeBackend    [default, built-in, zero deps]
+              ├── SkillKitBackend  [opt-in: requires skillkit on PATH]
+              └── AkmBackend       [opt-in: requires akm on PATH]
+</code></pre>
+<h3 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h3>
+<p>In <code>ai/config.toml</code> (new file, optional — defaults to <code>native</code>):</p>
+<pre><code class="language-toml">[skills]
+backend = &quot;native&quot;      # &quot;native&quot; | &quot;skillkit&quot; | &quot;akm&quot;
+</code></pre>
+<p>Or per-skill override in <code>ai/skills/&lt;name&gt;/skill.toml</code>:</p>
+<pre><code class="language-toml">source   = &quot;gh:anthropics/skills/pdf-processing&quot;
+platforms = [&quot;claude-code&quot;]
+backend  = &quot;skillkit&quot;   # override for this skill only
+</code></pre>
+<hr />
+<h2 id="the-agentskills-spec-as-interface-contract">The agentskills Spec as Interface Contract<a class="headerlink" href="#the-agentskills-spec-as-interface-contract" title="Permanent link">&para;</a></h2>
+<p>The <a href="https://agentskills.io/specification">agentskills specification</a> (Anthropic, Apache 2.0) defines the minimal standard all compliant skills share:</p>
+<h3 id="skill-format">Skill format<a class="headerlink" href="#skill-format" title="Permanent link">&para;</a></h3>
+<pre><code>skill-name/
+├── SKILL.md          # Required: YAML frontmatter + markdown instructions
+├── scripts/          # Optional: executable code
+├── references/       # Optional: detailed docs
+└── assets/           # Optional: templates, data
+</code></pre>
+<p><strong>SKILL.md frontmatter (required fields):</strong></p>
+<pre><code class="language-yaml">---
+name: pdf-processing          # 1–64 chars, lowercase-hyphenated, matches dir name
+description: &quot;...&quot;            # 1–1024 chars, when to use this skill
+license: Apache-2.0           # optional
+compatibility: &quot;Python 3.9+&quot;  # optional
+metadata:
+  author: example-org
+  version: &quot;1.0&quot;
+---
+</code></pre>
+<h3 id="what-the-spec-does-not-define-platform-concerns">What the spec does NOT define (platform concerns)<a class="headerlink" href="#what-the-spec-does-not-define-platform-concerns" title="Permanent link">&para;</a></h3>
+<ul>
+<li>How skills are fetched or cached</li>
+<li>CLI verbs (install, sync, list, remove)</li>
+<li>Lockfile format</li>
+<li>Multi-agent deployment</li>
+<li>Versioning beyond optional <code>metadata.version</code></li>
+</ul>
+<p>These are platform concerns. Haven's <code>SkillBackend</code> trait covers them.</p>
+<hr />
+<h2 id="the-skillbackend-trait">The <code>SkillBackend</code> Trait<a class="headerlink" href="#the-skillbackend-trait" title="Permanent link">&para;</a></h2>
+<pre><code class="language-rust">pub trait SkillBackend: Send + Sync {
+    /// Download a skill from source into local cache.
+    /// Returns the content SHA for lock file recording.
+    fn fetch(
+        &amp;self,
+        source: &amp;SkillSource,
+        expected_sha: Option&lt;&amp;str&gt;,
+    ) -&gt; Result&lt;FetchResult&gt;;
+
+    /// Deploy a cached skill to a platform's skills directory.
+    fn deploy(
+        &amp;self,
+        skill: &amp;ResolvedSkill,
+        target: &amp;DeploymentTarget,
+    ) -&gt; Result&lt;DeployResult&gt;;
+
+    /// Deploy all skills in a single operation.
+    ///
+    /// Default implementation loops over `deploy()` — NativeBackend uses this.
+    /// SkillKit overrides this to generate a `.skills` manifest and call
+    /// `skillkit team install` once, because SkillKit's API is bulk-only:
+    /// calling it N times per-skill would be incorrect and slow.
+    fn deploy_all(
+        &amp;self,
+        skills: &amp;[(&amp;ResolvedSkill, &amp;DeploymentTarget)],
+    ) -&gt; Result&lt;Vec&lt;DeployResult&gt;&gt; {
+        skills.iter().map(|(s, t)| self.deploy(s, t)).collect()
+    }
+
+    /// Remove a deployed skill from a platform directory.
+    fn undeploy(&amp;self, target: &amp;Path) -&gt; Result&lt;()&gt;;
+
+    /// Parse and validate a SKILL.md, returning metadata.
+    fn validate(&amp;self, skill_path: &amp;Path) -&gt; Result&lt;SkillMetadata&gt;;
+
+    /// List skills currently in cache.
+    fn list_cached(&amp;self) -&gt; Result&lt;Vec&lt;CachedSkillInfo&gt;&gt;;
+
+    /// Remove a skill from cache.
+    fn evict(&amp;self, source_key: &amp;str) -&gt; Result&lt;()&gt;;
+
+    /// Human-readable name for error messages.
+    fn name(&amp;self) -&gt; &amp;str;
+
+    /// Whether this backend is available in the current environment.
+    fn is_available(&amp;self) -&gt; bool;
+}
+</code></pre>
+<p><strong>Supporting types:</strong></p>
+<pre><code class="language-rust">pub struct FetchResult {
+    pub cached_path: PathBuf,   // Where the skill now lives in cache
+    pub sha: String,             // Content SHA (git SHA or tarball SHA-256)
+    pub was_cached: bool,        // True if cache hit, false if downloaded
+}
+
+pub struct ResolvedSkill {
+    pub name: String,
+    pub cached_path: PathBuf,
+    pub sha: String,
+    pub metadata: SkillMetadata,
+}
+
+pub struct DeploymentTarget {
+    pub platform_id: String,
+    pub skills_dir: PathBuf,
+    pub deploy_method: DeployMethod,  // Symlink | Copy
+}
+
+pub struct DeployResult {
+    pub target_path: PathBuf,
+    pub was_collision: bool,         // True if path existed but wasn't Haven-owned
+    pub deployed: bool,
+}
+
+pub struct SkillMetadata {
+    pub name: String,
+    pub description: String,
+    pub license: Option&lt;String&gt;,
+    pub compatibility: Option&lt;String&gt;,
+    pub metadata: HashMap&lt;String, String&gt;,
+}
+</code></pre>
+<hr />
+<h2 id="backend-implementations">Backend Implementations<a class="headerlink" href="#backend-implementations" title="Permanent link">&para;</a></h2>
+<h3 id="1-nativebackend-default">1. NativeBackend (default)<a class="headerlink" href="#1-nativebackend-default" title="Permanent link">&para;</a></h3>
+<p>Haven's current implementation, extracted into the trait. Zero additional dependencies.</p>
+<ul>
+<li>Fetch: git sparse checkout → tarball fallback, SHA-256 verification</li>
+<li>Deploy: symlink or copy, collision detection, state tracking</li>
+<li>Cache: <code>~/.haven/skills/{owner}--{repo}[--{subpath}]/</code></li>
+<li>Lock: <code>haven.lock</code> TOML, SHA pinned per source</li>
+</ul>
+<p><strong>Advantages:</strong> No external runtime, reproducible, cryptographically verified, Haven owns the full pipeline.</p>
+<h3 id="2-skillkitbackend">2. SkillKitBackend<a class="headerlink" href="#2-skillkitbackend" title="Permanent link">&para;</a></h3>
+<p>Shells out to the <code>skillkit</code> CLI (requires Node.js + <code>npm install -g skillkit</code>).</p>
+<pre><code>haven ai add gh:anthropics/skills/pdf   →  skillkit install anthropics/skills/pdf
+haven apply --ai                         →  skillkit team install --manifest .skills
+haven ai update pdf                      →  skillkit update pdf
+</code></pre>
+<p>Haven generates the <code>.skills</code> manifest from <code>ai/skills/&lt;name&gt;/skill.toml</code> declarations, calls <code>skillkit team install</code>, then reads the deployed results to update <code>state.json</code> and regenerate <code>CLAUDE.md</code>.</p>
+<p><strong>Advantages:</strong> 400K+ marketplace, cross-agent translation, AI-powered recommendations (<code>skillkit recommend</code>).</p>
+<p><strong>Runner configuration:</strong> Invocation is runner-agnostic. <code>ai/config.toml</code>:</p>
+<pre><code class="language-toml">[skills]
+backend = &quot;skillkit&quot;
+runner = &quot;npx&quot;   # &quot;npx&quot; | &quot;bunx&quot; | &quot;bun&quot; | path to binary (default: &quot;npx&quot;)
+</code></pre>
+<p>If the configured runner is not on PATH, <code>haven apply</code> exits immediately with an actionable error:</p>
+<pre><code>error: skill backend 'skillkit' requires 'npx' but it was not found on PATH
+hint: install Node.js, or set `runner = &quot;bunx&quot;` in ai/config.toml
+</code></pre>
+<p>No silent fallback to NativeBackend — the user explicitly chose this backend.</p>
+<p><strong>Tradeoffs:</strong> External runtime required; Haven partially loses per-skill deployment control; SkillKit's version pinning (<code>"version": "1.2.0"</code>) replaces Haven's SHA-256 lock for SkillKit-managed skills — <code>haven.lock</code> does NOT record SHAs for these.</p>
+<p><strong><code>fetch()</code> for SkillKitBackend:</strong> Returns a synthetic <code>FetchResult { sha: "managed-by-skillkit", was_cached: true }</code>. Actual downloading is handled by SkillKit internally during <code>deploy_all()</code>. Haven does not manage the cache for SkillKit skills.</p>
+<p><strong><code>.skills</code> manifest format:</strong></p>
+<pre><code class="language-json">[
+  {&quot;name&quot;: &quot;pdf-processing&quot;, &quot;source&quot;: &quot;anthropics/skills/pdf-processing&quot;, &quot;version&quot;: &quot;latest&quot;},
+  {&quot;name&quot;: &quot;find-skills&quot;,    &quot;source&quot;: &quot;vercel-labs/skills/find-skills&quot;,    &quot;version&quot;: &quot;latest&quot;}
+]
+</code></pre>
+<p><code>source</code> is the SkillKit marketplace ID — the <code>gh:</code> prefix is stripped and the path is preserved. <code>version</code> defaults to <code>"latest"</code> unless the skill.toml specifies a pinned version.</p>
+<p><strong>Non-<code>gh:</code> source handling:</strong> SkillKitBackend only supports <code>gh:</code> sources. Skills declared with <code>repo:</code> or <code>dir:</code> sources cause an immediate error if SkillKit is the active backend:</p>
+<pre><code>error: skill 'myskill' uses source 'repo:' which is not supported by the SkillKit backend
+hint: switch to the native backend, or re-source the skill from a GitHub registry
+</code></pre>
+<p><strong><code>deploy()</code> semantics for SkillKitBackend:</strong> SkillKit is bulk-only — <code>deploy()</code> must not be called directly. The implementation returns an error:</p>
+<pre><code class="language-rust">fn deploy(&amp;self, ..) -&gt; Result&lt;DeployResult&gt; {
+    Err(anyhow!(&quot;SkillKitBackend: use deploy_all() — SkillKit requires bulk deployment&quot;))
+}
+</code></pre>
+<p><code>deploy_all()</code> is the correct entry point for all SkillKit deployments. The <code>apply_ai_skills()</code> caller always uses <code>deploy_all()</code>.</p>
+<p><strong><code>fetch()</code> semantics for SkillKitBackend:</strong> Returns immediately with a synthetic result. The <code>expected_sha</code> parameter is ignored (SkillKit manages its own cache):</p>
+<pre><code class="language-rust">fn fetch(&amp;self, _source: &amp;SkillSource, _expected_sha: Option&lt;&amp;str&gt;) -&gt; Result&lt;FetchResult&gt; {
+    Ok(FetchResult { sha: &quot;managed-by-skillkit&quot;.into(), was_cached: true, cached_path: PathBuf::new() })
+}
+</code></pre>
+<p><strong>Subprocess safety:</strong>
+- Timeout: 60 seconds per <code>skillkit</code> invocation (configurable via <code>[skills] timeout_secs</code>)
+- On timeout: <code>Child::kill()</code> is called before returning the timeout error — no orphaned subprocess
+- The <code>.skills</code> manifest is written to a temp file and passed to SkillKit; never committed to the repo
+- Manifest write is atomic (write to <code>.skills.tmp</code>, rename on success)
+- <code>deploy_all()</code> returns <code>DeployResult[]</code> by parsing SkillKit's stdout (JSON list of deployed paths, via <code>skillkit team install --json</code>). Filesystem diff is NOT used — it's fragile under partial failures. If <code>--json</code> flag is unavailable, fall back to listing <code>skills_dir</code> entries that weren't present in state.json before the call.
+- <code>state.json</code> is NOT updated if skillkit exits non-zero
+- <code>skillkit team install</code> is idempotent — re-running with the same manifest re-deploys to the same locations; already-present skills are a no-op. This means partial-failure recovery is safe: the next <code>haven apply</code> re-runs the full manifest.
+- Race protection: Haven's existing <code>apply.lock</code> prevents concurrent <code>haven apply</code> runs regardless of backend
+- <code>was_collision</code> in <code>DeployResult</code> is always <code>false</code> for SkillKit (SkillKit stdout does not expose collision info). See TODOS.md for the planned pre-scan mitigation.</p>
+<p><strong>Degraded mode:</strong> If the user has configured <code>backend = "skillkit"</code> but SkillKit becomes unavailable (e.g., after a Node.js upgrade or machine reinstall), <code>haven apply</code> exits with:</p>
+<pre><code>error: skill backend 'skillkit' is configured but unavailable
+hint: reinstall with `npm install -g skillkit`, or switch to the native backend:
+      echo 'backend = &quot;native&quot;' &gt;&gt; ai/config.toml
+</code></pre>
+<h3 id="3-akmbackend-future">3. AkmBackend (future)<a class="headerlink" href="#3-akmbackend-future" title="Permanent link">&para;</a></h3>
+<p>Shells out to <code>akm</code> (requires Bun or standalone binary).</p>
+<p>Useful for users who want akm's broader asset model: skills + scripts + agents + knowledge bases + memories as a unified package.</p>
+<p>Not prioritized for initial implementation — include the trait slot now, implement when akm matures.</p>
+<hr />
+<h2 id="implementation-plan">Implementation Plan<a class="headerlink" href="#implementation-plan" title="Permanent link">&para;</a></h2>
+<h3 id="phase-1-extract-nativebackend-no-behavior-change">Phase 1: Extract NativeBackend (no behavior change)<a class="headerlink" href="#phase-1-extract-nativebackend-no-behavior-change" title="Permanent link">&para;</a></h3>
+<p><strong>Goal:</strong> Refactor the current skill pipeline into the <code>SkillBackend</code> trait without changing any behavior. This is pure internal restructuring.</p>
+<p><strong>Files changed:</strong>
+- <code>src/skill_backend.rs</code> — new: trait definition + supporting types
+- <code>src/skill_backend_native.rs</code> — new: NativeBackend wrapping <code>SkillCache</code> (private dep; <code>skill_cache.rs</code> stays separate)
+- <code>src/ai_skill.rs</code> — simplified: deploy_skill() moved to NativeBackend; SkillsConfig stays
+- <code>src/skill_cache.rs</code> — unchanged; remains NativeBackend's private dependency
+- <code>src/commands/apply.rs</code> — updated: <code>apply_ai_skills()</code> wired to call <code>NativeBackend</code> via trait</p>
+<p><strong>Acceptance criteria:</strong>
+- All existing tests pass unchanged
+- <code>haven apply</code> behavior is byte-for-byte identical
+- <code>haven.lock</code> format unchanged
+- No new config keys required</p>
+<h3 id="phase-2-backend-selection-infrastructure">Phase 2: Backend selection infrastructure<a class="headerlink" href="#phase-2-backend-selection-infrastructure" title="Permanent link">&para;</a></h3>
+<p><strong>Goal:</strong> Add backend selection to config and wire the factory.</p>
+<p><strong>Files changed:</strong>
+- <code>src/ai_config.rs</code> — new: <code>AiConfig</code> struct with <code>backend</code>, <code>runner</code>, <code>timeout_secs</code> fields, reads from <code>ai/config.toml</code>
+- <code>src/skill_backend_factory.rs</code> — new: instantiates the right backend, checks availability, clears stale lock entries on backend switch
+- <code>src/commands/ai.rs</code> — pass selected backend through to all skill operations
+- <code>src/commands/apply.rs</code> — updated: reads <code>AiConfig</code>, calls factory, passes <code>Box&lt;dyn SkillBackend&gt;</code> to <code>apply_ai_skills()</code>
+- <code>src/util.rs</code> — new (or expanded): <code>pub fn is_on_path(name: &amp;str) -&gt; bool</code> (extracted from <code>commands/ai.rs::which_on_path</code>)</p>
+<p><strong>New config file</strong> (<code>ai/config.toml</code>, optional):</p>
+<pre><code class="language-toml">[skills]
+backend = &quot;native&quot;   # default; &quot;skillkit&quot; | &quot;akm&quot; also valid
+</code></pre>
+<p><strong>Acceptance criteria:</strong>
+- <code>haven apply</code> with no <code>ai/config.toml</code> behaves identically to Phase 1
+- <code>haven apply</code> with <code>backend = "native"</code> explicitly behaves identically
+- Unknown backend name gives a clear error with available options listed
+- <code>haven ai backends</code> (new subcommand) lists available backends + whether each is detected</p>
+<h3 id="phase-3-skillkitbackend">Phase 3: SkillKitBackend<a class="headerlink" href="#phase-3-skillkitbackend" title="Permanent link">&para;</a></h3>
+<p><strong>Goal:</strong> Implement <code>SkillKitBackend</code> as the first non-native backend.</p>
+<p><strong>Files changed:</strong>
+- <code>src/skill_backend_skillkit.rs</code> — new: SkillKitBackend implementation</p>
+<p><strong>Behavior:</strong>
+1. <code>is_available()</code>: checks <code>which skillkit</code> succeeds
+2. On <code>haven ai add &lt;source&gt;</code>: translates source to skillkit format, runs <code>skillkit install &lt;source&gt;</code>, records in <code>ai/skills/&lt;name&gt;/skill.toml</code>
+3. On <code>haven apply --ai</code>: generates <code>.skills</code> manifest from <code>ai/skills/</code> declarations, runs <code>skillkit team install</code>, reads deployed paths, updates <code>state.json</code>, regenerates <code>CLAUDE.md</code>
+4. On <code>haven ai update [name]</code>: runs <code>skillkit update [name]</code>
+5. On <code>haven ai remove &lt;name&gt;</code>: runs <code>skillkit remove &lt;name&gt;</code>, cleans up <code>ai/skills/&lt;name&gt;/</code></p>
+<p><strong>Degraded mode:</strong> If <code>skillkit</code> disappears from PATH after configuration, warn clearly and suggest switching back to <code>backend = "native"</code> or running <code>npm install -g skillkit</code>.</p>
+<p><strong>Acceptance criteria:</strong>
+- <code>haven apply --ai</code> with SkillKit backend installs skills to the same <code>skills_dir</code> as native backend
+- <code>CLAUDE.md</code> is generated correctly regardless of backend
+- <code>haven status</code> correctly reports deployed skills (by scanning <code>skills_dir</code> on filesystem)
+- Error when <code>skillkit</code> not available is actionable — includes runner hint and downgrade instruction
+- <code>haven apply --ai --dry-run --show-manifest</code> prints the <code>.skills</code> JSON without invoking skillkit
+- <code>haven ai backends</code> lists skillkit as available/unavailable with version and runner
+- <code>haven ai search &lt;query&gt;</code> delegates to <code>skillkit marketplace</code> when backend = skillkit (via <code>search()</code> optional capability — default <code>Err</code> falls back to skills.sh)</p>
+<p><strong>Integration test:</strong> End-to-end with a real <code>skillkit</code> installation:</p>
+<pre><code>given: backend = &quot;skillkit&quot;, runner = &quot;npx&quot;, one skill declared in ai/skills/
+when: haven apply --ai
+then: skill directory exists in ~/.claude/skills/, CLAUDE.md updated, state.json records ownership
+</code></pre>
+<h3 id="phase-4-documentation-migration-guide">Phase 4: Documentation + migration guide<a class="headerlink" href="#phase-4-documentation-migration-guide" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Update <code>docs/guides/ai-skills.md</code> with backend selection docs</li>
+<li>Add <code>docs/reference/skill-backends.md</code></li>
+<li>Note: existing repos need no changes (native backend is default)</li>
+</ul>
+<hr />
+<h2 id="what-haven-retains-regardless-of-backend">What Haven retains regardless of backend<a class="headerlink" href="#what-haven-retains-regardless-of-backend" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>ai/skills/&lt;name&gt;/skill.toml</code> as the declaration format (source of truth in the repo)</li>
+<li><code>ai/platforms.toml</code> for platform targeting</li>
+<li>SHA lock file integration for the NativeBackend</li>
+<li><code>state.json</code> ownership tracking (populated by whichever backend deploys)</li>
+<li><code>CLAUDE.md</code> generation (Haven always drives this from deployed state)</li>
+<li>Collision detection warnings</li>
+<li><code>haven ai discover</code> / <code>haven ai search</code> / <code>haven ai scan</code> (backend-independent)</li>
+</ul>
+<hr />
+<h2 id="what-haven-does-not-need-to-build">What Haven does NOT need to build<a class="headerlink" href="#what-haven-does-not-need-to-build" title="Permanent link">&para;</a></h2>
+<p>With SkillKit as an optional backend, Haven does not need to build:
+- Its own skill marketplace or registry UI
+- Cross-agent skill translation
+- AI-powered skill recommendations
+- Team sync features</p>
+<p>These become available by choosing <code>backend = "skillkit"</code>.</p>
+<hr />
+<h2 id="resolved-design-decisions">Resolved design decisions<a class="headerlink" href="#resolved-design-decisions" title="Permanent link">&para;</a></h2>
+<ol>
+<li>
+<p><strong>Per-skill backend override:</strong> Deferred. Global backend sufficient for v1. Add when there's user demand.</p>
+</li>
+<li>
+<p><strong>SkillKit manifest placement:</strong> Temp-only. The <code>.skills</code> manifest is generated to a temp file at apply time and never committed to the repo. It is an implementation detail of the SkillKitBackend, not a user-facing config.</p>
+</li>
+<li>
+<p><strong>Lock file for SkillKit-managed skills:</strong> Haven's <code>haven.lock</code> does NOT record SHAs for SkillKit-managed skills. Locking is delegated to SkillKit (version pinning in <code>.skills</code>). The <code>fetch()</code> method for SkillKitBackend returns a synthetic <code>FetchResult { sha: "managed-by-skillkit" }</code>.</p>
+</li>
+<li>
+<p><strong>AkmBackend:</strong> Register the slot now (stub with <code>is_available() → false</code> and a clear "not yet implemented" error). Exact error message:
+   <code>error: skill backend 'akm' is not yet implemented in this version of haven
+   hint: switch to the native backend: echo 'backend = "native"' &gt;&gt; ai/config.toml</code>
+   Implement when akm matures.</p>
+</li>
+<li>
+<p><strong>Backend-switch lock clearing:</strong> When the factory detects a backend switch (active backend differs from last backend recorded in lock metadata), it clears all skill SHA entries from <code>haven.lock</code> for affected skills before deploying. This prevents <code>SkillCache::ensure()</code> from triggering a spurious SHA mismatch error when switching from SkillKit (sha = "managed-by-skillkit") back to native. The <code>haven.lock</code> will record a <code>last_backend</code> key for this purpose.</p>
+</li>
+<li>
+<p><strong><code>haven ai update</code> for SkillKit:</strong> Runs <code>skillkit update [name]</code>. Since <code>haven.lock</code> doesn't record SHAs for SkillKit skills, the lock is not consulted or updated. SkillKit manages versioning internally.</p>
+</li>
+<li>
+<p><strong>Unit test strategy for SkillKitBackend subprocess:</strong> Use a fake binary via the configured <code>runner</code>. In tests, set <code>runner = "sh"</code> and point to <code>tests/fixtures/fake-skillkit.sh</code> which outputs expected JSON and exits 0. Multiple variants for error paths (exit 1, timeout, <code>--json</code> unavailable).</p>
+</li>
+<li>
+<p><strong><code>haven status</code> with external backends:</strong> Filesystem-based scan of <code>skills_dir</code> — backend-agnostic. State.json records what Haven knows was deployed; for SkillKit, this is populated from SkillKit's stdout (<code>--json</code> flag) not filesystem diff.</p>
+</li>
+<li>
+<p><strong><code>search()</code> on the trait:</strong> Optional capability, not a required trait method. Implemented as a separate <code>fn search(&amp;self, query: &amp;str) -&gt; Result&lt;Vec&lt;SkillSearchResult&gt;&gt;</code> with a default <code>Err("search not supported by this backend")</code>. The <code>haven ai search</code> command calls this if the backend supports it, otherwise falls back to skills.sh directly.</p>
+</li>
+</ol>
+<hr />
+<h2 id="ecosystem-context">Ecosystem context<a class="headerlink" href="#ecosystem-context" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Stars</th>
+<th>Runtime</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>agentskills spec</td>
+<td>14.1k</td>
+<td>—</td>
+<td>Interface standard</td>
+</tr>
+<tr>
+<td>SkillKit</td>
+<td>649</td>
+<td>Node.js</td>
+<td>Feature-rich CLI, marketplace</td>
+</tr>
+<tr>
+<td>xingkongliang/skills-manager</td>
+<td>372</td>
+<td>Tauri/Rust</td>
+<td>Desktop GUI, 15+ agents</td>
+</tr>
+<tr>
+<td>skm</td>
+<td>low</td>
+<td>Node.js</td>
+<td>Minimal CLI</td>
+</tr>
+<tr>
+<td>akm</td>
+<td>low</td>
+<td>Bun</td>
+<td>Pluggable, broad asset model</td>
+</tr>
+</tbody>
+</table>
+<p>The space is nascent. No tool has Homebrew-level maturity. The swappable backend design is the correct response: Haven stays useful regardless of which tool wins.</p>
+<hr />
+<h2 id="gstack-review-report">GSTACK REVIEW REPORT<a class="headerlink" href="#gstack-review-report" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Review</th>
+<th>Trigger</th>
+<th>Why</th>
+<th>Runs</th>
+<th>Status</th>
+<th>Findings</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CEO Review</td>
+<td><code>/plan-ceo-review</code></td>
+<td>Scope &amp; strategy</td>
+<td>1</td>
+<td>issues_open</td>
+<td>6 proposals, 5 accepted, 1 deferred</td>
+</tr>
+<tr>
+<td>Codex Review</td>
+<td><code>/codex review</code></td>
+<td>Independent 2nd opinion</td>
+<td>1</td>
+<td>issues_found</td>
+<td>8 findings (outside voice, Claude subagent)</td>
+</tr>
+<tr>
+<td>Eng Review</td>
+<td><code>/plan-eng-review</code></td>
+<td>Architecture &amp; tests (required)</td>
+<td>1</td>
+<td>clean (PLAN)</td>
+<td>12 issues, 0 unresolved, 0 critical gaps</td>
+</tr>
+<tr>
+<td>Design Review</td>
+<td><code>/plan-design-review</code></td>
+<td>UI/UX gaps</td>
+<td>0</td>
+<td>—</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p><strong>UNRESOLVED:</strong> 0 decisions outstanding
+<strong>VERDICT:</strong> CEO + ENG CLEARED — ready to implement. Start with Phase 1 (NativeBackend extraction).</p></div>
+            </div>
+        </div>
+
+        <footer class="col-md-12">
+            <hr>
+            <p>Documentation built with <a href="https://www.mkdocs.org/">MkDocs</a>.</p>
+        </footer>
+        <script src="../../js/bootstrap.bundle.min.js"></script>
+        <script>
+            var base_url = "../..",
+                shortcuts = {"help": 191, "next": 78, "previous": 80, "search": 83};
+        </script>
+        <script src="../../js/base.js"></script>
+        <script src="../../search/main.js"></script>
+
+        <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>From here you can search these documents. Enter your search terms below.</p>
+                <form>
+                    <div class="form-group">
+                        <input type="search" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results" data-no-results-text="No results found"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+
+    </body>
+</html>

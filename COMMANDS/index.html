@@ -128,6 +128,10 @@
 </li>
                                     
 <li>
+    <a href="../reference/skill-backends/" class="dropdown-item">Skill Backends</a>
+</li>
+                                    
+<li>
     <a href="../reference/magic-names/" class="dropdown-item">Magic-Name Encoding</a>
 </li>
                                     
@@ -292,6 +296,7 @@ haven ai update [&lt;name&gt;]
 haven ai remove &lt;name&gt; [--yes]
 haven ai search &lt;query&gt; [--limit &lt;n&gt;]
 haven ai scan &lt;path&gt; [--dry-run]
+haven ai backends
 haven data
 haven unmanaged [--path &lt;p&gt;] [--depth &lt;n&gt;]
 haven upgrade [--check] [--force]
@@ -938,6 +943,19 @@ skills to <code>ai/skills.toml</code>.</p>
 <p>If a source is found it is shown as a suggestion; the user is prompted to
 confirm (<code>y</code>), edit the source (<code>e</code>), or skip (<code>n</code>) each skill. Skills that
 are already tracked in <code>ai/skills.toml</code> are silently skipped.</p>
+<h3 id="haven-ai-backends"><code>haven ai backends</code><a class="headerlink" href="#haven-ai-backends" title="Permanent link">&para;</a></h3>
+<p>List all known skill backends with their availability status. The currently
+active backend (from <code>ai/config.toml</code>, or <code>native</code> by default) is marked.</p>
+<pre><code>haven ai backends
+</code></pre>
+<p>Output example:</p>
+<pre><code>Skill backends:
+  ✓ native   (active) — built-in, zero dependencies
+  ✗ skillkit — runner 'npx' not found — install Node.js or set runner = &quot;bunx&quot;
+    akm      — not yet implemented
+</code></pre>
+<p>See <a href="skill-backends.md">Skill Backends</a> in the reference for configuration
+details and switching instructions.</p>
 <hr />
 <h2 id="haven-telemetry"><code>haven telemetry</code><a class="headerlink" href="#haven-telemetry" title="Permanent link">&para;</a></h2>
 <p>Manage local telemetry: enable, disable, annotate, or query the telemetry log.</p>

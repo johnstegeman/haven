@@ -98,7 +98,8 @@ haven import --from chezmoi --dry-run
 ```
 
 Converts `dot_` prefixes, `private_`, `executable_`, `symlink_` entries, and
-`.tmpl` Go templates (converted to Tera syntax). See [`docs/guide.md`](docs/guide.md)
+`.tmpl` Go templates (converted to Tera syntax). See the
+[migration guide](https://johnstegeman.github.io/haven/for-chezmoi-users/migration/)
 for what's imported and what's skipped.
 
 ---
@@ -123,7 +124,7 @@ haven import --from chezmoi   # migrate from chezmoi
 haven init gh:you/env --apply # new machine: clone and apply in one command
 ```
 
-See [`docs/COMMANDS.md`](docs/COMMANDS.md) for the full command reference.
+See the [command reference](https://johnstegeman.github.io/haven/reference/commands/) for the full list of flags.
 
 ---
 
@@ -275,9 +276,13 @@ modules = ["shell"]
 
 ## Documentation
 
-- **[User guide](docs/guide.md)** — full reference: modules, profiles, templates,
-  1Password, Brewfiles, externals, AI skills, bootstrapping, importing
-- **[Command reference](docs/COMMANDS.md)** — every flag for every command
+Full documentation at **[johnstegeman.github.io/haven](https://johnstegeman.github.io/haven)**:
+
+- **[Concepts](https://johnstegeman.github.io/haven/concepts/)** — how haven models your environment
+- **[Getting started](https://johnstegeman.github.io/haven/getting-started/installation/)** — install, quick start, new machine setup
+- **[Guides](https://johnstegeman.github.io/haven/guides/tracking-files/)** — task-oriented how-tos
+- **[For chezmoi users](https://johnstegeman.github.io/haven/for-chezmoi-users/)** — migration guide, command equivalence, feature gaps
+- **[Command reference](https://johnstegeman.github.io/haven/reference/commands/)** — every flag for every command
 
 ---
 

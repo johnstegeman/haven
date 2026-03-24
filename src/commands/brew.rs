@@ -37,6 +37,13 @@ pub fn install(repo_root: &Path, name: &str, cask: bool, module_filter: Option<&
 
     if added {
         println!("  + {} \"{}\"  →  {}", kind, name, brewfile_rel);
+        let sort_flag = module_filter
+            .and_then(|m| ModuleConfig::load(repo_root, m).ok())
+            .and_then(|c| c.homebrew)
+            .map_or(false, |h| h.sort);
+        if sort_flag {
+            homebrew::sort_brewfile(&brewfile)?;
+        }
     } else {
         println!("  ~ {} \"{}\" already in {}  (skipped)", kind, name, brewfile_rel);
     }
@@ -56,13 +63,13 @@ pub fn uninstall(repo_root: &Path, name: &str, cask: bool) -> Result<()> {
         .context("Homebrew not found. Install it from https://brew.sh")?;
 
     // Remove from every Brewfile under brew/.
-    let brewfiles = all_brewfiles(repo_root)?;
+    let brewfiles = all_brewfiles_with_sort(repo_root)?;
 
     if brewfiles.is_empty() {
         println!("No Brewfiles found in this haven repo.");
     } else {
         let mut total_removed = 0usize;
-        for brewfile_path in &brewfiles {
+        for (brewfile_path, sort_flag) in &brewfiles {
             let brewfile_rel = brewfile_path
                 .strip_prefix(repo_root)
                 .unwrap_or(brewfile_path)
@@ -74,6 +81,9 @@ pub fn uninstall(repo_root: &Path, name: &str, cask: bool) -> Result<()> {
 
             if removed > 0 {
                 println!("  - {} \"{}\"  from {}", kind, name, brewfile_rel);
+                if *sort_flag {
+                    homebrew::sort_brewfile(brewfile_path)?;
+                }
                 total_removed += removed;
             }
         }
@@ -93,6 +103,51 @@ pub fn uninstall(repo_root: &Path, name: &str, cask: bool) -> Result<()> {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/// Collect every Brewfile path under `brew/` in the repo, paired with its `sort` flag.
+///
+/// The sort flag is read from the module config that owns each Brewfile.
+/// The master `brew/Brewfile` (owned by no module) always has `sort = false`.
+fn all_brewfiles_with_sort(repo_root: &Path) -> Result<Vec<(PathBuf, bool)>> {
+    let paths = all_brewfiles(repo_root)?;
+
+    // Build a map of relative-path → sort flag by scanning modules/.
+    let mut sort_map: std::collections::HashMap<String, bool> = std::collections::HashMap::new();
+    let modules_dir = repo_root.join("modules");
+    if modules_dir.exists() {
+        for entry in std::fs::read_dir(&modules_dir)
+            .with_context(|| format!("Cannot read {}", modules_dir.display()))?
+        {
+            let entry = entry?;
+            let path = entry.path();
+            if path.extension().and_then(|e| e.to_str()) == Some("toml") {
+                let module_name = path
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("")
+                    .to_string();
+                if let Ok(config) = ModuleConfig::load(repo_root, &module_name) {
+                    if let Some(hb) = config.homebrew {
+                        sort_map.insert(hb.brewfile, hb.sort);
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(paths
+        .into_iter()
+        .map(|p| {
+            let rel = p
+                .strip_prefix(repo_root)
+                .unwrap_or(&p)
+                .to_string_lossy()
+                .to_string();
+            let sort = sort_map.get(&rel).copied().unwrap_or(false);
+            (p, sort)
+        })
+        .collect())
+}
 
 /// Collect every Brewfile path under `brew/` in the repo.
 fn all_brewfiles(repo_root: &Path) -> Result<Vec<PathBuf>> {
@@ -202,7 +257,7 @@ fn resolve_module_brewfile(repo_root: &Path, module_name: &str) -> Result<PathBu
     // Ensure module config points to this Brewfile.
     let mut config = ModuleConfig::load(repo_root, module_name)?;
     if config.homebrew.as_ref().map(|h| h.brewfile.as_str()) != Some(&rel) {
-        config.homebrew = Some(HomebrewConfig { brewfile: rel.clone() });
+        config.homebrew = Some(HomebrewConfig { brewfile: rel.clone(), sort: false });
         config
             .save(repo_root, module_name)
             .with_context(|| format!("Cannot update modules/{}.toml", module_name))?;

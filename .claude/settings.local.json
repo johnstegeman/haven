@@ -10,7 +10,23 @@
       "mcp__memory__write-cypher",
       "mcp__memory__read-cypher",
       "Skill(jujutsu)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(find /Users/jstegeman/Projects/dfiles -name symlink_*)",
+      "Bash(find /Users/jstegeman/Projects/dfiles/source -name symlink_*)",
+      "Bash(find /Users/jstegeman/Projects/dfiles -path */source/* -name symlink_*)",
+      "Bash(find /Users/jstegeman/Projects/dfiles -path */source/* -iname *settings*)",
+      "Bash(find /Users/jstegeman/Projects/dfiles/source -name *.tmpl)",
+      "Bash(python3 -m json.tool --no-indent)",
+      "Read(//Users/jstegeman/.haven/**)",
+      "Read(//Users/jstegeman/**)",
+      "Bash(python3 -m json.tool)",
+      "Bash(haven --version)",
+      "Bash(git -C /Users/jstegeman/Projects/dfiles log --oneline --all)",
+      "Bash(haven apply:*)",
+      "Bash(grep -r \"maccask\\\\|class OS\\\\|module OS\" /Users/jstegeman/Projects/dfiles --include=*.rs --include=*.toml --include=*.md)",
+      "WebFetch(domain:yadm.io)",
+      "Bash(jj diff:*)",
+      "Bash(grep -v \"^+++\\\\|^+use\\\\|^+ *//\\\\|^+ *$\")"
     ]
   }
 }

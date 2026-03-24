@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        
+        
+        <link rel="canonical" href="https://johnstegeman.github.io/haven/designs/diff-command/">
+        <link rel="shortcut icon" href="../../img/favicon.ico">
+        <title>Design: haven diff - haven</title>
+        <link href="../../css/bootstrap.min.css" rel="stylesheet">
+        <link href="../../css/fontawesome.min.css" rel="stylesheet">
+        <link href="../../css/brands.min.css" rel="stylesheet">
+        <link href="../../css/solid.min.css" rel="stylesheet">
+        <link href="../../css/v4-font-face.min.css" rel="stylesheet">
+        <link href="../../css/base.css" rel="stylesheet">
+        <link id="hljs-light" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" >
+        <link id="hljs-dark" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css" disabled>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script>hljs.highlightAll();</script> 
+    </head>
+
+    <body>
+        <div class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary">
+            <div class="container">
+                <a class="navbar-brand" href="../..">haven</a>
+                <!-- Expander button -->
+                <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar-collapse" aria-controls="navbar-collapse" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <!-- Expanded navigation -->
+                <div id="navbar-collapse" class="navbar-collapse collapse">
+                        <!-- Main navigation -->
+                        <ul class="nav navbar-nav">
+                            <li class="nav-item">
+                                <a href="../.." class="nav-link">Home</a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="../../concepts/" class="nav-link">Concepts</a>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Getting Started</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../getting-started/installation/" class="dropdown-item">Installation</a>
+</li>
+                                    
+<li>
+    <a href="../../getting-started/quickstart/" class="dropdown-item">Quick Start</a>
+</li>
+                                    
+<li>
+    <a href="../../getting-started/new-machine/" class="dropdown-item">New Machine Setup</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Guides</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../guides/tracking-files/" class="dropdown-item">Tracking Files</a>
+</li>
+                                    
+<li>
+    <a href="../../guides/packages/" class="dropdown-item">Managing Packages</a>
+</li>
+                                    
+<li>
+    <a href="../../guides/ai-skills/" class="dropdown-item">AI Skills</a>
+</li>
+                                    
+<li>
+    <a href="../../guides/templates/" class="dropdown-item">Templates & Secrets</a>
+</li>
+                                    
+<li>
+    <a href="../../guides/profiles-modules/" class="dropdown-item">Profiles & Modules</a>
+</li>
+                                    
+<li>
+    <a href="../../guides/security/" class="dropdown-item">Security Scanning</a>
+</li>
+                                    
+<li>
+    <a href="../../guides/vcs/" class="dropdown-item">VCS Backend</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">For chezmoi Users</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../for-chezmoi-users/" class="dropdown-item">Overview</a>
+</li>
+                                    
+<li>
+    <a href="../../for-chezmoi-users/migration/" class="dropdown-item">Migration Guide</a>
+</li>
+                                    
+<li>
+    <a href="../../for-chezmoi-users/commands/" class="dropdown-item">Command Equivalence</a>
+</li>
+                                    
+<li>
+    <a href="../../for-chezmoi-users/templates/" class="dropdown-item">Template Conversion</a>
+</li>
+                                    
+<li>
+    <a href="../../for-chezmoi-users/gaps/" class="dropdown-item">Feature Gaps</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Reference</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../reference/commands/" class="dropdown-item">Command Reference</a>
+</li>
+                                    
+<li>
+    <a href="../../reference/configuration/" class="dropdown-item">Configuration</a>
+</li>
+                                    
+<li>
+    <a href="../../reference/magic-names/" class="dropdown-item">Magic-Name Encoding</a>
+</li>
+                                    
+<li>
+    <a href="../../reference/template-variables/" class="dropdown-item">Template Variables</a>
+</li>
+                                    
+<li>
+    <a href="../../reference/environment/" class="dropdown-item">Environment Variables</a>
+</li>
+                                    
+<li>
+    <a href="../../reference/repo-layout/" class="dropdown-item">Repo Layout</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item">
+                                <a href="../../changelog/" class="nav-link">Changelog</a>
+                            </li>
+                        </ul>
+
+                    <ul class="nav navbar-nav ms-md-auto">
+                        <li class="nav-item">
+                            <a href="#" class="nav-link" data-bs-toggle="modal" data-bs-target="#mkdocs_search_modal">
+                                <i class="fa fa-search"></i> Search
+                            </a>
+                        </li>
+                            <li class="nav-item">
+                                <a href="https://github.com/johnstegeman/haven/edit/main/docs/designs/diff-command.md" class="nav-link">Edit on johnstegeman/haven
+                                    </a>
+                            </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="row">
+                    <div class="col-md-3"><div class="navbar-expand-md bs-sidebar hidden-print affix" role="complementary">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggler collapsed" data-bs-toggle="collapse" data-bs-target="#toc-collapse" title="Table of Contents">
+            <span class="fa fa-angle-down"></span>
+        </button>
+    </div>
+
+    
+    <div id="toc-collapse" class="navbar-collapse collapse card bg-body-tertiary">
+        <ul class="nav flex-column">
+            
+            <li class="nav-item" data-bs-level="1"><a href="#design-haven-diff" class="nav-link">Design: haven diff</a>
+              <ul class="nav flex-column">
+            <li class="nav-item" data-bs-level="2"><a href="#problem" class="nav-link">Problem</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#goals" class="nav-link">Goals</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#non-goals" class="nav-link">Non-Goals</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#output-design" class="nav-link">Output Design</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#architecture" class="nav-link">Architecture</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#implementation-details" class="nav-link">Implementation details</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#file-structure" class="nav-link">File structure</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#dependencies" class="nav-link">Dependencies</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#test-plan" class="nav-link">Test plan</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#state-machine-file-diff-outcomes" class="nav-link">State machine: file diff outcomes</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#relationship-to-existing-commands" class="nav-link">Relationship to existing commands</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#deferred-todos-candidates" class="nav-link">Deferred (TODOS candidates)</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#open-questions" class="nav-link">Open questions</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+              </ul>
+            </li>
+        </ul>
+    </div>
+</div></div>
+                    <div class="col-md-9" role="main">
+
+<h1 id="design-haven-diff">Design: <code>haven diff</code><a class="headerlink" href="#design-haven-diff" title="Permanent link">&para;</a></h1>
+<p><strong>Status:</strong> Reviewed (plan-eng-review 2026-03-20)
+<strong>Date:</strong> 2026-03-20
+<strong>Author:</strong> jstegeman</p>
+<hr />
+<h2 id="problem">Problem<a class="headerlink" href="#problem" title="Permanent link">&para;</a></h2>
+<p><code>haven status</code> tells you <em>that</em> drift exists (modified, missing, source-missing) but not
+<em>what changed</em>. To investigate drift today you must open the source file in <code>~/.local/share/haven/source/</code>
+and the live destination file side-by-side manually. For template files this is especially
+painful — you have to mentally render the template to understand what the destination
+<em>should</em> look like.</p>
+<p><code>haven diff</code> closes this gap: it shows the line-level delta between what haven would apply
+and what is currently on disk.</p>
+<hr />
+<h2 id="goals">Goals<a class="headerlink" href="#goals" title="Permanent link">&para;</a></h2>
+<ol>
+<li>Show a unified diff for each source file that differs from its destination.</li>
+<li>Render templates before diffing — compare the rendered output against the live file.</li>
+<li>Show which brew packages are declared but not installed, and which are installed but not
+   in any Brewfile (mirroring <code>brew bundle check</code>'s output, but more granular).</li>
+<li>Show which AI skills and commands are declared but missing on disk.</li>
+<li>Accept <code>--files</code>, <code>--brews</code>, <code>--ai</code> section flags (same semantics as <code>apply</code>).</li>
+<li>Accept <code>--profile</code> flag (same resolution: explicit → state.json → "default").</li>
+<li>Accept <code>--module</code> flag for scoping to a single module's brew/AI config.</li>
+<li>Exit 0 when everything is clean, exit 1 when drift exists (script-friendly).</li>
+<li>No side effects — diff is always read-only.</li>
+<li>Color output: ANSI colors when stdout is a tty (<code>+</code> green, <code>-</code> red, <code>@@</code> cyan).</li>
+<li><code>--stat</code> flag: summary mode showing only filenames and change counts.</li>
+</ol>
+<hr />
+<h2 id="non-goals">Non-Goals<a class="headerlink" href="#non-goals" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Applying or reversing changes. Use <code>haven apply</code> / <code>haven re-add</code> (future).</li>
+<li>Three-way merge. Use an external merge tool.</li>
+<li>Binary file diffing. Binary files get a "binary files differ" notice only.</li>
+<li>Configurable external diff tool (nice-to-have, deferred — see TODOS).</li>
+<li>Cross-machine diff (<code>haven diff --machine &lt;name&gt;</code>) — P3, see TODOS.md.</li>
+<li>AI version drift (pinned SHA vs installed SHA) — blocked on SHA verification TODO.</li>
+</ul>
+<hr />
+<h2 id="output-design">Output Design<a class="headerlink" href="#output-design" title="Permanent link">&para;</a></h2>
+<h3 id="files-section">Files section<a class="headerlink" href="#files-section" title="Permanent link">&para;</a></h3>
+<pre><code>[files]
+
+  --- ~/.gitconfig
+  +++ ~/.gitconfig  (source: dot_gitconfig.tmpl → rendered)
+  @@ -3,7 +3,7 @@
+     [user]
+  -      name = Old Name
+  +      name = John Stegeman
+         email = john@example.com
+
+  ? ~/.ssh/config   (missing — never applied)
+  ! source/dot_vimrc  (source missing)
+
+</code></pre>
+<p>Markers:
+- Unified diff block → file is <strong>Modified</strong> (content differs)
+- <code>?</code> line → file is <strong>Missing</strong> (dest doesn't exist)
+- <code>!</code> line → <strong>SourceMissing</strong> (source file removed from repo but was tracked)
+- No entry → file is clean</p>
+<p>Symlinks: instead of a diff, show:</p>
+<pre><code>  M ~/.config/nvim  (symlink: points to /wrong/path, expected /Users/jstegeman/.local/share/haven/source/symlink_dot_config/nvim)
+</code></pre>
+<p>Binary files: instead of a diff, show:</p>
+<pre><code>  M ~/.config/some-app/prefs.bin  (binary files differ)
+</code></pre>
+<h3 id="brew-section">Brew section<a class="headerlink" href="#brew-section" title="Permanent link">&para;</a></h3>
+<pre><code>[brew]
+
+  brew/Brewfile
+  + ripgrep     (in Brewfile, not installed)
+  + bat         (in Brewfile, not installed)
+  - htop        (installed, not in Brewfile)
+
+</code></pre>
+<p>The <code>+</code> lines are packages that <code>haven apply --brews</code> would install.
+The <code>-</code> lines are packages that <code>haven apply --brews --remove-unreferenced-brews</code> would remove.</p>
+<p>When the master Brewfile is clean: no section printed (or <code>✓ brew/Brewfile clean</code> if
+only brew section was requested).</p>
+<h3 id="ai-section">AI section<a class="headerlink" href="#ai-section" title="Permanent link">&para;</a></h3>
+<pre><code>[ai]
+
+  [shell]
+  - fetch skill: gh:anthropics/claude-code-gstack   (not installed)
+  - fetch command: gh:jstegeman/haven-commands       (not installed)
+
+</code></pre>
+<p>AI drift is currently binary (present/absent) — no version comparison is designed for v1.
+Version drift is deferred to a future TODO.</p>
+<h3 id="clean-output">Clean output<a class="headerlink" href="#clean-output" title="Permanent link">&para;</a></h3>
+<pre><code>✓ Everything up to date (profile: default)
+</code></pre>
+<p>(Same phrasing as <code>haven status</code>, consistent UX.)</p>
+<hr />
+<h2 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h2>
+<h3 id="data-flow">Data flow<a class="headerlink" href="#data-flow" title="Permanent link">&para;</a></h3>
+<pre><code>haven diff
+     │
+     ├── [files]   (only if diff_files — source::scan() is inside this gate)
+     │     │
+     │     ├── source::scan(source/)             ← existing
+     │     │         │
+     │     │         ▼
+     │     │   for each SourceEntry:
+     │     │     ├── drift::check_drift_*()       ← new shared module
+     │     │     │       DriftKind: Clean/Modified/Missing/SourceMissing
+     │     │     │
+     │     │     └── if Modified:
+     │     │           ├── template? → render() → diff_util::unified_diff()
+     │     │           ├── symlink?  → show target mismatch
+     │     │           ├── binary?   → &quot;binary files differ&quot;
+     │     │           └── plain?    → diff_util::unified_diff()
+     │
+     ├── [brew]    (only if diff_brews)
+     │     │
+     │     └── homebrew::brewfile_diff()          ← new (replaces inline logic
+     │               BrewfileDiff {                    in purge_unreferenced_brews)
+     │                 missing_formulas/casks,
+     │                 extra_formulas/casks
+     │               }
+     │
+     └── [ai]      (only if diff_ai)
+           │
+           └── same logic as status.rs AI check   ← reused pattern
+</code></pre>
+<h3 id="new-module-srcdriftrs">New module: <code>src/drift.rs</code><a class="headerlink" href="#new-module-srcdriftrs" title="Permanent link">&para;</a></h3>
+<p>Extracted from <code>status.rs</code>. Makes drift detection available to both <code>status</code> and <code>diff</code>:</p>
+<pre><code class="language-rust">pub enum DriftKind { Clean, Modified, Missing, SourceMissing }
+
+pub fn check_drift(src: &amp;Path, dest: &amp;Path) -&gt; DriftKind
+pub fn check_drift_template(src: &amp;Path, ctx: &amp;TemplateContext, dest: &amp;Path) -&gt; Result&lt;DriftKind&gt;
+pub fn check_drift_link(source_abs: &amp;Path, dest: &amp;Path) -&gt; DriftKind
+pub fn drift_marker(kind: DriftKind) -&gt; &amp;'static str   // &quot;M&quot; / &quot;?&quot; / &quot;!&quot;
+</code></pre>
+<p><code>status.rs</code> is refactored to import from <code>drift.rs</code>. No behavior change.</p>
+<h3 id="new-module-srccommandsdiffrs-after-driftrs-extraction">New module: <code>src/commands/diff.rs</code>  (after drift.rs extraction)<a class="headerlink" href="#new-module-srccommandsdiffrs-after-driftrs-extraction" title="Permanent link">&para;</a></h3>
+<p>Primary implementation. Mirrors the structure of <code>apply.rs</code>/<code>status.rs</code>:</p>
+<pre><code class="language-rust">pub struct DiffOptions&lt;'a&gt; {
+    pub repo_root: &amp;'a Path,
+    pub dest_root: &amp;'a Path,
+    pub state_dir: &amp;'a Path,
+    pub claude_dir: &amp;'a Path,
+    pub profile: &amp;'a str,
+    pub module_filter: Option&lt;&amp;'a str&gt;,
+    pub diff_files: bool,
+    pub diff_brews: bool,
+    pub diff_ai: bool,
+    pub stat_only: bool,   // --stat: show summary, not diff content
+    pub color: ColorMode,  // Always | Never | Auto
+}
+
+pub enum ColorMode { Always, Never, Auto }
+
+pub fn run(opts: &amp;DiffOptions&lt;'_&gt;) -&gt; Result&lt;bool&gt;
+// Returns true if any drift found (used to set exit code 1 in main).
+</code></pre>
+<h3 id="new-helper-srcdiff_utilrs">New helper: <code>src/diff_util.rs</code><a class="headerlink" href="#new-helper-srcdiff_utilrs" title="Permanent link">&para;</a></h3>
+<pre><code class="language-rust">/// Compute a unified diff between two strings.
+/// Returns None if the strings are equal.
+/// `label_a` / `label_b` are used in the --- / +++ header lines.
+pub fn unified_diff(
+    a: &amp;str,
+    b: &amp;str,
+    label_a: &amp;str,
+    label_b: &amp;str,
+    context_lines: usize,
+) -&gt; Option&lt;String&gt;
+
+/// Apply ANSI color codes to a unified diff string.
+/// Lines starting with + → green, - → red, @@ → cyan, ---/+++ → bold.
+/// No-op if the string is empty.
+pub fn colorize_diff(diff: &amp;str) -&gt; String
+
+/// Compute a --stat summary line for a file: &quot;path | N +--&quot;
+pub fn stat_line(path: &amp;str, diff: &amp;str) -&gt; String
+</code></pre>
+<p>Implementation: pure Rust using the <code>similar</code> crate (already widely used, small, no deps).
+Produces standard unified diff format. Does not shell out to <code>diff(1)</code>.</p>
+<h4 id="why-similar-and-not-diff1">Why <code>similar</code> and not <code>diff(1)</code>?<a class="headerlink" href="#why-similar-and-not-diff1" title="Permanent link">&para;</a></h4>
+<ul>
+<li>Zero external process spawning — no <code>Command::new("diff")</code>.</li>
+<li>Works identically across platforms (including macOS where <code>diff</code> behavior differs).</li>
+<li>Produces <code>String</code> output directly — easy to colorize later.</li>
+<li>The crate is battle-tested (powers Cargo's output, used by <code>cargo-expand</code>).</li>
+<li><code>similar = "2"</code> is a single crate with no transitive deps of concern.</li>
+</ul>
+<h3 id="changes-to-srchomebrewrs">Changes to <code>src/homebrew.rs</code><a class="headerlink" href="#changes-to-srchomebrewrs" title="Permanent link">&para;</a></h3>
+<p>Add one new function:</p>
+<pre><code class="language-rust">/// Compare Brewfile declarations against installed packages.
+///
+/// Returns:
+///   missing_from_system: formulas/casks in Brewfile but not installed
+///   unreferenced: installed leaf formulas/casks not in any Brewfile
+pub fn brewfile_diff(
+    brew: &amp;Path,
+    brewfile_paths: &amp;[&amp;Path],
+) -&gt; Result&lt;BrewfileDiff&gt;
+
+pub struct BrewfileDiff {
+    pub missing_formulas: Vec&lt;String&gt;,   // in Brewfile, not installed
+    pub missing_casks: Vec&lt;String&gt;,      // in Brewfile, not installed
+    pub extra_formulas: Vec&lt;String&gt;,     // installed leaf, not in Brewfile
+    pub extra_casks: Vec&lt;String&gt;,        // installed, not in Brewfile
+}
+</code></pre>
+<p><code>brew bundle check</code> only gives a boolean. The new function builds on the
+existing <code>brew_leaves</code>, <code>brew_list_casks</code>, and <code>collect_brewfile_entries</code> to produce
+the richer output needed for diff display.</p>
+<p><strong>Note:</strong> <code>brew list --formula</code> (all installed formulas, not just leaves) is used to
+determine <code>missing_formulas</code> (packages declared in Brewfile but not yet installed). This
+is distinct from <code>brew leaves</code> which is used for the "extra" direction.</p>
+<h3 id="changes-to-srccommandsmodrs">Changes to <code>src/commands/mod.rs</code><a class="headerlink" href="#changes-to-srccommandsmodrs" title="Permanent link">&para;</a></h3>
+<p>Add <code>pub mod diff;</code>.</p>
+<h3 id="changes-to-srcmainrs">Changes to <code>src/main.rs</code><a class="headerlink" href="#changes-to-srcmainrs" title="Permanent link">&para;</a></h3>
+<p>Add <code>Diff</code> command variant and dispatch:</p>
+<pre><code class="language-rust">/// Show differences between tracked source files/packages and live state.
+///
+/// Exits 0 if everything is clean, 1 if drift is found.
+///
+/// Examples:
+///   haven diff
+///   haven diff --files
+///   haven diff --brews
+///   haven diff --profile work
+Diff {
+    #[arg(long)] profile: Option&lt;String&gt;,
+    #[arg(long)] module: Option&lt;String&gt;,
+    #[arg(long)] files: bool,
+    #[arg(long)] brews: bool,
+    #[arg(long)] ai: bool,
+    #[cfg_attr(debug_assertions, arg(long, value_name = &quot;DIR&quot;))]
+    #[cfg_attr(not(debug_assertions), arg(skip))]
+    dest: Option&lt;PathBuf&gt;,
+},
+</code></pre>
+<p>Dispatch:</p>
+<pre><code class="language-rust">Commands::Diff { profile, module, files, brews, ai, dest } =&gt; {
+    let resolved = resolve_profile(profile.as_deref(), &amp;state_dir);
+    let dest_root_buf = dest.as_deref().map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from(&quot;/&quot;));
+    let none_specified = !files &amp;&amp; !brews &amp;&amp; !ai;
+    let has_drift = commands::diff::run(&amp;commands::diff::DiffOptions {
+        repo_root: &amp;repo,
+        dest_root: &amp;dest_root_buf,
+        state_dir: &amp;state_dir,
+        claude_dir: &amp;claude_dir,
+        profile: &amp;resolved,
+        module_filter: module.as_deref(),
+        diff_files: *files || none_specified,
+        diff_brews: *brews || none_specified,
+        diff_ai: *ai || none_specified,
+    })?;
+    if has_drift { std::process::exit(1); }
+}
+</code></pre>
+<hr />
+<h2 id="implementation-details">Implementation details<a class="headerlink" href="#implementation-details" title="Permanent link">&para;</a></h2>
+<h3 id="binary-file-detection">Binary file detection<a class="headerlink" href="#binary-file-detection" title="Permanent link">&para;</a></h3>
+<p>Before diffing, check if either file contains a null byte. If so, print:</p>
+<pre><code>  M ~/.config/prefs.bin  (binary files differ)
+</code></pre>
+<p>Skip the unified diff for that file.</p>
+<h3 id="template-rendering-errors-during-diff">Template rendering errors during diff<a class="headerlink" href="#template-rendering-errors-during-diff" title="Permanent link">&para;</a></h3>
+<p>If a template fails to render (e.g., <code>op()</code> call and 1Password not signed in), print:</p>
+<pre><code>  ~ ~/.gitconfig  (template render failed: op not authenticated — skipping diff)
+</code></pre>
+<p>Continue to the next file. Do not abort the entire diff run.</p>
+<h3 id="large-diffs">Large diffs<a class="headerlink" href="#large-diffs" title="Permanent link">&para;</a></h3>
+<p>No truncation. If a file is very large and fully replaced, the diff will be large.
+Deferred: pager support.</p>
+<h3 id="colors">Colors<a class="headerlink" href="#colors" title="Permanent link">&para;</a></h3>
+<p>When stdout is a tty (<code>isatty(STDOUT_FILENO)</code>), apply ANSI codes:
+- <code>+</code> lines → green
+- <code>-</code> lines → red
+- <code>@@ ... @@</code> hunk headers → cyan
+- <code>---</code> / <code>+++</code> header lines → bold</p>
+<p>When stdout is piped (e.g. <code>haven diff | grep ...</code>), no ANSI codes.</p>
+<p>Use the <code>is-terminal</code> crate for cross-platform tty detection. Add a
+<code>--color=always|never|auto</code> flag (default: <code>auto</code>).</p>
+<h3 id="-stat-summary-mode"><code>--stat</code> summary mode<a class="headerlink" href="#-stat-summary-mode" title="Permanent link">&para;</a></h3>
+<p>When <code>--stat</code> is given, instead of showing diff content, show a compact summary:</p>
+<pre><code>~/.gitconfig     | 3 +--
+~/.zshrc         | 12 ++++++------
+brew/Brewfile    | M (packages not installed)
+[shell] skill    | ? (not installed)
+</code></pre>
+<p>The <code>--stat</code> flag is mutually exclusive with content display but can be combined with
+section flags (<code>haven diff --files --stat</code>).</p>
+<h3 id="symlinks">Symlinks<a class="headerlink" href="#symlinks" title="Permanent link">&para;</a></h3>
+<p>For symlink entries, diff is not meaningful — the "content" is just the link target path.
+Show a one-liner:
+- If link target matches: clean (no output).
+- If link target differs or dest is not a symlink: show the expected vs actual target.</p>
+<h3 id="section-flag-semantics">Section flag semantics<a class="headerlink" href="#section-flag-semantics" title="Permanent link">&para;</a></h3>
+<p>Identical to <code>apply</code>: <code>--files</code>, <code>--brews</code>, <code>--ai</code>. No flags = all sections.
+<code>--module</code> scopes only brew/AI (same as apply).</p>
+<hr />
+<h2 id="file-structure">File structure<a class="headerlink" href="#file-structure" title="Permanent link">&para;</a></h2>
+<pre><code>src/
+  drift.rs            ← new: DriftKind + check_drift* extracted from status.rs
+  diff_util.rs        ← new: unified_diff(), colorize_diff(), stat_line()
+  commands/
+    diff.rs           ← new: DiffOptions, run()
+    status.rs         ← refactored: imports from drift.rs (no behavior change)
+    mod.rs            ← add pub mod diff
+  homebrew.rs         ← add brewfile_diff() / BrewfileDiff; apply.rs refactored to use it
+  main.rs             ← add Diff variant + dispatch
+
+tests/
+  integration.rs      ← add diff tests (see Test Plan)
+</code></pre>
+<p><strong>Total new code:</strong> ~420 lines (excluding tests; +70 for colors, stat, drift extraction).
+<strong>Files touched:</strong> 7 (drift.rs, diff_util.rs, diff.rs, status.rs, homebrew.rs, apply.rs, main.rs).</p>
+<hr />
+<h2 id="dependencies">Dependencies<a class="headerlink" href="#dependencies" title="Permanent link">&para;</a></h2>
+<p>Add to <code>Cargo.toml</code>:</p>
+<pre><code class="language-toml">similar = &quot;2&quot;        # unified diff generation (no transitive deps)
+is-terminal = &quot;0.4&quot;  # cross-platform isatty() for --color=auto
+</code></pre>
+<hr />
+<h2 id="test-plan">Test plan<a class="headerlink" href="#test-plan" title="Permanent link">&para;</a></h2>
+<h3 id="unit-tests-srcdiff_utilrs">Unit tests (<code>src/diff_util.rs</code>)<a class="headerlink" href="#unit-tests-srcdiff_utilrs" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Test</th>
+<th>What it verifies</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>identical_strings_returns_none</code></td>
+<td>No diff when content is the same</td>
+</tr>
+<tr>
+<td><code>single_line_change_produces_diff</code></td>
+<td><code>+</code>/<code>-</code> lines appear correctly</td>
+</tr>
+<tr>
+<td><code>added_lines_only</code></td>
+<td>Dest shorter than source</td>
+</tr>
+<tr>
+<td><code>removed_lines_only</code></td>
+<td>Source shorter than dest</td>
+</tr>
+<tr>
+<td><code>context_lines_respected</code></td>
+<td>Surrounding unchanged lines are included</td>
+</tr>
+<tr>
+<td><code>empty_vs_nonempty</code></td>
+<td>One side empty</td>
+</tr>
+<tr>
+<td><code>multiline_file_with_one_change</code></td>
+<td>Only the changed hunk is shown</td>
+</tr>
+<tr>
+<td><code>colorize_diff_adds_ansi_green_to_plus_lines</code></td>
+<td>ANSI codes applied correctly</td>
+</tr>
+<tr>
+<td><code>colorize_diff_adds_ansi_red_to_minus_lines</code></td>
+<td>ANSI codes applied correctly</td>
+</tr>
+<tr>
+<td><code>colorize_diff_noop_on_empty</code></td>
+<td>No panic/corruption on empty input</td>
+</tr>
+<tr>
+<td><code>stat_line_shows_plus_minus_counts</code></td>
+<td>e.g. <code>~/.gitconfig | 3 +--</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="unit-tests-srchomebrewrs-additions">Unit tests (<code>src/homebrew.rs</code> additions)<a class="headerlink" href="#unit-tests-srchomebrewrs-additions" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Test</th>
+<th>What it verifies</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>brewfile_diff_empty_brewfile_all_extra</code></td>
+<td>Every installed pkg shows as extra</td>
+</tr>
+<tr>
+<td><code>brewfile_diff_all_declared_installed</code></td>
+<td>Empty diff when everything matches</td>
+</tr>
+<tr>
+<td><code>brewfile_diff_missing_formula</code></td>
+<td>Formula in Brewfile but not installed shows as missing</td>
+</tr>
+<tr>
+<td><code>brewfile_diff_extra_cask</code></td>
+<td>Installed cask not in Brewfile shows as extra</td>
+</tr>
+</tbody>
+</table>
+<h3 id="integration-tests">Integration tests<a class="headerlink" href="#integration-tests" title="Permanent link">&para;</a></h3>
+<p>All integration tests use <code>--dest &lt;tmpdir&gt;</code> to avoid touching the real home directory.</p>
+<h4 id="files-section_1">Files section<a class="headerlink" href="#files-section_1" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>Test</th>
+<th>Setup</th>
+<th>Expected</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>diff_clean_file_no_output</code></td>
+<td>source file applied to dest</td>
+<td>no <code>[files]</code> section</td>
+</tr>
+<tr>
+<td><code>diff_modified_file_shows_diff</code></td>
+<td>source and dest differ by one line</td>
+<td>diff block with <code>+</code>/<code>-</code></td>
+</tr>
+<tr>
+<td><code>diff_missing_dest_shows_missing</code></td>
+<td>source exists, dest not applied</td>
+<td><code>? ~/.foo</code> line</td>
+</tr>
+<tr>
+<td><code>diff_source_missing_shows_source_missing</code></td>
+<td>dest exists, source deleted</td>
+<td><code>! ~/.foo</code> line</td>
+</tr>
+<tr>
+<td><code>diff_template_rendered_before_compare</code></td>
+<td><code>.tmpl</code> source, rendered dest matches</td>
+<td>no output</td>
+</tr>
+<tr>
+<td><code>diff_template_rendered_diff_shows_delta</code></td>
+<td><code>.tmpl</code> source, dest has old value</td>
+<td>diff block</td>
+</tr>
+<tr>
+<td><code>diff_template_render_error_shows_tilde_marker</code></td>
+<td><code>.tmpl</code> with <code>{{ undefined }}</code>, dest exists</td>
+<td><code>~</code> marker, exit 0</td>
+</tr>
+<tr>
+<td><code>diff_binary_file_shows_notice</code></td>
+<td>binary source and dest differ</td>
+<td><code>(binary files differ)</code></td>
+</tr>
+<tr>
+<td><code>diff_symlink_correct_target_no_output</code></td>
+<td>symlink_ entry, dest points to source</td>
+<td>no output</td>
+</tr>
+<tr>
+<td><code>diff_symlink_wrong_target_shows_mismatch</code></td>
+<td>symlink_ entry, dest points elsewhere</td>
+<td><code>M</code> + path detail</td>
+</tr>
+<tr>
+<td><code>diff_files_flag_only</code></td>
+<td><code>--files</code> flag</td>
+<td>only files section</td>
+</tr>
+<tr>
+<td><code>diff_no_flags_shows_all</code></td>
+<td>no flags, mixed drift</td>
+<td>all sections present</td>
+</tr>
+<tr>
+<td><code>diff_stat_shows_summary_line</code></td>
+<td><code>--stat</code>, one modified file</td>
+<td><code>~/.foo | N +-</code> line, no diff block</td>
+</tr>
+</tbody>
+</table>
+<h4 id="brew-section_1">Brew section<a class="headerlink" href="#brew-section_1" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>Test</th>
+<th>Setup</th>
+<th>Expected</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>diff_brews_no_brew_installed_skips_gracefully</code></td>
+<td>brew not found</td>
+<td><code>[brew] skipped</code></td>
+</tr>
+<tr>
+<td><code>diff_brews_flag_only</code></td>
+<td><code>--brews</code></td>
+<td>only brew section</td>
+</tr>
+</tbody>
+</table>
+<h4 id="ai-section_1">AI section<a class="headerlink" href="#ai-section_1" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>Test</th>
+<th>Setup</th>
+<th>Expected</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>diff_ai_missing_skill_shows_minus</code></td>
+<td>skill declared, not installed</td>
+<td><code>- fetch skill: ...</code></td>
+</tr>
+<tr>
+<td><code>diff_ai_installed_skill_no_output</code></td>
+<td>skill declared and installed</td>
+<td>clean</td>
+</tr>
+<tr>
+<td><code>diff_ai_flag_only</code></td>
+<td><code>--ai</code></td>
+<td>only AI section</td>
+</tr>
+</tbody>
+</table>
+<h4 id="exit-code">Exit code<a class="headerlink" href="#exit-code" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>Test</th>
+<th>Setup</th>
+<th>Expected</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>diff_exits_0_when_clean</code></td>
+<td>all clean</td>
+<td>exit code 0</td>
+</tr>
+<tr>
+<td><code>diff_exits_1_when_drift</code></td>
+<td>one file differs</td>
+<td>exit code 1</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="state-machine-file-diff-outcomes">State machine: file diff outcomes<a class="headerlink" href="#state-machine-file-diff-outcomes" title="Permanent link">&para;</a></h2>
+<pre><code>SourceEntry
+     │
+     ├── flags.symlink == true
+     │         │
+     │         ├── dest is correct symlink ──────────────────────── [clean]
+     │         ├── dest is wrong symlink / regular file ─────────── [show target mismatch]
+     │         └── dest missing ──────────────────────────────────── [?]
+     │
+     ├── flags.template == true
+     │         │
+     │         ├── src missing ───────────────────────────────────── [!]
+     │         ├── render fails ─────────────────────────────────── [~ render error]
+     │         ├── dest missing ──────────────────────────────────── [?]
+     │         ├── rendered == dest ──────────────────────────────── [clean]
+     │         └── rendered != dest ──────────────────────────────── [unified diff]
+     │
+     └── plain file
+               │
+               ├── src missing ───────────────────────────────────── [!]
+               ├── dest missing ──────────────────────────────────── [?]
+               ├── either is binary &amp; differs ────────────────────── [binary notice]
+               ├── content equal ─────────────────────────────────── [clean]
+               └── content differs ───────────────────────────────── [unified diff]
+</code></pre>
+<hr />
+<h2 id="relationship-to-existing-commands">Relationship to existing commands<a class="headerlink" href="#relationship-to-existing-commands" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Purpose</th>
+<th>Shows what</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>haven status</code></td>
+<td>Quick drift check</td>
+<td>Which files/modules have drift (no content)</td>
+</tr>
+<tr>
+<td><code>haven diff</code></td>
+<td>Detailed drift inspection</td>
+<td>What the actual changes are</td>
+</tr>
+<tr>
+<td><code>haven apply</code></td>
+<td>Resolve drift</td>
+<td>Apply source state to machine</td>
+</tr>
+</tbody>
+</table>
+<p><code>diff</code> is intentionally complementary to <code>status</code>, not a replacement. <code>status</code> is fast
+and good for "is anything out of date?" checks. <code>diff</code> is for "what exactly changed?"</p>
+<hr />
+<h2 id="deferred-todos-candidates">Deferred (TODOS candidates)<a class="headerlink" href="#deferred-todos-candidates" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Configurable external diff tool</strong>: <code>haven.toml</code> <code>[diff] tool = "delta"</code> — pipe output through an external colorizer. (Captured in TODOS.md)</li>
+<li><strong><code>haven diff &lt;path&gt;</code></strong>: diff a single file by destination path.</li>
+<li><strong>AI version drift</strong>: compare installed skill commit SHA against <code>haven.lock</code> pin. Blocked on SHA verification. (Captured in TODOS.md)</li>
+<li><strong>Cross-machine diff</strong>: <code>haven diff --machine &lt;hostname&gt;</code> — P3, see TODOS.md.</li>
+<li><strong>Pager support</strong>: pipe long output through <code>$PAGER</code> automatically.</li>
+</ul>
+<hr />
+<h2 id="open-questions">Open questions<a class="headerlink" href="#open-questions" title="Permanent link">&para;</a></h2>
+<ol>
+<li>
+<p><strong><code>--color</code> flag vs auto-detect?</strong> Always auto-detect <code>isatty</code> (consistent with <code>git diff</code>), or require explicit <code>--color</code>?
+   <em>Leaning toward: auto-detect in v1 once colors are added.</em></p>
+</li>
+<li>
+<p><strong>Template render errors — hard fail or skip?</strong> If <code>op()</code> isn't authenticated and a template uses it, should we fail the whole diff or skip that file with a warning?
+   <em>Leaning toward: skip with <code>~</code> marker (see Template rendering errors section).</em></p>
+</li>
+<li>
+<p><strong><code>haven diff</code> vs <code>haven status --diff</code>?</strong> Could be a flag on status instead of a new subcommand.
+   <em>Leaning toward: separate command — cleaner UX, separate exit code semantics, mirrors chezmoi's design.</em></p>
+</li>
+</ol></div>
+            </div>
+        </div>
+
+        <footer class="col-md-12">
+            <hr>
+            <p>Documentation built with <a href="https://www.mkdocs.org/">MkDocs</a>.</p>
+        </footer>
+        <script src="../../js/bootstrap.bundle.min.js"></script>
+        <script>
+            var base_url = "../..",
+                shortcuts = {"help": 191, "next": 78, "previous": 80, "search": 83};
+        </script>
+        <script src="../../js/base.js"></script>
+        <script src="../../search/main.js"></script>
+
+        <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>From here you can search these documents. Enter your search terms below.</p>
+                <form>
+                    <div class="form-group">
+                        <input type="search" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results" data-no-results-text="No results found"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+
+    </body>
+</html>

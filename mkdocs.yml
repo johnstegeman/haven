@@ -1,0 +1,49 @@
+site_name: haven
+site_description: AI-first dotfiles & developer environment manager
+site_url: https://johnstegeman.github.io/haven
+repo_url: https://github.com/johnstegeman/haven
+repo_name: johnstegeman/haven
+edit_uri: edit/main/docs/
+
+theme:
+  name: mkdocs
+
+markdown_extensions:
+  - admonition
+  - tables
+  - toc:
+      permalink: true
+
+plugins:
+  - search
+  - include-markdown
+
+nav:
+  - Home: index.md
+  - Concepts: concepts.md
+  - Getting Started:
+    - Installation: getting-started/installation.md
+    - Quick Start: getting-started/quickstart.md
+    - New Machine Setup: getting-started/new-machine.md
+  - Guides:
+    - Tracking Files: guides/tracking-files.md
+    - Managing Packages: guides/packages.md
+    - AI Skills: guides/ai-skills.md
+    - Templates & Secrets: guides/templates.md
+    - Profiles & Modules: guides/profiles-modules.md
+    - Security Scanning: guides/security.md
+    - VCS Backend: guides/vcs.md
+  - For chezmoi Users:
+    - Overview: for-chezmoi-users/index.md
+    - Migration Guide: for-chezmoi-users/migration.md
+    - Command Equivalence: for-chezmoi-users/commands.md
+    - Template Conversion: for-chezmoi-users/templates.md
+    - Feature Gaps: for-chezmoi-users/gaps.md
+  - Reference:
+    - Command Reference: reference/commands.md
+    - Configuration: reference/configuration.md
+    - Magic-Name Encoding: reference/magic-names.md
+    - Template Variables: reference/template-variables.md
+    - Environment Variables: reference/environment.md
+    - Repo Layout: reference/repo-layout.md
+  - Changelog: changelog.md

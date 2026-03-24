@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        
+        
+        <link rel="canonical" href="https://johnstegeman.github.io/haven/releases/v0.4.0/">
+        <link rel="shortcut icon" href="../../img/favicon.ico">
+        <title>haven v0.4.0 Release Notes - haven</title>
+        <link href="../../css/bootstrap.min.css" rel="stylesheet">
+        <link href="../../css/fontawesome.min.css" rel="stylesheet">
+        <link href="../../css/brands.min.css" rel="stylesheet">
+        <link href="../../css/solid.min.css" rel="stylesheet">
+        <link href="../../css/v4-font-face.min.css" rel="stylesheet">
+        <link href="../../css/base.css" rel="stylesheet">
+        <link id="hljs-light" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" >
+        <link id="hljs-dark" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css" disabled>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script>hljs.highlightAll();</script> 
+    </head>
+
+    <body>
+        <div class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary">
+            <div class="container">
+                <a class="navbar-brand" href="../..">haven</a>
+                <!-- Expander button -->
+                <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar-collapse" aria-controls="navbar-collapse" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <!-- Expanded navigation -->
+                <div id="navbar-collapse" class="navbar-collapse collapse">
+                        <!-- Main navigation -->
+                        <ul class="nav navbar-nav">
+                            <li class="nav-item">
+                                <a href="../.." class="nav-link">Home</a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="../../concepts/" class="nav-link">Concepts</a>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Getting Started</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../getting-started/installation/" class="dropdown-item">Installation</a>
+</li>
+                                    
+<li>
+    <a href="../../getting-started/quickstart/" class="dropdown-item">Quick Start</a>
+</li>
+                                    
+<li>
+    <a href="../../getting-started/new-machine/" class="dropdown-item">New Machine Setup</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Guides</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../guides/tracking-files/" class="dropdown-item">Tracking Files</a>
+</li>
+                                    
+<li>
+    <a href="../../guides/packages/" class="dropdown-item">Managing Packages</a>
+</li>
+                                    
+<li>
+    <a href="../../guides/ai-skills/" class="dropdown-item">AI Skills</a>
+</li>
+                                    
+<li>
+    <a href="../../guides/templates/" class="dropdown-item">Templates & Secrets</a>
+</li>
+                                    
+<li>
+    <a href="../../guides/profiles-modules/" class="dropdown-item">Profiles & Modules</a>
+</li>
+                                    
+<li>
+    <a href="../../guides/security/" class="dropdown-item">Security Scanning</a>
+</li>
+                                    
+<li>
+    <a href="../../guides/vcs/" class="dropdown-item">VCS Backend</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">For chezmoi Users</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../for-chezmoi-users/" class="dropdown-item">Overview</a>
+</li>
+                                    
+<li>
+    <a href="../../for-chezmoi-users/migration/" class="dropdown-item">Migration Guide</a>
+</li>
+                                    
+<li>
+    <a href="../../for-chezmoi-users/commands/" class="dropdown-item">Command Equivalence</a>
+</li>
+                                    
+<li>
+    <a href="../../for-chezmoi-users/templates/" class="dropdown-item">Template Conversion</a>
+</li>
+                                    
+<li>
+    <a href="../../for-chezmoi-users/gaps/" class="dropdown-item">Feature Gaps</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Reference</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../reference/commands/" class="dropdown-item">Command Reference</a>
+</li>
+                                    
+<li>
+    <a href="../../reference/configuration/" class="dropdown-item">Configuration</a>
+</li>
+                                    
+<li>
+    <a href="../../reference/magic-names/" class="dropdown-item">Magic-Name Encoding</a>
+</li>
+                                    
+<li>
+    <a href="../../reference/template-variables/" class="dropdown-item">Template Variables</a>
+</li>
+                                    
+<li>
+    <a href="../../reference/environment/" class="dropdown-item">Environment Variables</a>
+</li>
+                                    
+<li>
+    <a href="../../reference/repo-layout/" class="dropdown-item">Repo Layout</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item">
+                                <a href="../../changelog/" class="nav-link">Changelog</a>
+                            </li>
+                        </ul>
+
+                    <ul class="nav navbar-nav ms-md-auto">
+                        <li class="nav-item">
+                            <a href="#" class="nav-link" data-bs-toggle="modal" data-bs-target="#mkdocs_search_modal">
+                                <i class="fa fa-search"></i> Search
+                            </a>
+                        </li>
+                            <li class="nav-item">
+                                <a href="https://github.com/johnstegeman/haven/edit/main/docs/releases/v0.4.0.md" class="nav-link">Edit on johnstegeman/haven
+                                    </a>
+                            </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="row">
+                    <div class="col-md-3"><div class="navbar-expand-md bs-sidebar hidden-print affix" role="complementary">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggler collapsed" data-bs-toggle="collapse" data-bs-target="#toc-collapse" title="Table of Contents">
+            <span class="fa fa-angle-down"></span>
+        </button>
+    </div>
+
+    
+    <div id="toc-collapse" class="navbar-collapse collapse card bg-body-tertiary">
+        <ul class="nav flex-column">
+            
+            <li class="nav-item" data-bs-level="1"><a href="#haven-v040-release-notes" class="nav-link">haven v0.4.0 Release Notes</a>
+              <ul class="nav flex-column">
+            <li class="nav-item" data-bs-level="2"><a href="#highlights" class="nav-link">Highlights</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#upgrade" class="nav-link">Upgrade</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+              </ul>
+            </li>
+        </ul>
+    </div>
+</div></div>
+                    <div class="col-md-9" role="main">
+
+<h1 id="haven-v040-release-notes">haven v0.4.0 Release Notes<a class="headerlink" href="#haven-v040-release-notes" title="Permanent link">&para;</a></h1>
+<p><strong>Release date:</strong> 2026-03-23</p>
+<hr />
+<h2 id="highlights">Highlights<a class="headerlink" href="#highlights" title="Permanent link">&para;</a></h2>
+<h3 id="the-project-is-now-called-haven">The project is now called haven<a class="headerlink" href="#the-project-is-now-called-haven" title="Permanent link">&para;</a></h3>
+<p>The tool has been renamed from <code>dfiles</code> to <code>haven</code>. The name change is the primary
+reason for the 0.4.0 version bump.</p>
+<p><strong>Why?</strong> "dfiles" sounds like "defiles" when spoken aloud, and <code>df</code> conflicts with
+the standard Unix <code>df</code> (disk free) command. <code>haven</code> — a place of shelter, a home
+for your configuration — is a better fit for what the tool does.</p>
+<p><strong>What changed:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Before</th>
+<th>After</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>dfiles</code> (binary)</td>
+<td><code>haven</code></td>
+</tr>
+<tr>
+<td><code>dfiles.toml</code></td>
+<td><code>haven.toml</code></td>
+</tr>
+<tr>
+<td><code>~/.dfiles/</code></td>
+<td><code>~/.haven/</code></td>
+</tr>
+<tr>
+<td><code>DFILES_DIR</code></td>
+<td><code>HAVEN_DIR</code></td>
+</tr>
+<tr>
+<td><code>DFILES_VCS</code></td>
+<td><code>HAVEN_VCS</code></td>
+</tr>
+<tr>
+<td><code>DFILES_TELEMETRY</code></td>
+<td><code>HAVEN_TELEMETRY</code></td>
+</tr>
+<tr>
+<td><code>DFILES_PROFILE</code></td>
+<td><code>HAVEN_PROFILE</code></td>
+</tr>
+<tr>
+<td>GitHub <code>johnstegeman/dfiles</code></td>
+<td><code>johnstegeman/haven</code></td>
+</tr>
+</tbody>
+</table>
+<p>The source encoding, repo layout, and file format are <strong>unchanged</strong>. Existing repos
+migrate by renaming <code>dfiles.toml</code> → <code>haven.toml</code> and <code>~/.dfiles/</code> → <code>~/.haven/</code>.</p>
+<p><strong>New installer URL:</strong></p>
+<pre><code class="language-sh">curl -fsSL https://raw.githubusercontent.com/johnstegeman/haven/main/install.sh | sh
+</code></pre>
+<hr />
+<h3 id="configignore-is-now-a-tera-template"><code>config/ignore</code> is now a Tera template<a class="headerlink" href="#configignore-is-now-a-tera-template" title="Permanent link">&para;</a></h3>
+<p>The ignore file at <code>config/ignore</code> is now rendered through the Tera engine before
+patterns are evaluated — exactly how chezmoi handles <code>.chezmoiignore</code>. This means
+you can write OS- or hostname-conditional ignore patterns:</p>
+<pre><code>{% if os == &quot;macos&quot; %}
+.DS_Store
+{% endif %}
+
+{% if hostname == &quot;work-laptop&quot; %}
+.config/work-secrets/**
+{% endif %}
+</code></pre>
+<p>All variables available in <code>.tmpl</code> files (<code>os</code>, <code>hostname</code>, <code>username</code>, <code>profile</code>,
+<code>data.*</code>) work in <code>config/ignore</code> too. If rendering fails, haven warns and falls
+back to ignoring nothing (safe degradation, not a crash).</p>
+<p><code>haven import --from chezmoi</code> now converts Go template syntax in <code>.chezmoiignore</code>
+to Tera syntax rather than stripping template lines.</p>
+<hr />
+<h3 id="haven-init-is-now-a-safe-no-op-on-an-existing-repo"><code>haven init</code> is now a safe no-op on an existing repo<a class="headerlink" href="#haven-init-is-now-a-safe-no-op-on-an-existing-repo" title="Permanent link">&para;</a></h3>
+<p>Running <code>haven init</code> in a directory that's already a haven repo used to error out.
+It now prints an informational message and exits 0. This makes it safe to call
+idempotently in bootstrap scripts.</p>
+<hr />
+<h3 id="haven-version-shows-full-build-identity"><code>haven --version</code> shows full build identity<a class="headerlink" href="#haven-version-shows-full-build-identity" title="Permanent link">&para;</a></h3>
+<pre><code>haven 0.4.0+abc1234
+</code></pre>
+<p>The version output now includes the short git commit hash, matching the <code>version</code>
+field in telemetry events. Useful when filing bug reports.</p>
+<hr />
+<h2 id="upgrade">Upgrade<a class="headerlink" href="#upgrade" title="Permanent link">&para;</a></h2>
+<pre><code class="language-sh"># Re-install from the new URL
+curl -fsSL https://raw.githubusercontent.com/johnstegeman/haven/main/install.sh | sh
+
+# Rename your config and state directory
+mv ~/haven.toml ~/.local/share/haven/haven.toml 2&gt;/dev/null || true
+mv ~/.dfiles ~/.haven 2&gt;/dev/null || true
+</code></pre></div>
+            </div>
+        </div>
+
+        <footer class="col-md-12">
+            <hr>
+            <p>Documentation built with <a href="https://www.mkdocs.org/">MkDocs</a>.</p>
+        </footer>
+        <script src="../../js/bootstrap.bundle.min.js"></script>
+        <script>
+            var base_url = "../..",
+                shortcuts = {"help": 191, "next": 78, "previous": 80, "search": 83};
+        </script>
+        <script src="../../js/base.js"></script>
+        <script src="../../search/main.js"></script>
+
+        <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>From here you can search these documents. Enter your search terms below.</p>
+                <form>
+                    <div class="form-group">
+                        <input type="search" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results" data-no-results-text="No results found"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+
+    </body>
+</html>

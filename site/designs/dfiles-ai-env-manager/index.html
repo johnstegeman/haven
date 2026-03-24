@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        
+        
+        <link rel="canonical" href="https://johnstegeman.github.io/haven/designs/dfiles-ai-env-manager/">
+        <link rel="shortcut icon" href="../../img/favicon.ico">
+        <title>CEO Plan: haven — AI-First Developer Environment Manager - haven</title>
+        <link href="../../css/bootstrap.min.css" rel="stylesheet">
+        <link href="../../css/fontawesome.min.css" rel="stylesheet">
+        <link href="../../css/brands.min.css" rel="stylesheet">
+        <link href="../../css/solid.min.css" rel="stylesheet">
+        <link href="../../css/v4-font-face.min.css" rel="stylesheet">
+        <link href="../../css/base.css" rel="stylesheet">
+        <link id="hljs-light" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" >
+        <link id="hljs-dark" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css" disabled>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script>hljs.highlightAll();</script> 
+    </head>
+
+    <body>
+        <div class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary">
+            <div class="container">
+                <a class="navbar-brand" href="../..">haven</a>
+                <!-- Expander button -->
+                <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar-collapse" aria-controls="navbar-collapse" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <!-- Expanded navigation -->
+                <div id="navbar-collapse" class="navbar-collapse collapse">
+                        <!-- Main navigation -->
+                        <ul class="nav navbar-nav">
+                            <li class="nav-item">
+                                <a href="../.." class="nav-link">Home</a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="../../concepts/" class="nav-link">Concepts</a>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Getting Started</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../getting-started/installation/" class="dropdown-item">Installation</a>
+</li>
+                                    
+<li>
+    <a href="../../getting-started/quickstart/" class="dropdown-item">Quick Start</a>
+</li>
+                                    
+<li>
+    <a href="../../getting-started/new-machine/" class="dropdown-item">New Machine Setup</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Guides</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../guides/tracking-files/" class="dropdown-item">Tracking Files</a>
+</li>
+                                    
+<li>
+    <a href="../../guides/packages/" class="dropdown-item">Managing Packages</a>
+</li>
+                                    
+<li>
+    <a href="../../guides/ai-skills/" class="dropdown-item">AI Skills</a>
+</li>
+                                    
+<li>
+    <a href="../../guides/templates/" class="dropdown-item">Templates & Secrets</a>
+</li>
+                                    
+<li>
+    <a href="../../guides/profiles-modules/" class="dropdown-item">Profiles & Modules</a>
+</li>
+                                    
+<li>
+    <a href="../../guides/security/" class="dropdown-item">Security Scanning</a>
+</li>
+                                    
+<li>
+    <a href="../../guides/vcs/" class="dropdown-item">VCS Backend</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">For chezmoi Users</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../for-chezmoi-users/" class="dropdown-item">Overview</a>
+</li>
+                                    
+<li>
+    <a href="../../for-chezmoi-users/migration/" class="dropdown-item">Migration Guide</a>
+</li>
+                                    
+<li>
+    <a href="../../for-chezmoi-users/commands/" class="dropdown-item">Command Equivalence</a>
+</li>
+                                    
+<li>
+    <a href="../../for-chezmoi-users/templates/" class="dropdown-item">Template Conversion</a>
+</li>
+                                    
+<li>
+    <a href="../../for-chezmoi-users/gaps/" class="dropdown-item">Feature Gaps</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Reference</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../reference/commands/" class="dropdown-item">Command Reference</a>
+</li>
+                                    
+<li>
+    <a href="../../reference/configuration/" class="dropdown-item">Configuration</a>
+</li>
+                                    
+<li>
+    <a href="../../reference/magic-names/" class="dropdown-item">Magic-Name Encoding</a>
+</li>
+                                    
+<li>
+    <a href="../../reference/template-variables/" class="dropdown-item">Template Variables</a>
+</li>
+                                    
+<li>
+    <a href="../../reference/environment/" class="dropdown-item">Environment Variables</a>
+</li>
+                                    
+<li>
+    <a href="../../reference/repo-layout/" class="dropdown-item">Repo Layout</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item">
+                                <a href="../../changelog/" class="nav-link">Changelog</a>
+                            </li>
+                        </ul>
+
+                    <ul class="nav navbar-nav ms-md-auto">
+                        <li class="nav-item">
+                            <a href="#" class="nav-link" data-bs-toggle="modal" data-bs-target="#mkdocs_search_modal">
+                                <i class="fa fa-search"></i> Search
+                            </a>
+                        </li>
+                            <li class="nav-item">
+                                <a href="https://github.com/johnstegeman/haven/edit/main/docs/designs/dfiles-ai-env-manager.md" class="nav-link">Edit on johnstegeman/haven
+                                    </a>
+                            </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="row">
+                    <div class="col-md-3"><div class="navbar-expand-md bs-sidebar hidden-print affix" role="complementary">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggler collapsed" data-bs-toggle="collapse" data-bs-target="#toc-collapse" title="Table of Contents">
+            <span class="fa fa-angle-down"></span>
+        </button>
+    </div>
+
+    
+    <div id="toc-collapse" class="navbar-collapse collapse card bg-body-tertiary">
+        <ul class="nav flex-column">
+            
+            <li class="nav-item" data-bs-level="1"><a href="#ceo-plan-haven-ai-first-developer-environment-manager" class="nav-link">CEO Plan: haven — AI-First Developer Environment Manager</a>
+              <ul class="nav flex-column">
+            <li class="nav-item" data-bs-level="2"><a href="#vision" class="nav-link">Vision</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#scope-decisions" class="nav-link">Scope Decisions</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#accepted-scope-added-to-this-plan" class="nav-link">Accepted Scope (added to this plan)</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#deferred-to-todosmd" class="nav-link">Deferred to TODOS.md</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#updated-architecture-post-expansion" class="nav-link">Updated Architecture (post-expansion)</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#architecture-diagrams" class="nav-link">Architecture Diagrams</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#open-questions-carry-forward-from-design-doc" class="nav-link">Open Questions (carry forward from design doc)</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#strategic-positioning" class="nav-link">Strategic Positioning</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#temporal-interrogation" class="nav-link">Temporal Interrogation</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#feasibility-notes" class="nav-link">Feasibility Notes</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+              </ul>
+            </li>
+        </ul>
+    </div>
+</div></div>
+                    <div class="col-md-9" role="main">
+
+<h1 id="ceo-plan-haven-ai-first-developer-environment-manager">CEO Plan: haven — AI-First Developer Environment Manager<a class="headerlink" href="#ceo-plan-haven-ai-first-developer-environment-manager" title="Permanent link">&para;</a></h1>
+<p>Generated by /plan-ceo-review on 2026-03-20
+Branch: main | Mode: SCOPE EXPANSION
+Repo: haven</p>
+<hr />
+<h2 id="vision">Vision<a class="headerlink" href="#vision" title="Permanent link">&para;</a></h2>
+<h3 id="10x-check">10x Check<a class="headerlink" href="#10x-check" title="Permanent link">&para;</a></h3>
+<p>The 10x version is not a better dotfiles manager. It's <strong>the package registry for AI developer environments</strong> — what npm was to Node, but for AI tool configurations.</p>
+<p>Today: developers Google "best Claude Code skills" and manually install things from GitHub. There's no standard format, no versioning, no dependencies, no discovery. <code>skills.sh</code> is the closest thing but it's interactive and ephemeral.</p>
+<p>The 10x version: you describe your environment declaratively, haven resolves dependencies,
+fetches versioned packages, installs everything. You publish your curated setup as a package
+others can install in one command. A thriving ecosystem emerges around it.</p>
+<pre><code>haven bootstrap gh:popular-author/rust-ai-env
+# Installs: 8 Claude Code skills, /commit + /review commands, MCP servers,
+#           rustup + cargo-watch + bacon, mise: rust@stable node@lts,
+#           dotfiles: .zshrc .gitconfig .cargo/config.toml
+# Time: under 2 minutes on a fresh machine. Nothing else does this.
+</code></pre>
+<h3 id="platonic-ideal">Platonic Ideal<a class="headerlink" href="#platonic-ideal" title="Permanent link">&para;</a></h3>
+<p>Declarative AI environment composition: you describe what kind of developer you are,
+not what files you want. The system resolves the right combination.</p>
+<pre><code class="language-toml">[identity]
+type = &quot;developer&quot;
+focus = [&quot;rust&quot;, &quot;typescript&quot;, &quot;devops&quot;]
+ai_assistant = &quot;claude&quot;
+style = &quot;minimal&quot;
+
+[ai]
+skills = [&quot;gh:gstack/standard-skills&quot;, &quot;gh:rust-lang/claude-rust-skills&quot;]
+</code></pre>
+<p>The user specifies <em>intent</em>. haven figures out what that requires.</p>
+<h3 id="delight-opportunities">Delight Opportunities<a class="headerlink" href="#delight-opportunities" title="Permanent link">&para;</a></h3>
+<ol>
+<li><code>haven status</code> — colored, emoji-rich, grouped by module. Like <code>git status</code> but satisfying.</li>
+<li><code>haven bootstrap --dry-run</code> — full install plan preview before touching anything.</li>
+<li>Auto-generated <code>~/.claude/CLAUDE.md</code> — Claude Code learns what's installed.</li>
+<li><code>haven publish</code> — share your environment as a versioned GitHub release.</li>
+<li>Shell completions — <code>haven completions --shell zsh</code> for all commands + profile names.</li>
+<li><code>haven log</code> — changelog of what changed across machines and when.</li>
+<li>Homebrew tap — <code>brew install haven-sh/tap/haven</code> closes the bootstrap paradox.</li>
+</ol>
+<hr />
+<h2 id="scope-decisions">Scope Decisions<a class="headerlink" href="#scope-decisions" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Proposal</th>
+<th>Effort</th>
+<th>Decision</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Registry Protocol Standard</td>
+<td>M</td>
+<td>DEFERRED</td>
+<td>In TODOS.md</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>haven publish</code> command</td>
+<td>M</td>
+<td>ACCEPTED</td>
+<td>Not yet implemented</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Auto-Generated CLAUDE.md</td>
+<td>S</td>
+<td>ACCEPTED</td>
+<td>✅ DONE (<code>src/claude_md.rs</code>)</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Homebrew tap + curl install</td>
+<td>S</td>
+<td>ACCEPTED</td>
+<td>Not yet implemented</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Cross-machine diff</td>
+<td>M</td>
+<td>DEFERRED</td>
+<td>In TODOS.md</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Frictionless sync safety net</td>
+<td>S</td>
+<td>ACCEPTED</td>
+<td>Not yet implemented</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="accepted-scope-added-to-this-plan">Accepted Scope (added to this plan)<a class="headerlink" href="#accepted-scope-added-to-this-plan" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>haven publish</code> — package config as versioned GitHub release (publishes to user's own repo, requires <code>gh auth</code>) — <strong>NOT YET IMPLEMENTED</strong></li>
+<li>✅ Auto-generated <code>~/.claude/CLAUDE.md</code> on every <code>haven apply</code> (reads SKILL.md YAML frontmatter; profile noted but not conditional) — <strong>DONE (2026-03-20)</strong> (<code>src/claude_md.rs</code>)</li>
+<li>Homebrew tap (<code>haven-sh/tap/haven</code>) + curl install script (<code>https://haven.sh/install</code>) — <strong>NOT YET IMPLEMENTED</strong></li>
+<li>Requires: CI/CD pipeline (GitHub Actions) producing pre-built binaries for macOS x86_64/aarch64 + Linux x86_64/aarch64</li>
+<li>Safe file watcher with sensitive-file detection: <code>.havenignore</code> + built-in sensitive-file blocklist</li>
+<li>Blocklist: <code>*.env</code>, <code>*.pem</code>, <code>*_rsa</code>, <code>*_ed25519</code>, <code>.npmrc</code>, <code>.pypirc</code>, <code>*.pfx</code>, etc.</li>
+<li><code>.havenignore</code> checked FIRST (stop processing if matched); blocklist only runs on unignored files</li>
+<li>Confirmation prompt applies to both <code>haven watch</code> events AND <code>haven add</code> commands</li>
+<li>Skipped files logged to <code>~/.haven/skipped.log</code> (JSON: <code>{"file": "...", "reason": "...", "ts": "..."}</code>)</li>
+<li><code>haven bootstrap --dry-run</code> — show full install plan without executing</li>
+<li>Shell completions: <code>haven completions --shell [zsh|bash|fish]</code> (via <code>clap_complete</code> crate)</li>
+<li><code>haven log</code> — changelog of tracked changes with timestamps</li>
+</ul>
+<h2 id="deferred-to-todosmd">Deferred to TODOS.md<a class="headerlink" href="#deferred-to-todosmd" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Registry Protocol Standard: define <code>haven.pkg.toml</code> format when real usage data informs the design</li>
+<li>Cross-machine diff (<code>haven diff --machine &lt;name&gt;</code>): implement once 2+ machines have state.json files</li>
+<li>Conflict resolution UX: three-way diff when <code>apply</code> finds diverged files (source ≠ live ≠ last-known-good)</li>
+</ul>
+<hr />
+<h2 id="updated-architecture-post-expansion">Updated Architecture (post-expansion)<a class="headerlink" href="#updated-architecture-post-expansion" title="Permanent link">&para;</a></h2>
+<h3 id="new-commands-from-accepted-scope">New Commands (from accepted scope)<a class="headerlink" href="#new-commands-from-accepted-scope" title="Permanent link">&para;</a></h3>
+<pre><code>haven init               # initialize new haven repo
+haven bootstrap          # full setup: apply + packages + ai (NEW: installs haven too via tap)
+haven bootstrap gh:user/env  # bootstrap from a published environment package
+haven apply              # apply all modules to current machine
+haven apply --profile minimal
+haven apply --module ai
+haven sync               # detect and record changes (explicit mode)
+haven watch              # start file watcher (opt-in, with safety net)
+haven status             # show drift — colored, emoji-rich output
+haven diff               # diff between source and live files
+haven add ~/.zshrc       # explicitly add a new file to tracking
+haven upgrade            # update all GitHub-sourced AI configs
+haven publish            # NEW: package current config as versioned GitHub release
+haven publish --tag v1.0 --name &quot;my-ai-env&quot;
+haven completions --shell zsh  # NEW: shell completions
+haven log                # NEW: changelog of changes across time
+</code></pre>
+<h3 id="safety-net-architecture">Safety Net Architecture<a class="headerlink" href="#safety-net-architecture" title="Permanent link">&para;</a></h3>
+<pre><code>File Watcher Event
+      │
+      ▼
+.havenignore check ──── IGNORED ──── stop
+      │
+      ▼
+Sensitive-file blocklist
+      │
+      ├── MATCH ──── Prompt user: &quot;Block or track?&quot;
+      │                    │
+      │              User confirms ──── track with explicit annotation
+      │              User declines ──── skip, log to ~/.haven/skipped.log
+      │
+      └── CLEAN ──── auto-track
+</code></pre>
+<h3 id="claudemd-generation">CLAUDE.md Generation<a class="headerlink" href="#claudemd-generation" title="Permanent link">&para;</a></h3>
+<p>After every <code>haven apply</code>, haven reads the installed skills and commands (from their
+metadata files) and writes/updates <code>~/.claude/CLAUDE.md</code>:</p>
+<pre><code class="language-markdown"># Claude Code Environment
+Generated by haven on {date} (profile: work)
+
+## Installed Skills
+- /office-hours: YC Office Hours partner — brainstorm and design
+- /ship: Release engineer — merge, test, push, create PR
+
+## Slash Commands
+- /commit: Create conventional commit with good message
+
+## MCP Servers
+- memory: Neo4j graph memory (neo4j://localhost:7687)
+- filesystem: Local file access (~/)
+</code></pre>
+<p>Haven reads skill metadata from: <code>{skill_dir}/SKILL.md</code> YAML frontmatter
+(name, version, description) and command metadata from <code>{commands_dir}/*.md</code>.</p>
+<h3 id="haven-publish-architecture"><code>haven publish</code> Architecture<a class="headerlink" href="#haven-publish-architecture" title="Permanent link">&para;</a></h3>
+<pre><code>haven publish --tag v1.0 --name &quot;my-ai-env&quot;
+
+1. Check: `gh auth status` — fail loudly if not authenticated
+2. Check: does current git remote repo exist and user has write access?
+   If no repo: prompt &quot;Create github.com/{user}/haven-config? [y/N]&quot;
+   If no write access: fail with clear message + suggestion
+3. Read current haven.toml + all module configs
+4. Create manifest: haven-manifest.json
+   { &quot;name&quot;: &quot;my-ai-env&quot;, &quot;version&quot;: &quot;v1.0&quot;,
+     &quot;profiles&quot;: [...], &quot;modules&quot;: [...],
+     &quot;author&quot;: &quot;jstegeman&quot;, &quot;created&quot;: &quot;2026-03-20&quot; }
+5. Bundle: source files + module configs + manifest
+   ALWAYS excludes: secrets.toml, any file matching blocklist
+6. Create GitHub release via gh CLI:
+   gh release create v1.0 --title &quot;my-ai-env v1.0&quot; bundle.tar.gz
+7. Print: &quot;Published! Others can bootstrap with:&quot;
+          &quot;  haven bootstrap gh:jstegeman/haven-config&quot;
+</code></pre>
+<p><strong>Source notation:</strong> <code>gh:{owner}/{repo}</code> resolves to latest release of <code>github.com/{owner}/{repo}</code>.
+<code>gh:{owner}/{repo}@{ref}</code> resolves to a specific tag/commit. The <code>@</code> syntax is consistent across
+all source types (skills, commands, full env packages).</p>
+<h3 id="homebrew-tap-structure">Homebrew Tap Structure<a class="headerlink" href="#homebrew-tap-structure" title="Permanent link">&para;</a></h3>
+<pre><code>github.com/haven-sh/homebrew-tap/
+  Formula/
+    haven.rb       # formula: download release binary for current arch
+</code></pre>
+<p>Install script (<code>https://haven.sh/install</code>):</p>
+<pre><code class="language-bash">#!/bin/sh
+# 1. Detect OS (macOS/Linux) + arch
+# 2. Download pre-built binary from GitHub releases
+# 3. Install to /usr/local/bin/haven (or ~/.local/bin on Linux)
+# 4. Print: &quot;haven installed! Run: haven bootstrap&quot;
+</code></pre>
+<hr />
+<h2 id="architecture-diagrams">Architecture Diagrams<a class="headerlink" href="#architecture-diagrams" title="Permanent link">&para;</a></h2>
+<h3 id="system-overview">System Overview<a class="headerlink" href="#system-overview" title="Permanent link">&para;</a></h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────┐
+│                          haven CLI                              │
+├──────────┬──────────┬──────────┬──────────┬────────────────────┤
+│  init /  │ apply /  │ sync /   │ publish  │  bootstrap         │
+│  add     │ status   │ watch    │          │  gh:user/env        │
+└──────────┴──────────┴──────────┴──────────┴────────────────────┘
+     │           │          │          │              │
+     ▼           ▼          ▼          ▼              ▼
+┌─────────┐ ┌────────┐ ┌────────┐ ┌────────┐  ┌──────────────┐
+│ haven/  │ │ Module │ │ File   │ │ GitHub │  │ GitHub       │
+│ config  │ │ Engine │ │ Watcher│ │ Release│  │ Source       │
+│ source/ │ │        │ │+Safety │ │ via gh │  │ Fetcher      │
+└─────────┘ └────────┘ └────────┘ └────────┘  └──────────────┘
+               │                                      │
+     ┌─────────┼─────────┬─────────┐                 │
+     ▼         ▼         ▼         ▼                  ▼
+┌──────────┐ ┌───────┐ ┌────────┐ ┌────────┐  ┌──────────────┐
+│ Template │ │Homebrew│ │  AI   │ │Secrets │  │ haven.lock   │
+│ Engine   │ │  mise  │ │Module │ │  1P    │  │ (SHA pins)   │
+│ (Tera)   │ │        │ │CLAUDE │ │  op    │  └──────────────┘
+└──────────┘ └───────┘ └───────┘ └────────┘
+                           │
+                    ┌──────┴──────┐
+                    ▼             ▼
+              ~/.claude/       ~/.haven/
+              skills/          state.json
+              commands/        skipped.log
+              CLAUDE.md
+</code></pre>
+<h3 id="bootstrap-flow">Bootstrap Flow<a class="headerlink" href="#bootstrap-flow" title="Permanent link">&para;</a></h3>
+<pre><code>curl install | sh           OR    brew install haven-sh/tap/haven
+      │                                         │
+      └──────────────┬──────────────────────────┘
+                     ▼
+              haven bootstrap [gh:user/env]
+                     │
+          ┌──────────┴──────────┐
+          │                     │
+          ▼ (if gh:user/env)    ▼ (local config)
+    Fetch + verify         Read haven.toml
+    manifest from          + module configs
+    GitHub release
+          │                     │
+          └──────────┬──────────┘
+                     ▼
+          Module dependency resolution
+          (shell → git → packages → secrets → ai)
+                     │
+          ┌──────────┴──────────────────────┐
+          ▼          ▼          ▼           ▼
+    Symlink/     brew bundle  op://      GitHub
+    copy files   install      secrets    skill fetch
+                 mise install render
+                     │
+                     ▼
+            CLAUDE.md generation
+                     │
+                     ▼
+            state.json written
+                     │
+                     ▼
+            haven status (show result)
+</code></pre>
+<hr />
+<h2 id="open-questions-carry-forward-from-design-doc">Open Questions (carry forward from design doc)<a class="headerlink" href="#open-questions-carry-forward-from-design-doc" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>DECIDED (2026-03-20):</strong> File naming — <strong>chezmoi-compatible magic-name encoding</strong>
+   chosen over "plain names + TOML dest mapping". Source filenames like <code>dot_zshrc</code>,
+   <code>private_dot_ssh/id_rsa</code>, <code>executable_dot_local/bin/foo</code> encode all metadata with
+   no TOML registry. Enables zero-friction migration from chezmoi and compatible tooling.</li>
+<li><strong>DECIDED:</strong> Lockfile format: <code>haven.lock</code> pins GitHub sources by commit SHA (implemented).</li>
+<li><strong>DECIDED:</strong> Conflict resolution — default is backup-and-overwrite for MVP:
+   <code>haven apply</code> backs up the live file to <code>~/.haven/backups/</code> before overwriting.
+   Three-way diff tool deferred to post-v1 (TODOS.md).</li>
+<li><strong>DECIDED:</strong> Rust chosen for implementation.</li>
+<li><strong>OPEN:</strong> <code>haven publish</code> bundle format — tar.gz vs directory — and whether secrets.toml
+   is excluded by default or opt-in exclude.</li>
+</ol>
+<hr />
+<h2 id="strategic-positioning">Strategic Positioning<a class="headerlink" href="#strategic-positioning" title="Permanent link">&para;</a></h2>
+<pre><code>  CURRENT TOOLS           WHAT THEY DO WELL         GAP
+  ─────────────           ─────────────────         ────────────────────
+  chezmoi                 dotfiles management        AI tooling, frictionless
+  skills.sh               interactive skill install   managed/declarative
+  mackup                  app settings backup        modern toolchain integration
+  mise                    runtime version mgmt       environment bootstrapping
+  Homebrew Bundle         package management         unified env bootstrap
+
+  haven                   ALL OF THE ABOVE           + AI configs as packages
+                          unified, declarative        + publish/share
+                          one bootstrap command       + CLAUDE.md awareness
+</code></pre>
+<p>haven wins not by being better at any one thing but by being the only tool that
+connects all of them — and adds the AI tooling layer that doesn't exist anywhere else.</p>
+<hr />
+<h2 id="temporal-interrogation">Temporal Interrogation<a class="headerlink" href="#temporal-interrogation" title="Permanent link">&para;</a></h2>
+<p>Implementation decisions to resolve before coding:</p>
+<p><strong>HOUR 1 (foundations):</strong>
+- Which Rust crates? Recommend: <code>clap</code> (CLI), <code>tera</code> (templates), <code>toml</code> (config), <code>notify</code> (file watch), <code>reqwest</code> (HTTP for GitHub), <code>serde</code> (serialization)
+- File structure: does <code>haven init</code> live inside a git repo (like chezmoi) or standalone directory?</p>
+<p><strong>HOUR 2-3 (core logic):</strong>
+- How does apply handle files that already exist at the destination? Options: overwrite, backup, ask, fail.
+- How does the symlink vs copy decision work? chezmoi copies; GNU Stow symlinks. Each has tradeoffs.</p>
+<p><strong>HOUR 4-5 (integration):</strong>
+- 1Password subprocess: synchronous <code>op read</code> or batch? Batch is faster but requires waiting for all templates to be scanned first.
+- GitHub rate limiting: unauthenticated API is 60 req/hour. For users with many gh: sources, this hits fast. Need <code>gh auth token</code> fallback.</p>
+<p><strong>HOUR 6+ (polish/tests):</strong>
+- Shell completions: <code>clap_complete</code> crate handles this cleanly; wire it early.
+- First-run experience: does <code>haven bootstrap</code> on a machine with no config ask questions or fail loudly?</p>
+<hr />
+<h2 id="feasibility-notes">Feasibility Notes<a class="headerlink" href="#feasibility-notes" title="Permanent link">&para;</a></h2>
+<ul>
+<li>
+<p><strong>1Password is optional.</strong> If <code>op</code> CLI not installed, secrets module is skipped with a warning.
+  Fallback: plain-text templates can use <code>{{ env "VAR_NAME" }}</code> as an alternative.
+  No hard dependency on 1Password for core functionality.</p>
+</li>
+<li>
+<p><strong>GitHub API rate limiting.</strong> Unauthenticated: 60 req/hour. Mitigation:
+  (1) cache fetched GitHub sources in <code>~/.haven/cache/</code> with TTL;
+  (2) prefer <code>gh auth token</code> when available;
+  (3) batch all GitHub fetches at bootstrap start rather than inline.</p>
+</li>
+<li>
+<p><strong>Homebrew tap requires CI/CD.</strong> GitHub Actions workflow to build and publish
+  pre-built binaries for: macOS x86_64 (Intel), macOS aarch64 (Apple Silicon),
+  Linux x86_64, Linux aarch64. This is boilerplate (<code>cross</code> crate + release workflow)
+  but is ongoing maintenance. Estimate: 1 day to set up (human) / 15 min (CC).</p>
+</li>
+<li>
+<p><strong>SKILL.md YAML frontmatter format</strong> (for CLAUDE.md generation):
+  ```yaml</p>
+</li>
+</ul>
+<hr />
+<p>name: office-hours
+  version: 1.0.0
+  description: "YC Office Hours partner — brainstorm and design"</p>
+<hr />
+<p><code>``
+  Fields</code>name<code>and</code>description` are required for CLAUDE.md generation.
+  If missing or malformed, skill is listed with its directory name and "(no description)".</p></div>
+            </div>
+        </div>
+
+        <footer class="col-md-12">
+            <hr>
+            <p>Documentation built with <a href="https://www.mkdocs.org/">MkDocs</a>.</p>
+        </footer>
+        <script src="../../js/bootstrap.bundle.min.js"></script>
+        <script>
+            var base_url = "../..",
+                shortcuts = {"help": 191, "next": 78, "previous": 80, "search": 83};
+        </script>
+        <script src="../../js/base.js"></script>
+        <script src="../../search/main.js"></script>
+
+        <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>From here you can search these documents. Enter your search terms below.</p>
+                <form>
+                    <div class="form-group">
+                        <input type="search" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results" data-no-results-text="No results found"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+
+    </body>
+</html>

@@ -2,6 +2,10 @@
   <img src="assets/logo-wide.svg" width="520" height="100" alt="haven — AI-first dotfiles &amp; environment manager"/>
 </p>
 
+<p align="center">
+  <a href="https://johnstegeman.github.io/haven">Documentation</a>
+</p>
+
 ---
 
 **haven** is a declarative, AI-first developer environment manager. It tracks your

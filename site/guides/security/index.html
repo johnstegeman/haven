@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        
+        
+        <link rel="canonical" href="https://johnstegeman.github.io/haven/guides/security/">
+        <link rel="shortcut icon" href="../../img/favicon.ico">
+        <title>Security Scanning - haven</title>
+        <link href="../../css/bootstrap.min.css" rel="stylesheet">
+        <link href="../../css/fontawesome.min.css" rel="stylesheet">
+        <link href="../../css/brands.min.css" rel="stylesheet">
+        <link href="../../css/solid.min.css" rel="stylesheet">
+        <link href="../../css/v4-font-face.min.css" rel="stylesheet">
+        <link href="../../css/base.css" rel="stylesheet">
+        <link id="hljs-light" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" >
+        <link id="hljs-dark" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css" disabled>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script>hljs.highlightAll();</script> 
+    </head>
+
+    <body>
+        <div class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary">
+            <div class="container">
+                <a class="navbar-brand" href="../..">haven</a>
+                <!-- Expander button -->
+                <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar-collapse" aria-controls="navbar-collapse" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <!-- Expanded navigation -->
+                <div id="navbar-collapse" class="navbar-collapse collapse">
+                        <!-- Main navigation -->
+                        <ul class="nav navbar-nav">
+                            <li class="nav-item">
+                                <a href="../.." class="nav-link">Home</a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="../../concepts/" class="nav-link">Concepts</a>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Getting Started</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../getting-started/installation/" class="dropdown-item">Installation</a>
+</li>
+                                    
+<li>
+    <a href="../../getting-started/quickstart/" class="dropdown-item">Quick Start</a>
+</li>
+                                    
+<li>
+    <a href="../../getting-started/new-machine/" class="dropdown-item">New Machine Setup</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle active" aria-current="page" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Guides</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../tracking-files/" class="dropdown-item">Tracking Files</a>
+</li>
+                                    
+<li>
+    <a href="../packages/" class="dropdown-item">Managing Packages</a>
+</li>
+                                    
+<li>
+    <a href="../ai-skills/" class="dropdown-item">AI Skills</a>
+</li>
+                                    
+<li>
+    <a href="../templates/" class="dropdown-item">Templates & Secrets</a>
+</li>
+                                    
+<li>
+    <a href="../profiles-modules/" class="dropdown-item">Profiles & Modules</a>
+</li>
+                                    
+<li>
+    <a href="./" class="dropdown-item active" aria-current="page">Security Scanning</a>
+</li>
+                                    
+<li>
+    <a href="../vcs/" class="dropdown-item">VCS Backend</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">For chezmoi Users</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../for-chezmoi-users/" class="dropdown-item">Overview</a>
+</li>
+                                    
+<li>
+    <a href="../../for-chezmoi-users/migration/" class="dropdown-item">Migration Guide</a>
+</li>
+                                    
+<li>
+    <a href="../../for-chezmoi-users/commands/" class="dropdown-item">Command Equivalence</a>
+</li>
+                                    
+<li>
+    <a href="../../for-chezmoi-users/templates/" class="dropdown-item">Template Conversion</a>
+</li>
+                                    
+<li>
+    <a href="../../for-chezmoi-users/gaps/" class="dropdown-item">Feature Gaps</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Reference</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../reference/commands/" class="dropdown-item">Command Reference</a>
+</li>
+                                    
+<li>
+    <a href="../../reference/configuration/" class="dropdown-item">Configuration</a>
+</li>
+                                    
+<li>
+    <a href="../../reference/magic-names/" class="dropdown-item">Magic-Name Encoding</a>
+</li>
+                                    
+<li>
+    <a href="../../reference/template-variables/" class="dropdown-item">Template Variables</a>
+</li>
+                                    
+<li>
+    <a href="../../reference/environment/" class="dropdown-item">Environment Variables</a>
+</li>
+                                    
+<li>
+    <a href="../../reference/repo-layout/" class="dropdown-item">Repo Layout</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item">
+                                <a href="../../changelog/" class="nav-link">Changelog</a>
+                            </li>
+                        </ul>
+
+                    <ul class="nav navbar-nav ms-md-auto">
+                        <li class="nav-item">
+                            <a href="#" class="nav-link" data-bs-toggle="modal" data-bs-target="#mkdocs_search_modal">
+                                <i class="fa fa-search"></i> Search
+                            </a>
+                        </li>
+                            <li class="nav-item">
+                                <a rel="prev" href="../profiles-modules/" class="nav-link">
+                                    <i class="fa fa-arrow-left"></i> Previous
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a rel="next" href="../vcs/" class="nav-link">
+                                    Next <i class="fa fa-arrow-right"></i>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="https://github.com/johnstegeman/haven/edit/main/docs/guides/security.md" class="nav-link">Edit on johnstegeman/haven
+                                    </a>
+                            </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="row">
+                    <div class="col-md-3"><div class="navbar-expand-md bs-sidebar hidden-print affix" role="complementary">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggler collapsed" data-bs-toggle="collapse" data-bs-target="#toc-collapse" title="Table of Contents">
+            <span class="fa fa-angle-down"></span>
+        </button>
+    </div>
+
+    
+    <div id="toc-collapse" class="navbar-collapse collapse card bg-body-tertiary">
+        <ul class="nav flex-column">
+            
+            <li class="nav-item" data-bs-level="1"><a href="#security-scanning" class="nav-link">Security Scanning</a>
+              <ul class="nav flex-column">
+            <li class="nav-item" data-bs-level="2"><a href="#running-a-scan" class="nav-link">Running a scan</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#what-is-checked" class="nav-link">What is checked</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#suppressing-false-positives" class="nav-link">Suppressing false positives</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#integration-with-haven-add" class="nav-link">Integration with haven add</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#using-in-ci" class="nav-link">Using in CI</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#handling-1password-and-other-secrets" class="nav-link">Handling 1Password and other secrets</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#supply-chain-protection-for-skills" class="nav-link">Supply chain protection for skills</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+              </ul>
+            </li>
+        </ul>
+    </div>
+</div></div>
+                    <div class="col-md-9" role="main">
+
+<h1 id="security-scanning">Security Scanning<a class="headerlink" href="#security-scanning" title="Permanent link">&para;</a></h1>
+<p>haven has built-in secret detection to help you avoid accidentally committing credentials, private keys, or sensitive configuration files to your dotfile repo.</p>
+<h2 id="running-a-scan">Running a scan<a class="headerlink" href="#running-a-scan" title="Permanent link">&para;</a></h2>
+<pre><code class="language-sh">haven security-scan            # scan all tracked files
+haven security-scan --entropy  # also flag high-entropy strings
+</code></pre>
+<p>Exits <code>0</code> when clean, <code>1</code> when findings are reported — suitable for CI or pre-push hooks.</p>
+<h2 id="what-is-checked">What is checked<a class="headerlink" href="#what-is-checked" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Check</th>
+<th>Examples flagged</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Filename patterns</strong></td>
+<td><code>.env</code>, <code>id_rsa</code>, <code>credentials</code>, <code>.pem</code>, <code>.key</code>, <code>.p12</code>, <code>secrets</code></td>
+</tr>
+<tr>
+<td><strong>Path patterns</strong></td>
+<td><code>~/.aws/credentials</code>, <code>~/.kube/**</code>, <code>~/.ssh/**</code>, <code>~/.config/gh/hosts.yml</code>, <code>~/.docker/config.json</code>, <code>~/.gnupg/**</code></td>
+</tr>
+<tr>
+<td><strong>Content patterns</strong></td>
+<td>GitHub tokens (<code>ghp_</code>, <code>ghs_</code>, <code>github_pat_</code>), AWS keys (<code>AKIA…</code>), PEM private keys, OpenAI keys (<code>sk-…</code>), Anthropic keys (<code>sk-ant-…</code>), generic <code>password =</code> / <code>secret =</code> assignments</td>
+</tr>
+<tr>
+<td><strong>High-entropy strings</strong> (opt-in)</td>
+<td>Random-looking tokens ≥16 chars with Shannon entropy &gt;4.5 bits/char</td>
+</tr>
+</tbody>
+</table>
+<p>High-entropy detection is opt-in (<code>--entropy</code>) because it can produce false positives on base64-encoded data, hashes, and other non-secret strings.</p>
+<h2 id="suppressing-false-positives">Suppressing false positives<a class="headerlink" href="#suppressing-false-positives" title="Permanent link">&para;</a></h2>
+<p>Some files are intentionally tracked even though they look sensitive. Add them to <code>[security] allow</code> in <code>haven.toml</code>:</p>
+<pre><code class="language-toml">[security]
+allow = [
+  &quot;~/.config/gh/hosts.yml&quot;,     # intentionally tracked — personal access token
+  &quot;~/.config/gcloud/**&quot;,        # managed by gcloud CLI; not a raw secret
+  &quot;~/.config/karabiner/**&quot;,     # keyboard config, no secrets
+]
+</code></pre>
+<p>Patterns follow the same glob syntax as <code>config/ignore</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Pattern</th>
+<th>Matches</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>~/.config/gh/hosts.yml</code></td>
+<td>Exact file</td>
+</tr>
+<tr>
+<td><code>~/.config/gcloud/**</code></td>
+<td>Everything under <code>~/.config/gcloud/</code></td>
+</tr>
+<tr>
+<td><code>*.example</code></td>
+<td>Any file with <code>.example</code> extension (basename only)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="integration-with-haven-add">Integration with <code>haven add</code><a class="headerlink" href="#integration-with-haven-add" title="Permanent link">&para;</a></h2>
+<p>When you run <code>haven add</code>, haven scans the file before saving it. If sensitive patterns match, you're prompted:</p>
+<pre><code>warning: ~/.env may contain sensitive content (1 pattern(s) found).
+  · Generic secret assignment (MEDIUM)
+Track it anyway? [y/N]
+</code></pre>
+<p>Declining removes the file from <code>source/</code> immediately — no partial state is left. Files in <code>[security] allow</code> bypass this prompt.</p>
+<h2 id="using-in-ci">Using in CI<a class="headerlink" href="#using-in-ci" title="Permanent link">&para;</a></h2>
+<p>Add to your CI pipeline or as a pre-push hook:</p>
+<pre><code class="language-sh"># pre-push hook: .git/hooks/pre-push
+#!/bin/sh
+haven security-scan
+</code></pre>
+<p>Or in CI:</p>
+<pre><code class="language-yaml"># .github/workflows/ci.yml
+- name: Scan for secrets
+  run: haven security-scan
+</code></pre>
+<p><code>haven security-scan</code> exits 1 on findings, blocking the push or failing the CI job.</p>
+<h2 id="handling-1password-and-other-secrets">Handling 1Password and other secrets<a class="headerlink" href="#handling-1password-and-other-secrets" title="Permanent link">&para;</a></h2>
+<p>The recommended approach is to <strong>never store secrets in the repo</strong> — use 1Password templates instead:</p>
+<pre><code># source/dot_config/gh/hosts.yml.tmpl
+github.com:
+  user: alice
+  oauth_token: {{ op(path=&quot;Personal/GitHub/token&quot;) }}
+</code></pre>
+<p>The destination file is written with the secret fetched live at apply time. Nothing sensitive is committed. See <a href="../templates/">Templates &amp; Secrets</a> for details.</p>
+<h2 id="supply-chain-protection-for-skills">Supply chain protection for skills<a class="headerlink" href="#supply-chain-protection-for-skills" title="Permanent link">&para;</a></h2>
+<p>haven also protects against supply chain attacks in AI skills. Every <code>gh:</code> skill source is pinned by SHA256 in <code>haven.lock</code>. A mismatch between the fetched content and the recorded SHA is a hard error:</p>
+<pre><code class="language-sh"># Intentionally upgrade a skill (clears and re-pins the SHA)
+haven ai update pdf-processing
+</code></pre>
+<p>See <a href="../ai-skills/">AI Skills</a> for details on the lock file.</p></div>
+            </div>
+        </div>
+
+        <footer class="col-md-12">
+            <hr>
+            <p>Documentation built with <a href="https://www.mkdocs.org/">MkDocs</a>.</p>
+        </footer>
+        <script src="../../js/bootstrap.bundle.min.js"></script>
+        <script>
+            var base_url = "../..",
+                shortcuts = {"help": 191, "next": 78, "previous": 80, "search": 83};
+        </script>
+        <script src="../../js/base.js"></script>
+        <script src="../../search/main.js"></script>
+
+        <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>From here you can search these documents. Enter your search terms below.</p>
+                <form>
+                    <div class="form-group">
+                        <input type="search" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results" data-no-results-text="No results found"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+
+    </body>
+</html>

@@ -41,8 +41,6 @@ use std::time::Instant;
 /// Notes are written by `haven telemetry --note "..."` and stand out from
 /// command events via the `kind` field. During analysis, filter for
 /// `kind == "note"` to find context annotations the user left.
-///
-
 /// Append a user note to the telemetry JSONL file.
 ///
 /// Always writes regardless of whether `[telemetry] enabled` is set — the user

@@ -11,6 +11,43 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [v0.5.5] — 2026-03-24
+
+### Added
+
+- **Brewfile auto-sort** — set `[homebrew] sort = true` in any module config to
+  keep the Brewfile sorted alphabetically after every `haven brew install` or
+  `haven brew uninstall`. Each kind (`tap`, `brew`, `cask`) is sorted
+  independently; blank lines and comments are preserved in place.
+- **`haven apply` Brewfile summary** — the apply summary now reports how many
+  Brewfiles were run: `Applied N file(s), M Brewfile(s) across K module(s)`.
+- **`haven status` improvements** — the profile name is now printed at the top
+  of status output. A `✓ Everything up to date` message is shown when no drift
+  is found.
+- **`haven import` symlink warning** — after importing from chezmoi, a summary
+  of all imported `symlink_` entries is printed with a reminder to verify
+  symlink targets before running `haven apply`.
+- **Documentation site** — full MkDocs documentation at
+  [johnstegeman.github.io/haven](https://johnstegeman.github.io/haven), covering
+  concepts, task-oriented guides, a reference section, and a dedicated
+  "For chezmoi Users" section. Deployed automatically via GitHub Actions.
+
+### Fixed
+
+- **Symlink idempotency** — `haven apply` no longer re-writes a symlink that
+  already points to the correct target. Previously it would overwrite and
+  count the file even when nothing changed.
+- **Dangling symlink backup** — `haven apply` no longer attempts to back up a
+  dangling symlink (one whose target has been deleted) before overwriting it.
+  `std::fs::copy` follows symlinks and would fail; the dangling link is now
+  removed directly.
+- **`brew bundle install` output** — spurious `Using <formula>` lines from
+  `brew bundle` are now suppressed. Output is streamed in real time instead of
+  being buffered until completion.
+- **Unused import** — removed unused `serde_yaml` import in `chezmoi.rs`.
+
+---
+
 ## [v0.5.0] — 2026-03-23
 
 ### Added

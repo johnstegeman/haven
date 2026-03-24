@@ -31,7 +31,6 @@ use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 use serde::Deserialize;
-use serde_yaml;
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 

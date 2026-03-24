@@ -23,6 +23,14 @@ build:
 lint:
     cargo clippy -- -D warnings
 
+# Build and deploy docs to GitHub Pages
+docs:
+    mkdocs gh-deploy --force
+
+# Preview docs locally
+docs-serve:
+    mkdocs serve
+
 # Cut a release: bump version, commit, tag
 # Usage: just release 0.2.0
 release VERSION:
@@ -43,7 +51,7 @@ release VERSION:
     fi
 
     echo "Bumping Cargo.toml to {{VERSION}}..."
-    sed -i.bak 's/^version = "[^"]*"/version = "{{VERSION}}"/' Cargo.toml
+    sed -i.bak '3s/version = "[^"]*"/version = "{{VERSION}}"/' Cargo.toml
     rm -f Cargo.toml.bak
 
     echo "Updating Cargo.lock..."

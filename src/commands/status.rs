@@ -29,6 +29,8 @@ pub fn run(opts: &StatusOptions<'_>) -> Result<()> {
     let show_brews = opts.show_brews || none_specified;
     let show_ai    = opts.show_ai   || none_specified;
 
+    println!("Profile: {}", opts.profile);
+
     let config = HavenConfig::load(opts.repo_root)?;
     let modules = config.resolve_modules(opts.profile)?;
     let sorted = sort_modules(&modules);
@@ -189,7 +191,7 @@ pub fn run(opts: &StatusOptions<'_>) -> Result<()> {
     }
 
     if !any_drift {
-        println!("✓ Everything up to date (profile: {})", opts.profile);
+        println!("✓ Everything up to date");
     }
 
     Ok(())

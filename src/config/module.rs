@@ -36,6 +36,7 @@ pub struct ModuleConfig {
 /// ```toml
 /// [homebrew]
 /// brewfile = "brew/Brewfile.shell"
+/// sort = true   # optional; sorts entries alphabetically on apply
 /// ```
 #[derive(Debug, Deserialize, Serialize, Default, Clone)]
 
@@ -43,6 +44,13 @@ pub struct HomebrewConfig {
     /// Path to this module's Brewfile, relative to the dfiles repo root.
     /// Convention: `brew/Brewfile.<module>`.
     pub brewfile: String,
+
+    /// When true, sort the Brewfile alphabetically by entry name before
+    /// running `brew bundle install`. Entries are sorted per-kind (taps,
+    /// formulas, and casks are each sorted independently), so existing
+    /// section groupings are preserved. Default: false (opt-in).
+    #[serde(default)]
+    pub sort: bool,
 }
 
 /// Mise (runtime version manager) configuration within a module.

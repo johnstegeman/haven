@@ -65,7 +65,7 @@ pub fn run(opts: &ListOptions<'_>) -> Result<()> {
     // ── Brews ─────────────────────────────────────────────────────────────────
     if show_brews {
         let mut printed_header = false;
-        let mut print_brew_header = |printed: &mut bool| {
+        let print_brew_header = |printed: &mut bool| {
             if !*printed {
                 println!("[brew]");
                 *printed = true;

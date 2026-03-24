@@ -187,8 +187,9 @@ pub fn run(opts: &ApplyOptions<'_>) -> Result<()> {
     let sorted = sort_modules(&modules_to_apply);
 
     // Brew: apply master Brewfile when no filter, module brewfile when filtered.
+    let mut brewfiles_run = 0usize;
     if opts.apply_brews {
-        apply_brew(opts, &sorted)?;
+        brewfiles_run = apply_brew(opts, &sorted)?;
 
         // Optionally purge unreferenced packages after installing.
         if opts.remove_unreferenced_brews || opts.interactive {
@@ -322,9 +323,15 @@ pub fn run(opts: &ApplyOptions<'_>) -> Result<()> {
         state.save(opts.state_dir)?;
 
         println!();
+        let brew_suffix = if brewfiles_run > 0 {
+            format!(", {} Brewfile(s)", brewfiles_run)
+        } else {
+            String::new()
+        };
         println!(
-            "Applied {} file(s) across {} module(s) — profile: {}",
+            "Applied {} file(s){} across {} module(s) — profile: {}",
             files_applied,
+            brew_suffix,
             sorted.len(),
             opts.profile
         );
@@ -610,6 +617,13 @@ fn apply_entry(
         } else {
             entry.src.clone()
         };
+        // Skip silently when the symlink already points to the right target,
+        // matching the behaviour of regular files that are already up-to-date.
+        let already_correct = dest.is_symlink()
+            && std::fs::read_link(&dest).map(|t| t == link_target).unwrap_or(false);
+        if already_correct {
+            return Ok(false);
+        }
         let backup = apply_symlink(&link_target, &dest, opts.backup_dir)
             .with_context(|| {
                 format!("Cannot link {} → {}", dest.display(), link_target.display())
@@ -1108,8 +1122,9 @@ fn apply_ai_skills(
 
 // ─── Brew ─────────────────────────────────────────────────────────────────────
 
-fn apply_brew(opts: &ApplyOptions<'_>, sorted_modules: &[String]) -> Result<()> {
-    // Collect all brewfiles to install: master + each module's brewfile.
+/// Returns the number of Brewfiles that `brew bundle` was run against.
+fn apply_brew(opts: &ApplyOptions<'_>, sorted_modules: &[String]) -> Result<usize> {
+    // Collect brewfile paths: master + each module's brewfile.
     // When --module is set, only that module's brewfile is used.
     let brewfiles: Vec<PathBuf> = if let Some(module) = opts.module_filter {
         let config = ModuleConfig::load(opts.repo_root, module)?;
@@ -1138,7 +1153,7 @@ fn apply_brew(opts: &ApplyOptions<'_>, sorted_modules: &[String]) -> Result<()> 
     };
 
     if brewfiles.is_empty() {
-        return Ok(());
+        return Ok(0);
     }
 
     if opts.dry_run {
@@ -1149,9 +1164,10 @@ fn apply_brew(opts: &ApplyOptions<'_>, sorted_modules: &[String]) -> Result<()> 
             );
         }
         println!();
-        return Ok(());
+        return Ok(0);
     }
 
+    let mut ran = 0usize;
     match crate::homebrew::ensure_brew(false)? {
         None => {
             println!("[brew] skipped (brew not available)");
@@ -1165,10 +1181,11 @@ fn apply_brew(opts: &ApplyOptions<'_>, sorted_modules: &[String]) -> Result<()> 
                 crate::homebrew::bundle_install(&brew, bf)
                     .with_context(|| format!("brew bundle install failed for {}", bf.display()))?;
                 println!("  ✓ brew bundle");
+                ran += 1;
             }
         }
     }
-    Ok(())
+    Ok(ran)
 }
 
 fn print_dry_run_module(module_name: &str, module: &ModuleConfig, _opts: &ApplyOptions<'_>) {
@@ -1214,11 +1231,17 @@ fn apply_symlink(
                 dest.display()
             );
         }
-        let b = backup_file(dest, backup_dir)
-            .with_context(|| format!("Cannot back up {}", dest.display()))?;
+        // backup_file uses std::fs::copy which follows symlinks. Skip backup for
+        // dangling symlinks (target gone — nothing useful to preserve).
+        let b = if dest.exists() {
+            Some(backup_file(dest, backup_dir)
+                .with_context(|| format!("Cannot back up {}", dest.display()))?)
+        } else {
+            None // dangling symlink — target already missing, no backup needed
+        };
         std::fs::remove_file(dest)
             .with_context(|| format!("Cannot remove {}", dest.display()))?;
-        Some(b)
+        b
     } else {
         None
     };

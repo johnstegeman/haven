@@ -365,6 +365,25 @@ fn execute(opts: &ImportOptions<'_>, source_dir: &std::path::Path, keeps: &[Chez
     }
     println!("Run `haven apply` to deploy.");
 
+    // Symlink review notice — show after other output so it stands out.
+    let symlinks: Vec<&ChezmoiEntry> = keeps.iter().filter(|e| e.link).collect();
+    if !symlinks.is_empty() {
+        println!();
+        println!(
+            "⚠  Review symlink targets ({} found):",
+            symlinks.len()
+        );
+        for e in &symlinks {
+            println!("  {}", e.dest_tilde);
+            println!("    source: source/{}", e.source_name);
+        }
+        println!();
+        println!(
+            "Symlink targets are set by file content (or rendered template). If you imported\n\
+             from chezmoi, verify each path is correct before running `haven apply`."
+        );
+    }
+
     print_skip_table(skips);
 
     Ok(())
@@ -592,7 +611,7 @@ fn import_brewfiles(
 fn emit_brewfile_module_toml(repo_root: &Path, brew_dest: &str, module_name: &str) -> Result<()> {
     let mut module = ModuleConfig::load(repo_root, module_name)?;
     if module.homebrew.is_none() {
-        module.homebrew = Some(HomebrewConfig { brewfile: brew_dest.to_string() });
+        module.homebrew = Some(HomebrewConfig { brewfile: brew_dest.to_string(), sort: false });
         module.save(repo_root, module_name)?;
         println!(
             "  ✓  → modules/{}.toml  ([homebrew] brewfile = {:?})",

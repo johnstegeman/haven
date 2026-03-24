@@ -329,9 +329,10 @@ enum Commands {
         #[arg(long, conflicts_with_all = ["files", "brews"])]
         ai: bool,
 
-        /// Profile to resolve modules for (default: "default").
-        #[arg(long, default_value = "default")]
-        profile: String,
+        /// Profile to resolve modules for.
+        /// Defaults to the last-used profile (same as `haven apply`).
+        #[arg(long)]
+        profile: Option<String>,
     },
 
     /// Start tracking a dotfile by copying it into the repo's source/ directory.
@@ -1005,9 +1006,10 @@ fn run() -> Result<()> {
         }
 
         Commands::List { files, brews, ai, profile } => {
+            let resolved = resolve_profile(profile.as_deref(), &state_dir);
             commands::list::run(&commands::list::ListOptions {
                 repo_root: &repo,
-                profile,
+                profile: &resolved,
                 show_files: *files,
                 show_brews: *brews,
                 show_ai: *ai,

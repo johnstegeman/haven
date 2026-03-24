@@ -115,20 +115,42 @@ pub fn ensure_brew(dry_run: bool) -> Result<Option<PathBuf>> {
 }
 
 /// Run `brew bundle install --file=<brewfile>`.
+///
+/// Stdout is filtered: lines starting with "Using " (already-installed packages)
+/// are suppressed. Everything else (Installing, Upgrading, Tapping, summaries,
+/// errors) is printed so the user only sees meaningful output.
 pub fn bundle_install(brew: &Path, brewfile: &Path) -> Result<()> {
-    let status = std::process::Command::new(brew)
+    use std::io::BufRead;
+
+    let mut child = std::process::Command::new(brew)
         .args(["bundle", "install", "--file"])
         .arg(brewfile)
         .stdin(std::process::Stdio::inherit())
-        .stdout(std::process::Stdio::inherit())
+        .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::inherit())
-        .status()
+        .spawn()
         .with_context(|| {
             format!(
                 "Cannot run `brew bundle install` for {}",
                 brewfile.display()
             )
         })?;
+
+    if let Some(stdout) = child.stdout.take() {
+        for line in std::io::BufReader::new(stdout).lines() {
+            let line = line.unwrap_or_default();
+            if !line.starts_with("Using ") {
+                println!("{}", line);
+            }
+        }
+    }
+
+    let status = child.wait().with_context(|| {
+        format!(
+            "Cannot run `brew bundle install` for {}",
+            brewfile.display()
+        )
+    })?;
 
     if !status.success() {
         anyhow::bail!(
@@ -431,6 +453,11 @@ fn brewfile_line_matches(line: &str, kind: &str, name: &str) -> bool {
 ///
 /// Creates the file (and any parent directories) if it does not exist.
 /// Returns `true` if the entry was added, `false` if it was already present.
+///
+/// The new entry is inserted immediately after the last existing line of the
+/// same kind (tap/brew/cask), so it stays within its natural section rather
+/// than being appended to the end of the file (which would place it after
+/// entries of other kinds and break section-aware sorting).
 pub fn add_to_brewfile(path: &Path, kind: &str, name: &str) -> Result<bool> {
     let existing = if path.exists() {
         std::fs::read_to_string(path)
@@ -443,12 +470,8 @@ pub fn add_to_brewfile(path: &Path, kind: &str, name: &str) -> Result<bool> {
         return Ok(false);
     }
 
-    // Build updated content: ensure a trailing newline before appending.
-    let mut new_content = existing;
-    if !new_content.is_empty() && !new_content.ends_with('\n') {
-        new_content.push('\n');
-    }
-    new_content.push_str(&format!("{} \"{}\"\n", kind, name));
+    let new_entry = format!("{} \"{}\"\n", kind, name);
+    let new_content = insert_after_last_of_kind(existing, kind, &new_entry);
 
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
@@ -457,6 +480,118 @@ pub fn add_to_brewfile(path: &Path, kind: &str, name: &str) -> Result<bool> {
         .with_context(|| format!("Cannot write {}", path.display()))?;
 
     Ok(true)
+}
+
+/// Insert `new_entry` immediately after the last line in `content` whose
+/// trimmed form starts with `"{kind} "`.  If no such line exists, append at
+/// the end (with a newline separator when needed).
+fn insert_after_last_of_kind(content: String, kind: &str, new_entry: &str) -> String {
+    let prefix = format!("{} ", kind);
+
+    // Walk the '\n'-split chunks and track where each kind-line ends.
+    // `split('\n')` yields chunks without the '\n' separator; the '\n'
+    // itself lives at byte offset `byte_offset + chunk.len()`.
+    let mut last_insert_at: Option<usize> = None;
+    let mut byte_offset: usize = 0;
+
+    for chunk in content.split('\n') {
+        if chunk.trim_start().starts_with(&prefix) {
+            // Insert point is right after the '\n' that follows this chunk.
+            last_insert_at = Some(byte_offset + chunk.len() + 1);
+        }
+        byte_offset += chunk.len() + 1;
+    }
+
+    if let Some(insert_at) = last_insert_at {
+        // Clamp to content length (handles files that don't end with '\n').
+        let insert_at = insert_at.min(content.len());
+        let mut result = String::with_capacity(content.len() + new_entry.len() + 1);
+        result.push_str(&content[..insert_at]);
+        // If we landed exactly at EOF and there is no trailing newline, add one.
+        if insert_at == content.len() && !content.ends_with('\n') {
+            result.push('\n');
+        }
+        result.push_str(new_entry);
+        result.push_str(&content[insert_at..]);
+        result
+    } else {
+        // No existing line of this kind — fall back to appending.
+        let mut result = content;
+        if !result.is_empty() && !result.ends_with('\n') {
+            result.push('\n');
+        }
+        result.push_str(new_entry);
+        result
+    }
+}
+
+/// Sort the entries in a Brewfile alphabetically by name.
+///
+/// Each kind (tap, brew, cask) is sorted independently, so existing section
+/// groupings (e.g. taps first, then formulas, then casks) are preserved.
+/// Comments, blank lines, and any other non-formula lines are not moved.
+/// The file is only written if the content would actually change.
+///
+/// Sort key: the short name (last `/`-separated component), lowercased.
+/// E.g. `tap "homebrew/cask-fonts"` sorts under `"cask-fonts"`.
+pub fn sort_brewfile(path: &Path) -> Result<()> {
+    let text = std::fs::read_to_string(path)
+        .with_context(|| format!("Cannot read {}", path.display()))?;
+
+    // Collect formula lines per kind for independent sorting.
+    let mut tap_lines: Vec<&str> = Vec::new();
+    let mut brew_lines: Vec<&str> = Vec::new();
+    let mut cask_lines: Vec<&str> = Vec::new();
+
+    for line in text.split('\n') {
+        let t = line.trim();
+        if t.starts_with("tap ") {
+            tap_lines.push(line);
+        } else if t.starts_with("brew ") {
+            brew_lines.push(line);
+        } else if t.starts_with("cask ") {
+            cask_lines.push(line);
+        }
+    }
+
+    tap_lines.sort_by(|a, b| brewfile_entry_sort_key(a, "tap").cmp(&brewfile_entry_sort_key(b, "tap")));
+    brew_lines.sort_by(|a, b| brewfile_entry_sort_key(a, "brew").cmp(&brewfile_entry_sort_key(b, "brew")));
+    cask_lines.sort_by(|a, b| brewfile_entry_sort_key(a, "cask").cmp(&brewfile_entry_sort_key(b, "cask")));
+
+    let mut tap_iter = tap_lines.iter();
+    let mut brew_iter = brew_lines.iter();
+    let mut cask_iter = cask_lines.iter();
+
+    let parts: Vec<&str> = text
+        .split('\n')
+        .map(|line| {
+            let t = line.trim();
+            if t.starts_with("tap ") {
+                *tap_iter.next().unwrap()
+            } else if t.starts_with("brew ") {
+                *brew_iter.next().unwrap()
+            } else if t.starts_with("cask ") {
+                *cask_iter.next().unwrap()
+            } else {
+                line
+            }
+        })
+        .collect();
+
+    let new_content = parts.join("\n");
+    if new_content != text {
+        std::fs::write(path, &new_content)
+            .with_context(|| format!("Cannot write {}", path.display()))?;
+    }
+
+    Ok(())
+}
+
+/// Sort key for a Brewfile entry line: the short name (last `/`-component), lowercased.
+fn brewfile_entry_sort_key(line: &str, kind: &str) -> String {
+    extract_entry_name(line.trim(), kind)
+        .map(|name| name.split('/').last().unwrap_or(&name).to_lowercase())
+        .unwrap_or_else(|| line.to_lowercase())
 }
 
 /// Remove all `brew`/`cask`/`tap` lines matching `name` from a Brewfile.
@@ -470,26 +605,27 @@ pub fn remove_from_brewfile(path: &Path, kind: &str, name: &str) -> Result<usize
     let text = std::fs::read_to_string(path)
         .with_context(|| format!("Cannot read {}", path.display()))?;
 
+    // Split on '\n' rather than .lines() so the trailing "" from a terminal newline
+    // is preserved in the output when we rejoin: ["a", ""].join("\n") == "a\n".
     let mut removed = 0usize;
-    let kept: Vec<&str> = text
-        .lines()
-        .filter(|line| {
-            if brewfile_line_matches(line, kind, name) {
-                removed += 1;
-                false
-            } else {
-                true
-            }
-        })
-        .collect();
+    let mut kept: Vec<&str> = Vec::new();
+    for line in text.split('\n') {
+        if brewfile_line_matches(line, kind, name) {
+            removed += 1;
+        } else {
+            kept.push(line);
+        }
+    }
 
     if removed > 0 {
-        let mut new_content = kept.join("\n");
-        if !new_content.is_empty() {
-            new_content.push('\n');
+        let new_content = kept.join("\n");
+        if new_content.is_empty() {
+            std::fs::remove_file(path)
+                .with_context(|| format!("Cannot remove {}", path.display()))?;
+        } else {
+            std::fs::write(path, new_content)
+                .with_context(|| format!("Cannot write {}", path.display()))?;
         }
-        std::fs::write(path, new_content)
-            .with_context(|| format!("Cannot write {}", path.display()))?;
     }
 
     Ok(removed)
@@ -598,5 +734,525 @@ mod tests {
         let b = write_brewfile(&dir, "Brewfile.extra", "brew \"ripgrep\"\nbrew \"fd\"\n");
         let entries = collect_brewfile_entries(&[a.as_path(), b.as_path()]).unwrap();
         assert_eq!(entries.formulas.len(), 2);
+    }
+
+    // sort_brewfile tests
+
+    #[test]
+    fn test_sort_brewfile_already_sorted_is_noop() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("Brewfile");
+        let content = "brew \"bat\"\nbrew \"fd\"\nbrew \"ripgrep\"\n";
+        std::fs::write(&path, content).unwrap();
+        let mtime_before = std::fs::metadata(&path).unwrap().modified().unwrap();
+
+        sort_brewfile(&path).unwrap();
+
+        // File should not have been rewritten (mtime unchanged)
+        let mtime_after = std::fs::metadata(&path).unwrap().modified().unwrap();
+        assert_eq!(mtime_before, mtime_after);
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), content);
+    }
+
+    #[test]
+    fn test_sort_brewfile_sorts_brew_entries() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("Brewfile");
+        std::fs::write(&path, "brew \"zsh\"\nbrew \"bat\"\nbrew \"fd\"\n").unwrap();
+
+        sort_brewfile(&path).unwrap();
+
+        assert_eq!(
+            std::fs::read_to_string(&path).unwrap(),
+            "brew \"bat\"\nbrew \"fd\"\nbrew \"zsh\"\n"
+        );
+    }
+
+    #[test]
+    fn test_sort_brewfile_sorts_cask_entries() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("Brewfile");
+        std::fs::write(&path, "cask \"visual-studio-code\"\ncask \"1password\"\ncask \"iterm2\"\n").unwrap();
+
+        sort_brewfile(&path).unwrap();
+
+        assert_eq!(
+            std::fs::read_to_string(&path).unwrap(),
+            "cask \"1password\"\ncask \"iterm2\"\ncask \"visual-studio-code\"\n"
+        );
+    }
+
+    #[test]
+    fn test_sort_brewfile_sorts_tap_entries() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("Brewfile");
+        std::fs::write(&path, "tap \"homebrew/cask\"\ntap \"homebrew/core\"\ntap \"apple/apple\"\n").unwrap();
+
+        sort_brewfile(&path).unwrap();
+
+        // Sorted by short name: apple, cask, core
+        assert_eq!(
+            std::fs::read_to_string(&path).unwrap(),
+            "tap \"apple/apple\"\ntap \"homebrew/cask\"\ntap \"homebrew/core\"\n"
+        );
+    }
+
+    #[test]
+    fn test_sort_brewfile_preserves_blank_lines_and_comments() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("Brewfile");
+        let content = "# Taps\ntap \"homebrew/cask\"\ntap \"apple/apple\"\n\n# Formulas\nbrew \"zsh\"\nbrew \"bat\"\n";
+        std::fs::write(&path, content).unwrap();
+
+        sort_brewfile(&path).unwrap();
+
+        assert_eq!(
+            std::fs::read_to_string(&path).unwrap(),
+            "# Taps\ntap \"apple/apple\"\ntap \"homebrew/cask\"\n\n# Formulas\nbrew \"bat\"\nbrew \"zsh\"\n"
+        );
+    }
+
+    #[test]
+    fn test_sort_brewfile_sorts_by_short_name_not_tap_prefix() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("Brewfile");
+        // "homebrew/cask-fonts" short name is "cask-fonts", sorts before "core"
+        std::fs::write(&path, "tap \"homebrew/core\"\ntap \"homebrew/cask-fonts\"\n").unwrap();
+
+        sort_brewfile(&path).unwrap();
+
+        assert_eq!(
+            std::fs::read_to_string(&path).unwrap(),
+            "tap \"homebrew/cask-fonts\"\ntap \"homebrew/core\"\n"
+        );
+    }
+
+    #[test]
+    fn test_sort_brewfile_case_insensitive() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("Brewfile");
+        std::fs::write(&path, "brew \"Zsh\"\nbrew \"bat\"\nbrew \"Bat\"\n").unwrap();
+
+        sort_brewfile(&path).unwrap();
+
+        // "Bat", "bat", "Zsh" — case-insensitive, stable for ties
+        let result = std::fs::read_to_string(&path).unwrap();
+        let first = result.lines().next().unwrap();
+        assert!(first.contains("Bat") || first.contains("bat"), "first entry should be a 'bat' variant, got: {first}");
+    }
+
+    #[test]
+    fn test_sort_brewfile_each_kind_sorted_independently() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("Brewfile");
+        // Mixed file: brew positions stay brew, cask positions stay cask
+        let content = "brew \"zsh\"\nbrew \"bat\"\ncask \"notion\"\ncask \"1password\"\n";
+        std::fs::write(&path, content).unwrap();
+
+        sort_brewfile(&path).unwrap();
+
+        assert_eq!(
+            std::fs::read_to_string(&path).unwrap(),
+            "brew \"bat\"\nbrew \"zsh\"\ncask \"1password\"\ncask \"notion\"\n"
+        );
+    }
+
+    // add_to_brewfile tests
+
+    #[test]
+    fn test_add_to_brewfile_creates_new_file() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("Brewfile");
+
+        // File doesn't exist, should create it
+        let added = add_to_brewfile(&path, "brew", "neovim").unwrap();
+
+        assert!(added);
+        assert!(path.exists());
+
+        let content = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(content, "brew \"neovim\"\n");
+    }
+
+    #[test]
+    fn test_add_to_brewfile_idempotent() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("Brewfile");
+
+        // First add
+        let added1 = add_to_brewfile(&path, "brew", "neovim").unwrap();
+        assert!(added1);
+
+        // Second add should be idempotent
+        let added2 = add_to_brewfile(&path, "brew", "neovim").unwrap();
+
+        assert!(!added2); // Already exists
+
+        let content = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(content, "brew \"neovim\"\n");
+    }
+
+    #[test]
+    fn test_add_to_brewfile_preserves_existing_content() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("Brewfile");
+
+        // Create initial file
+        std::fs::write(&path, "brew \"existing\"\n").unwrap();
+
+        // Add new entry
+        let added = add_to_brewfile(&path, "brew", "neovim").unwrap();
+        assert!(added);
+
+        let content = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(content, "brew \"existing\"\nbrew \"neovim\"\n");
+    }
+
+    #[test]
+    fn test_add_to_brewfile_creates_parent_dirs() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("subdir/nested/Brewfile");
+
+        // File doesn't exist, should create file and parent directories
+        let added = add_to_brewfile(&path, "brew", "neovim").unwrap();
+        assert!(added);
+
+        assert!(path.exists());
+
+        let content = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(content, "brew \"neovim\"\n");
+    }
+
+    #[test]
+    fn test_add_to_brewfile_with_cask() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("Brewfile");
+
+        let added = add_to_brewfile(&path, "cask", "notion").unwrap();
+        assert!(added);
+
+        let content = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(content, "cask \"notion\"\n");
+    }
+
+    #[test]
+    fn test_add_to_brewfile_with_tap() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("Brewfile");
+
+        let added = add_to_brewfile(&path, "tap", "homebrew/brew").unwrap();
+        assert!(added);
+
+        let content = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(content, "tap \"homebrew/brew\"\n");
+    }
+
+    #[test]
+    fn test_add_to_brewfile_no_trailing_newline_fixes_it() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("Brewfile");
+
+        // Create file without trailing newline
+        std::fs::write(&path, "brew \"existing\"").unwrap();
+
+        // Add new entry - should ensure trailing newline
+        let added = add_to_brewfile(&path, "brew", "neovim").unwrap();
+        assert!(added);
+
+        let content = std::fs::read_to_string(&path).unwrap();
+        // Should have trailing newline after existing content and new entry
+        assert_eq!(content, "brew \"existing\"\nbrew \"neovim\"\n");
+    }
+
+    #[test]
+    fn test_add_to_brewfile_already_has_trailing_newline() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("Brewfile");
+
+        // Create file with trailing newline
+        std::fs::write(&path, "brew \"existing\"\n").unwrap();
+
+        // Add new entry
+        let added = add_to_brewfile(&path, "brew", "neovim").unwrap();
+        assert!(added);
+
+        let content = std::fs::read_to_string(&path).unwrap();
+        // Should not duplicate trailing newlines
+        assert_eq!(content, "brew \"existing\"\nbrew \"neovim\"\n");
+    }
+
+    #[test]
+    fn test_add_to_brewfile_inserts_after_last_of_same_kind_not_at_eof() {
+        // Regression: adding a cask to a file that already has casks followed by brew
+        // lines must insert within the cask section, not at EOF (which would put it
+        // after the brew lines and break sort_brewfile's in-place algorithm).
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("Brewfile");
+        let content = "cask \"arc\"\ncask \"zed\"\nbrew \"bat\"\n";
+        std::fs::write(&path, content).unwrap();
+
+        let added = add_to_brewfile(&path, "cask", "notion").unwrap();
+        assert!(added);
+
+        let result = std::fs::read_to_string(&path).unwrap();
+        // "notion" must appear before "brew \"bat\"", not after it
+        let lines: Vec<&str> = result.lines().collect();
+        let notion_pos = lines.iter().position(|l| l.contains("notion")).unwrap();
+        let brew_pos = lines.iter().position(|l| l.starts_with("brew ")).unwrap();
+        assert!(
+            notion_pos < brew_pos,
+            "cask \"notion\" (line {notion_pos}) should be before brew \"bat\" (line {brew_pos})"
+        );
+    }
+
+    #[test]
+    fn test_add_to_brewfile_new_kind_falls_back_to_append() {
+        // When no existing line of the kind exists, fall back to appending.
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("Brewfile");
+        std::fs::write(&path, "brew \"bat\"\n").unwrap();
+
+        let added = add_to_brewfile(&path, "cask", "notion").unwrap();
+        assert!(added);
+
+        let content = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(content, "brew \"bat\"\ncask \"notion\"\n");
+    }
+
+    // remove_from_brewfile tests
+
+    #[test]
+    fn test_remove_from_brewfile_no_file_returns_zero() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("nonexistent.txt");
+
+        let removed = remove_from_brewfile(&path, "brew", "neovim").unwrap();
+        assert_eq!(removed, 0);
+    }
+
+    #[test]
+    fn test_remove_from_brewfile_removes_matching_entry() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("Brewfile");
+
+        std::fs::write(&path, "brew \"neovim\"\n").unwrap();
+
+        let removed = remove_from_brewfile(&path, "brew", "neovim").unwrap();
+        assert_eq!(removed, 1);
+
+        assert!(!path.exists());
+    }
+
+    #[test]
+    fn test_remove_from_brewfile_partial_match() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("Brewfile");
+
+        std::fs::write(&path, "brew \"neovim\"\nbrew \"nvim\"\n").unwrap();
+
+        let removed = remove_from_brewfile(&path, "brew", "neovim").unwrap();
+        assert_eq!(removed, 1);
+
+        let content = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(content, "brew \"nvim\"\n");
+    }
+
+    #[test]
+    fn test_remove_from_brewfile_no_match() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("Brewfile");
+
+        std::fs::write(&path, "brew \"neovim\"\n").unwrap();
+
+        let removed = remove_from_brewfile(&path, "brew", "nvim").unwrap();
+        assert_eq!(removed, 0);
+
+        let content = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(content, "brew \"neovim\"\n");
+    }
+
+    #[test]
+    fn test_remove_from_brewfile_removes_cask() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("Brewfile");
+
+        std::fs::write(&path, "cask \"notion\"\n").unwrap();
+
+        let removed = remove_from_brewfile(&path, "cask", "notion").unwrap();
+        assert_eq!(removed, 1);
+
+        assert!(!path.exists());
+    }
+
+    #[test]
+    fn test_remove_from_brewfile_removes_tap() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("Brewfile");
+
+        std::fs::write(&path, "tap \"homebrew/core\"\n").unwrap();
+
+        let removed = remove_from_brewfile(&path, "tap", "homebrew/core").unwrap();
+        assert_eq!(removed, 1);
+
+        assert!(!path.exists());
+    }
+
+    #[test]
+    fn test_remove_from_brewfile_mixed_entries() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("Brewfile");
+
+        let content = "brew \"neovim\"\n\ncask \"notion\"\n\ntap \"homebrew/brew\"\n";
+        std::fs::write(&path, content).unwrap();
+
+        let removed = remove_from_brewfile(&path, "brew", "neovim").unwrap();
+        assert_eq!(removed, 1);
+
+        let content = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(content, "\ncask \"notion\"\n\ntap \"homebrew/brew\"\n");
+    }
+
+    #[test]
+    fn test_remove_from_brewfile_multiple_brews_same_name() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("Brewfile");
+
+        // Duplicate entries (shouldn't happen normally but test idempotency)
+        std::fs::write(&path, "brew \"neovim\"\nbrew \"neovim\"\n").unwrap();
+
+        let removed = remove_from_brewfile(&path, "brew", "neovim").unwrap();
+        // Removes all matching lines
+        assert_eq!(removed, 2);
+
+        assert!(!path.exists());
+    }
+
+    #[test]
+    fn test_remove_from_brewfile_removes_only_matching_kind() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("Brewfile");
+
+        let content = "brew \"neovim\"\ncask \"notion\"\n";
+        std::fs::write(&path, content).unwrap();
+
+        // Try to remove as brew - should only remove brew entry
+        let removed = remove_from_brewfile(&path, "brew", "neovim").unwrap();
+        assert_eq!(removed, 1);
+
+        let content = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(content, "cask \"notion\"\n");
+    }
+
+    #[test]
+    fn test_remove_from_brewfile_empty_file() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("Brewfile");
+
+        std::fs::write(&path, "").unwrap();
+
+        let removed = remove_from_brewfile(&path, "brew", "neovim").unwrap();
+        assert_eq!(removed, 0);
+    }
+
+    #[test]
+    fn test_remove_from_brewfile_preserves_empty_lines() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("Brewfile");
+
+        let content = "brew \"neovim\"\n\n\n";
+        std::fs::write(&path, content).unwrap();
+
+        let removed = remove_from_brewfile(&path, "brew", "neovim").unwrap();
+        assert_eq!(removed, 1);
+
+        let result = std::fs::read_to_string(&path).unwrap();
+        // split('\n') on "brew\n\n\n" → ["brew", "", "", ""], remove "brew" → ["", "", ""]
+        // joined: "\n\n" (2 separators between 3 empty strings)
+        assert_eq!(result, "\n\n");
+    }
+
+    #[test]
+    fn test_remove_from_brewfile_preserves_comments() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("Brewfile");
+
+        let content = "# This is a comment\nbrew \"neovim\"\n# Another comment\n";
+        std::fs::write(&path, content).unwrap();
+
+        let removed = remove_from_brewfile(&path, "brew", "neovim").unwrap();
+        assert_eq!(removed, 1);
+
+        let result = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(result, "# This is a comment\n# Another comment\n");
+    }
+
+    #[test]
+    fn test_remove_from_brewfile_preserves_other_kinds() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("Brewfile");
+
+        let content = "brew \"neovim\"\n\n# Comment\nbrew \"nvim\"\ncask \"notion\"\n";
+        std::fs::write(&path, content).unwrap();
+
+        let removed = remove_from_brewfile(&path, "brew", "neovim").unwrap();
+        assert_eq!(removed, 1);
+
+        let result = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(result, "\n# Comment\nbrew \"nvim\"\ncask \"notion\"\n");
+    }
+
+    // brewfile_line_matches tests
+
+    #[test]
+    fn test_brewfile_line_matches_brew() {
+        assert!(brewfile_line_matches("brew \"neovim\"", "brew", "neovim"));
+        assert!(!brewfile_line_matches("brew \"nvim\"", "brew", "neovim"));
+        assert!(!brewfile_line_matches("cask \"neovim\"", "brew", "neovim"));
+        assert!(!brewfile_line_matches("tap \"neovim\"", "brew", "neovim"));
+    }
+
+    #[test]
+    fn test_brewfile_line_matches_cask() {
+        assert!(brewfile_line_matches("cask \"notion\"", "cask", "notion"));
+        assert!(!brewfile_line_matches("brew \"notion\"", "cask", "notion"));
+    }
+
+    #[test]
+    fn test_brewfile_line_matches_tap() {
+        assert!(brewfile_line_matches("tap \"homebrew/brew\"", "tap", "homebrew/brew"));
+        assert!(!brewfile_line_matches("brew \"homebrew/brew\"", "tap", "homebrew/brew"));
+    }
+
+    #[test]
+    fn test_brewfile_line_matches_ignores_leading_whitespace() {
+        assert!(brewfile_line_matches("  brew \"neovim\"", "brew", "neovim"));
+        assert!(brewfile_line_matches("\tbrew \"neovim\"", "brew", "neovim"));
+    }
+
+    #[test]
+    fn test_brewfile_line_matches_ignores_trailing_whitespace() {
+        assert!(brewfile_line_matches("brew \"neovim\"  ", "brew", "neovim"));
+        assert!(brewfile_line_matches("brew \"neovim\"\t", "brew", "neovim"));
+    }
+
+    #[test]
+    fn test_brewfile_line_matches_single_quotes() {
+        // Brewfile supports single-quoted strings
+        assert!(brewfile_line_matches("brew 'neovim'", "brew", "neovim"));
+        assert!(!brewfile_line_matches("brew 'notion'", "cask", "notion"));
+    }
+
+    #[test]
+    fn test_brewfile_line_matches_no_quotes_returns_false() {
+        // Lines without quotes should not match
+        assert!(!brewfile_line_matches("brew neovim", "brew", "neovim"));
+        assert!(!brewfile_line_matches("brew neovim", "brew", "nvim"));
+    }
+
+    #[test]
+    fn test_brewfile_line_matches_different_kinds() {
+        assert!(!brewfile_line_matches("brew \"neovim\"", "cask", "neovim"));
+        assert!(!brewfile_line_matches("cask \"notion\"", "brew", "notion"));
+        assert!(!brewfile_line_matches("tap \"homebrew\"", "brew", "homebrew"));
     }
 }

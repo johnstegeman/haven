@@ -1270,7 +1270,7 @@ fn status_ai_flag_shows_only_ai_section() {
     let mut c = Command::cargo_bin("haven").unwrap();
     c.env_remove("HAVEN_DIR");
     c.env("HAVEN_CLAUDE_DIR", claude.path());
-    c.args(["--dir", repo.path().to_str().unwrap(), "status", "--ai"]);
+    c.args(["--dir", repo.path().to_str().unwrap(), "status", "--ai", "--profile", "default"]);
     c.assert()
         .success()
         .stdout(predicate::str::contains("?"))
@@ -1332,7 +1332,7 @@ fn packages_toml_parses_homebrew_section() {
     // dry-run apply should parse and print the plan without touching brew.
     let mut c = Command::cargo_bin("haven").unwrap();
     c.env_remove("HAVEN_DIR");
-    c.args(["--dir", repo.path().to_str().unwrap(), "apply", "--dry-run"]);
+    c.args(["--dir", repo.path().to_str().unwrap(), "apply", "--dry-run", "--profile", "default"]);
     c.assert()
         .success()
         .stdout(predicate::str::contains("brew bundle"))
@@ -1358,7 +1358,7 @@ fn packages_toml_with_mise_section_parses() {
 
     let mut c = Command::cargo_bin("haven").unwrap();
     c.env_remove("HAVEN_DIR");
-    c.args(["--dir", repo.path().to_str().unwrap(), "apply", "--dry-run"]);
+    c.args(["--dir", repo.path().to_str().unwrap(), "apply", "--dry-run", "--profile", "default"]);
     c.assert()
         .success()
         .stdout(predicate::str::contains("mise install"));
@@ -1424,7 +1424,7 @@ fn status_shows_missing_when_brew_absent_and_brewfile_configured() {
 
     let mut c = Command::cargo_bin("haven").unwrap();
     c.env_remove("HAVEN_DIR");
-    c.args(["--dir", repo.path().to_str().unwrap(), "status"]);
+    c.args(["--dir", repo.path().to_str().unwrap(), "status", "--profile", "default"]);
     let out = c.assert().success();
     // We can't enforce which marker without knowing the test environment.
     let _ = out; // verified it doesn't panic or error
@@ -1687,7 +1687,7 @@ fn status_reports_missing_when_ai_skill_not_installed() {
     let mut c = Command::cargo_bin("haven").unwrap();
     c.env_remove("HAVEN_DIR");
     c.env("HAVEN_CLAUDE_DIR", claude.path());
-    c.args(["--dir", repo.path().to_str().unwrap(), "status"]);
+    c.args(["--dir", repo.path().to_str().unwrap(), "status", "--profile", "default"]);
     c.assert()
         .success()
         .stdout(predicate::str::contains("?"))
@@ -1709,7 +1709,7 @@ fn status_reports_clean_when_ai_skill_installed() {
     let mut c = Command::cargo_bin("haven").unwrap();
     c.env_remove("HAVEN_DIR");
     c.env("HAVEN_CLAUDE_DIR", claude.path());
-    c.args(["--dir", repo.path().to_str().unwrap(), "status"]);
+    c.args(["--dir", repo.path().to_str().unwrap(), "status", "--profile", "default"]);
     c.assert()
         .success()
         .stdout(predicate::str::contains("up to date"));
@@ -2351,7 +2351,7 @@ fn status_shows_external_missing() {
 
     let mut c = Command::cargo_bin("haven").unwrap();
     c.env_remove("HAVEN_DIR");
-    c.args(["--dir", repo.path().to_str().unwrap(), "status"]);
+    c.args(["--dir", repo.path().to_str().unwrap(), "status", "--profile", "default"]);
     c.assert()
         .success()
         .stdout(predicate::str::contains("?"));
@@ -2409,6 +2409,45 @@ fn apply_symlink_is_idempotent() {
     // Second apply — must succeed without creating a backup or erroring.
     cmd_home(&repo, &home).arg("apply").assert().success();
     assert!(dest_path.is_symlink(), "symlink should still exist after second apply");
+}
+
+#[test]
+fn apply_symlink_already_correct_not_counted_as_applied() {
+    // Bug fix: a symlink that already points to the right target must NOT be
+    // counted as an applied file (it's a no-op, like an already-matching regular file).
+    let (repo, home, source_abs) = setup_link_apply();
+    let dest_path = home.path().join("vscode_settings.json");
+
+    // Pre-create the correct symlink so apply has nothing to do.
+    std::os::unix::fs::symlink(&source_abs, &dest_path).unwrap();
+
+    // Apply should report 0 files applied (not 1).
+    cmd_home(&repo, &home)
+        .arg("apply")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Applied 0 file(s)"));
+}
+
+#[test]
+fn apply_symlink_replaces_dangling_symlink() {
+    // Bug fix: apply must succeed even when the existing symlink is dangling
+    // (target no longer exists). Previously backup_file would crash with ENOENT
+    // because std::fs::copy follows the symlink.
+    let (repo, home, source_abs) = setup_link_apply();
+    let dest_path = home.path().join("vscode_settings.json");
+
+    // Create a dangling symlink (target does not exist).
+    std::os::unix::fs::symlink("/tmp/nonexistent_target_for_haven_test", &dest_path).unwrap();
+    assert!(dest_path.is_symlink(), "pre-condition: dangling symlink exists");
+    assert!(!dest_path.exists(), "pre-condition: symlink target does not exist");
+
+    // Apply must succeed without error and fix the symlink.
+    cmd_home(&repo, &home).arg("apply").assert().success();
+
+    assert!(dest_path.is_symlink(), "dest should still be a symlink");
+    let target = fs::read_link(&dest_path).unwrap();
+    assert_eq!(target, source_abs, "symlink should now point to source file");
 }
 
 #[test]

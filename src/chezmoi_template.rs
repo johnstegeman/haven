@@ -44,7 +44,6 @@
 /// Anything not in the mapping above (range loops, custom functions, pipeline
 /// operators, etc.) is left as-is and a warning is added to `ConversionResult`.
 /// The caller decides whether to accept a partial conversion or skip the file.
-
 use std::borrow::Cow;
 
 // ─── Public API ───────────────────────────────────────────────────────────────

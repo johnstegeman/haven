@@ -1,0 +1,1050 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        
+        
+        <link rel="canonical" href="https://johnstegeman.github.io/haven/from-chezmoi/">
+        <link rel="shortcut icon" href="../img/favicon.ico">
+        <title>Getting Started with haven — for chezmoi users - haven</title>
+        <link href="../css/bootstrap.min.css" rel="stylesheet">
+        <link href="../css/fontawesome.min.css" rel="stylesheet">
+        <link href="../css/brands.min.css" rel="stylesheet">
+        <link href="../css/solid.min.css" rel="stylesheet">
+        <link href="../css/v4-font-face.min.css" rel="stylesheet">
+        <link href="../css/base.css" rel="stylesheet">
+        <link id="hljs-light" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" >
+        <link id="hljs-dark" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css" disabled>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script>hljs.highlightAll();</script> 
+    </head>
+
+    <body>
+        <div class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary">
+            <div class="container">
+                <a class="navbar-brand" href="..">haven</a>
+                <!-- Expander button -->
+                <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar-collapse" aria-controls="navbar-collapse" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <!-- Expanded navigation -->
+                <div id="navbar-collapse" class="navbar-collapse collapse">
+                        <!-- Main navigation -->
+                        <ul class="nav navbar-nav">
+                            <li class="nav-item">
+                                <a href=".." class="nav-link">Home</a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="../concepts/" class="nav-link">Concepts</a>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Getting Started</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../getting-started/installation/" class="dropdown-item">Installation</a>
+</li>
+                                    
+<li>
+    <a href="../getting-started/quickstart/" class="dropdown-item">Quick Start</a>
+</li>
+                                    
+<li>
+    <a href="../getting-started/new-machine/" class="dropdown-item">New Machine Setup</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Guides</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../guides/tracking-files/" class="dropdown-item">Tracking Files</a>
+</li>
+                                    
+<li>
+    <a href="../guides/packages/" class="dropdown-item">Managing Packages</a>
+</li>
+                                    
+<li>
+    <a href="../guides/ai-skills/" class="dropdown-item">AI Skills</a>
+</li>
+                                    
+<li>
+    <a href="../guides/templates/" class="dropdown-item">Templates & Secrets</a>
+</li>
+                                    
+<li>
+    <a href="../guides/profiles-modules/" class="dropdown-item">Profiles & Modules</a>
+</li>
+                                    
+<li>
+    <a href="../guides/security/" class="dropdown-item">Security Scanning</a>
+</li>
+                                    
+<li>
+    <a href="../guides/vcs/" class="dropdown-item">VCS Backend</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">For chezmoi Users</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../for-chezmoi-users/" class="dropdown-item">Overview</a>
+</li>
+                                    
+<li>
+    <a href="../for-chezmoi-users/migration/" class="dropdown-item">Migration Guide</a>
+</li>
+                                    
+<li>
+    <a href="../for-chezmoi-users/commands/" class="dropdown-item">Command Equivalence</a>
+</li>
+                                    
+<li>
+    <a href="../for-chezmoi-users/templates/" class="dropdown-item">Template Conversion</a>
+</li>
+                                    
+<li>
+    <a href="../for-chezmoi-users/gaps/" class="dropdown-item">Feature Gaps</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Reference</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../reference/commands/" class="dropdown-item">Command Reference</a>
+</li>
+                                    
+<li>
+    <a href="../reference/configuration/" class="dropdown-item">Configuration</a>
+</li>
+                                    
+<li>
+    <a href="../reference/magic-names/" class="dropdown-item">Magic-Name Encoding</a>
+</li>
+                                    
+<li>
+    <a href="../reference/template-variables/" class="dropdown-item">Template Variables</a>
+</li>
+                                    
+<li>
+    <a href="../reference/environment/" class="dropdown-item">Environment Variables</a>
+</li>
+                                    
+<li>
+    <a href="../reference/repo-layout/" class="dropdown-item">Repo Layout</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item">
+                                <a href="../changelog/" class="nav-link">Changelog</a>
+                            </li>
+                        </ul>
+
+                    <ul class="nav navbar-nav ms-md-auto">
+                        <li class="nav-item">
+                            <a href="#" class="nav-link" data-bs-toggle="modal" data-bs-target="#mkdocs_search_modal">
+                                <i class="fa fa-search"></i> Search
+                            </a>
+                        </li>
+                            <li class="nav-item">
+                                <a href="https://github.com/johnstegeman/haven/edit/main/docs/from-chezmoi.md" class="nav-link">Edit on johnstegeman/haven
+                                    </a>
+                            </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="row">
+                    <div class="col-md-3"><div class="navbar-expand-md bs-sidebar hidden-print affix" role="complementary">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggler collapsed" data-bs-toggle="collapse" data-bs-target="#toc-collapse" title="Table of Contents">
+            <span class="fa fa-angle-down"></span>
+        </button>
+    </div>
+
+    
+    <div id="toc-collapse" class="navbar-collapse collapse card bg-body-tertiary">
+        <ul class="nav flex-column">
+            
+            <li class="nav-item" data-bs-level="1"><a href="#getting-started-with-haven-for-chezmoi-users" class="nav-link">Getting Started with haven — for chezmoi users</a>
+              <ul class="nav flex-column">
+            <li class="nav-item" data-bs-level="2"><a href="#why-switch" class="nav-link">Why switch?</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#concepts-that-map-directly" class="nav-link">Concepts that map directly</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#migration" class="nav-link">Migration</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#template-syntax-conversion" class="nav-link">Template syntax conversion</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#command-equivalence" class="nav-link">Command equivalence</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#what-chezmoi-does-that-haven-does-not-yet" class="nav-link">What chezmoi does that haven does not (yet)</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#setting-up-homebrew-with-modules-and-profiles" class="nav-link">Setting up Homebrew with modules and profiles</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#custom-template-variables" class="nav-link">Custom template variables</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#importing-ai-skills" class="nav-link">Importing AI skills</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#setting-up-a-new-machine" class="nav-link">Setting up a new machine</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#daily-workflow-after-migration" class="nav-link">Daily workflow after migration</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#troubleshooting-migration" class="nav-link">Troubleshooting migration</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#keeping-chezmoi-around-during-the-transition" class="nav-link">Keeping chezmoi around during the transition</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+              </ul>
+            </li>
+        </ul>
+    </div>
+</div></div>
+                    <div class="col-md-9" role="main">
+
+<h1 id="getting-started-with-haven-for-chezmoi-users">Getting Started with haven — for chezmoi users<a class="headerlink" href="#getting-started-with-haven-for-chezmoi-users" title="Permanent link">&para;</a></h1>
+<p>This guide is for people who already have a working chezmoi setup and want to
+migrate to haven. It covers the automated importer, what carries over unchanged,
+what needs attention, and what chezmoi features do not exist yet in haven.</p>
+<p>If you are new to dotfile managers entirely, start with <a href="../guide/">the user guide</a>.</p>
+<hr />
+<h2 id="why-switch">Why switch?<a class="headerlink" href="#why-switch" title="Permanent link">&para;</a></h2>
+<p>haven shares chezmoi's magic-name encoding (<code>dot_</code>, <code>private_</code>, <code>.tmpl</code>, etc.) —
+so most of your source files work as-is. But haven adds three things chezmoi
+doesn't have:</p>
+<ul>
+<li><strong>Homebrew and mise management</strong> — packages and language runtimes declared
+  alongside your dotfiles, applied from the same repo.</li>
+<li><strong>AI skill management</strong> — <code>haven ai add/fetch/apply</code> fetches and deploys
+  Claude Code skills (and other AI agent skills) from GitHub, with SHA-pinned
+  supply-chain protection.</li>
+<li><strong>Profiles</strong> — a single repo that applies different subsets of config to a
+  work laptop vs. a personal machine vs. a minimal server.</li>
+</ul>
+<p>If your workflow is "maintain dotfiles and manage packages in separate tools",
+haven collapses that into one.</p>
+<hr />
+<h2 id="concepts-that-map-directly">Concepts that map directly<a class="headerlink" href="#concepts-that-map-directly" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>chezmoi concept</th>
+<th>haven equivalent</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Source directory (<code>~/.local/share/chezmoi</code>)</td>
+<td>Repo root (<code>~/.local/share/haven</code>)</td>
+</tr>
+<tr>
+<td><code>source/</code> file tree</td>
+<td><code>source/</code> file tree (same magic-name encoding)</td>
+</tr>
+<tr>
+<td><code>dot_</code>, <code>private_</code>, <code>executable_</code>, <code>symlink_</code>, <code>.tmpl</code></td>
+<td>Identical — same encoding</td>
+</tr>
+<tr>
+<td><code>extdir_</code> in <code>.chezmoiexternal.toml</code></td>
+<td><code>extdir_</code> marker files in <code>source/</code></td>
+</tr>
+<tr>
+<td><code>.chezmoiignore</code></td>
+<td><code>config/ignore</code> (Tera template evaluated at runtime — same behaviour as chezmoi)</td>
+</tr>
+<tr>
+<td><code>chezmoi apply</code></td>
+<td><code>haven apply</code></td>
+</tr>
+<tr>
+<td><code>chezmoi diff</code></td>
+<td><code>haven diff</code></td>
+</tr>
+<tr>
+<td><code>chezmoi status</code></td>
+<td><code>haven status</code></td>
+</tr>
+<tr>
+<td><code>chezmoi managed</code></td>
+<td><code>haven list</code></td>
+</tr>
+<tr>
+<td><code>chezmoi add</code></td>
+<td><code>haven add</code></td>
+</tr>
+<tr>
+<td><code>chezmoi forget</code>/<code>remove</code></td>
+<td><code>haven remove</code></td>
+</tr>
+<tr>
+<td><code>chezmoi upgrade</code></td>
+<td><code>haven upgrade</code></td>
+</tr>
+<tr>
+<td><code>.chezmoidata.yaml</code> / <code>.chezmoidata.toml</code></td>
+<td><code>[data]</code> section in <code>haven.toml</code></td>
+</tr>
+<tr>
+<td>Go templates (<code>.tmpl</code> files)</td>
+<td>Tera templates (<code>.tmpl</code> files) — syntax differs</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="migration">Migration<a class="headerlink" href="#migration" title="Permanent link">&para;</a></h2>
+<h3 id="step-1-install-haven">Step 1: Install haven<a class="headerlink" href="#step-1-install-haven" title="Permanent link">&para;</a></h3>
+<pre><code class="language-sh">curl -fsSL https://raw.githubusercontent.com/johnstegeman/haven/main/install.sh | sh
+</code></pre>
+<h3 id="step-2-initialize-a-haven-repo">Step 2: Initialize a haven repo<a class="headerlink" href="#step-2-initialize-a-haven-repo" title="Permanent link">&para;</a></h3>
+<pre><code class="language-sh">haven init
+</code></pre>
+<p>This creates <code>~/.local/share/haven</code> with the
+scaffolding: <code>haven.toml</code>, <code>source/</code>, <code>brew/</code>, <code>modules/shell.toml</code>, <code>.gitignore</code>.</p>
+<h3 id="step-3-run-the-importer">Step 3: Run the importer<a class="headerlink" href="#step-3-run-the-importer" title="Permanent link">&para;</a></h3>
+<pre><code class="language-sh">haven import --from chezmoi
+</code></pre>
+<p>The importer locates your chezmoi source directory automatically (checks
+<code>~/.local/share/chezmoi</code>). To point it elsewhere:</p>
+<pre><code class="language-sh">haven import --from chezmoi --source ~/my-chezmoi-dir
+</code></pre>
+<p>Always try <code>--dry-run</code> first to see what would happen:</p>
+<pre><code class="language-sh">haven import --from chezmoi --dry-run
+</code></pre>
+<h3 id="what-the-importer-does">What the importer does<a class="headerlink" href="#what-the-importer-does" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Input</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Dotfiles (<code>dot_</code>, <code>private_</code>, <code>executable_</code>)</td>
+<td>Copied to <code>source/</code> unchanged</td>
+</tr>
+<tr>
+<td>Template files (<code>.tmpl</code> suffix)</td>
+<td>Copied and Go template syntax converted to Tera</td>
+</tr>
+<tr>
+<td><code>.chezmoiexternal.toml</code> git repos</td>
+<td>Converted to <code>extdir_</code> marker files in <code>source/</code></td>
+</tr>
+<tr>
+<td><code>.chezmoiignore</code></td>
+<td>Converted to Tera template syntax and written to <code>config/ignore</code></td>
+</tr>
+<tr>
+<td><code>.chezmoidata.yaml</code> / <code>.chezmoidata.toml</code></td>
+<td>Flat string values written to <code>[data]</code> in <code>haven.toml</code></td>
+</tr>
+<tr>
+<td><code>symlink_</code> + <code>.tmpl</code> files</td>
+<td>Converted: template renders to symlink target path</td>
+</tr>
+</tbody>
+</table>
+<h3 id="what-the-importer-skips-with-reasons">What the importer skips (with reasons)<a class="headerlink" href="#what-the-importer-skips-with-reasons" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>chezmoi item</th>
+<th>Status in haven</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>modify_</code> scripts</td>
+<td>Not supported — skipped with a message</td>
+</tr>
+<tr>
+<td><code>run_</code>, <code>run_once_</code>, <code>run_onchange_</code> scripts</td>
+<td>Skipped with guidance</td>
+</tr>
+<tr>
+<td><code>exact_</code> and <code>create_</code> prefixes</td>
+<td>Skipped — use <code>haven add</code> after migration</td>
+</tr>
+<tr>
+<td><code>.chezmoi*</code> internal files</td>
+<td>Skipped — chezmoi-internal only</td>
+</tr>
+<tr>
+<td>Nested/object data in <code>.chezmoidata.*</code></td>
+<td>Only flat string values are migrated</td>
+</tr>
+</tbody>
+</table>
+<p>After import, re-running is safe — it is idempotent and never overwrites existing
+source files.</p>
+<h3 id="step-4-verify">Step 4: Verify<a class="headerlink" href="#step-4-verify" title="Permanent link">&para;</a></h3>
+<pre><code class="language-sh">haven apply --dry-run
+</code></pre>
+<p>Review the plan. If everything looks right:</p>
+<pre><code class="language-sh">haven apply
+</code></pre>
+<p>Your files are now managed by haven.</p>
+<hr />
+<h2 id="template-syntax-conversion">Template syntax conversion<a class="headerlink" href="#template-syntax-conversion" title="Permanent link">&para;</a></h2>
+<p>The importer converts Go template syntax to Tera. Here is the full mapping:</p>
+<table>
+<thead>
+<tr>
+<th>chezmoi / Go template</th>
+<th>haven / Tera</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>{{ .chezmoi.hostname }}</code></td>
+<td><code>{{ hostname }}</code></td>
+</tr>
+<tr>
+<td><code>{{ .chezmoi.username }}</code></td>
+<td><code>{{ username }}</code></td>
+</tr>
+<tr>
+<td><code>{{ .chezmoi.os }}</code></td>
+<td><code>{{ os }}</code></td>
+</tr>
+<tr>
+<td><code>{{ .chezmoi.arch }}</code></td>
+<td><code>{{ arch }}</code></td>
+</tr>
+<tr>
+<td><code>{{ .chezmoi.homeDir }}</code></td>
+<td><code>{{ get_env(name="HOME") }}</code></td>
+</tr>
+<tr>
+<td><code>{{ .chezmoi.sourceDir }}</code></td>
+<td><code>{{ source_dir }}</code></td>
+</tr>
+<tr>
+<td><code>{{- if eq .chezmoi.os "darwin" -}}</code></td>
+<td><code>{% if os == "macos" %}</code></td>
+</tr>
+<tr>
+<td><code>{{- if eq .chezmoi.os "linux" -}}</code></td>
+<td><code>{% if os == "linux" %}</code></td>
+</tr>
+<tr>
+<td><code>{{- else if eq ... -}}</code></td>
+<td><code>{% elif ... %}</code></td>
+</tr>
+<tr>
+<td><code>{{- else -}}</code></td>
+<td><code>{% else %}</code></td>
+</tr>
+<tr>
+<td><code>{{- end -}}</code></td>
+<td><code>{% endif %}</code></td>
+</tr>
+<tr>
+<td><code>{{/* comment */}}</code></td>
+<td><code>{# comment #}</code></td>
+</tr>
+<tr>
+<td><code>{{ .someVar }}</code> (custom data)</td>
+<td><code>{{ data.someVar }}</code></td>
+</tr>
+<tr>
+<td><code>{{ (index . "someVar") }}</code></td>
+<td><code>{{ data.someVar }}</code></td>
+</tr>
+<tr>
+<td><code>{{ if .someVar }}</code></td>
+<td><code>{% if data.someVar %}</code></td>
+</tr>
+<tr>
+<td><code>{{ env "VAR" }}</code></td>
+<td><code>{{ get_env(name="VAR") }}</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>OS name note:</strong> chezmoi uses <code>"darwin"</code> for macOS; haven uses <code>"macos"</code>. The
+importer rewrites these automatically.</p>
+<p><strong>Custom data note:</strong> chezmoi accesses custom data as <code>.key</code> in templates. haven
+namespaces it under <code>data.key</code> to avoid collisions with built-in variables. The
+importer rewrites all custom variable references and migrates the values from
+<code>.chezmoidata.*</code> into <code>[data]</code> in <code>haven.toml</code>.</p>
+<p>Go constructs with no Tera equivalent (custom functions, complex pipelines) are
+preserved as-is with a warning. You will need to convert these manually.</p>
+<h3 id="checking-template-variables-in-scope">Checking template variables in scope<a class="headerlink" href="#checking-template-variables-in-scope" title="Permanent link">&para;</a></h3>
+<pre><code class="language-sh">haven data
+</code></pre>
+<pre><code>os         = macos
+hostname   = my-laptop
+username   = alice
+home_dir   = /Users/alice
+source_dir = /Users/alice/.local/share/haven
+
+data.kanata_path = /usr/local/bin/kanata
+data.work_email  = alice@corp.example
+</code></pre>
+<hr />
+<h2 id="command-equivalence">Command equivalence<a class="headerlink" href="#command-equivalence" title="Permanent link">&para;</a></h2>
+<h3 id="daily-workflow">Daily workflow<a class="headerlink" href="#daily-workflow" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>What you want to do</th>
+<th>chezmoi</th>
+<th>haven</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Apply all config</td>
+<td><code>chezmoi apply</code></td>
+<td><code>haven apply</code></td>
+</tr>
+<tr>
+<td>Apply one file</td>
+<td><code>chezmoi apply ~/.zshrc</code></td>
+<td><code>haven apply</code> (all files, fast)</td>
+</tr>
+<tr>
+<td>Preview changes</td>
+<td><code>chezmoi diff</code></td>
+<td><code>haven diff</code></td>
+</tr>
+<tr>
+<td>Summary of drift</td>
+<td><code>chezmoi status</code></td>
+<td><code>haven status</code></td>
+</tr>
+<tr>
+<td>See tracked files</td>
+<td><code>chezmoi managed</code></td>
+<td><code>haven list</code></td>
+</tr>
+<tr>
+<td>Find untracked dotfiles</td>
+<td>—</td>
+<td><code>haven unmanaged</code></td>
+</tr>
+<tr>
+<td>Track a new file</td>
+<td><code>chezmoi add ~/.foo</code></td>
+<td><code>haven add ~/.foo</code></td>
+</tr>
+<tr>
+<td>Re-track a changed file</td>
+<td><code>chezmoi re-add ~/.foo</code></td>
+<td><code>haven add ~/.foo --update</code></td>
+</tr>
+<tr>
+<td>Stop tracking a file</td>
+<td><code>chezmoi forget ~/.foo</code></td>
+<td><code>haven remove ~/.foo</code></td>
+</tr>
+<tr>
+<td>Edit source file</td>
+<td><code>chezmoi edit ~/.foo</code></td>
+<td><code>$EDITOR $(haven source-path)/source/dot_foo</code></td>
+</tr>
+<tr>
+<td>Go to source dir</td>
+<td><code>chezmoi cd</code></td>
+<td><code>cd $(haven source-path)</code></td>
+</tr>
+<tr>
+<td>Dry run</td>
+<td><code>chezmoi apply --dry-run</code></td>
+<td><code>haven apply --dry-run</code></td>
+</tr>
+<tr>
+<td>Check for drift on CI</td>
+<td><code>chezmoi verify</code></td>
+<td><code>haven diff</code> (exits 1 on drift)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="migration-and-updates">Migration and updates<a class="headerlink" href="#migration-and-updates" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>What you want to do</th>
+<th>chezmoi</th>
+<th>haven</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Import from chezmoi</td>
+<td>—</td>
+<td><code>haven import --from chezmoi</code></td>
+</tr>
+<tr>
+<td>Pull latest + apply</td>
+<td><code>chezmoi update</code></td>
+<td><code>cd ~/.local/share/haven &amp;&amp; git pull &amp;&amp; haven apply</code></td>
+</tr>
+<tr>
+<td>Upgrade the binary</td>
+<td><code>chezmoi upgrade</code></td>
+<td><code>haven upgrade</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="templates-and-data">Templates and data<a class="headerlink" href="#templates-and-data" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>What you want to do</th>
+<th>chezmoi</th>
+<th>haven</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Preview a rendered template</td>
+<td><code>chezmoi cat ~/.foo</code></td>
+<td><em>(not available — use <code>haven apply --dry-run</code>)</em></td>
+</tr>
+<tr>
+<td>Check template variables</td>
+<td><code>chezmoi data</code></td>
+<td><code>haven data</code></td>
+</tr>
+<tr>
+<td>Execute a template expression</td>
+<td><code>chezmoi execute-template '{{ .chezmoi.os }}'</code></td>
+<td><em>(not available)</em></td>
+</tr>
+</tbody>
+</table>
+<h3 id="secret-management">Secret management<a class="headerlink" href="#secret-management" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>What you want to do</th>
+<th>chezmoi</th>
+<th>haven</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Read from 1Password</td>
+<td><code>{{ onepasswordField "..." "..." }}</code></td>
+<td><code>{{ op(path="op://...") }}</code></td>
+</tr>
+<tr>
+<td>Read from environment</td>
+<td><code>{{ env "VAR" }}</code></td>
+<td><code>{{ get_env(name="VAR") }}</code></td>
+</tr>
+<tr>
+<td>Bitwarden / LastPass / Vault</td>
+<td>Built-in integrations</td>
+<td>Not yet supported</td>
+</tr>
+<tr>
+<td>age / GPG encryption in repo</td>
+<td>Supported</td>
+<td>Not yet supported</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="what-chezmoi-does-that-haven-does-not-yet">What chezmoi does that haven does not (yet)<a class="headerlink" href="#what-chezmoi-does-that-haven-does-not-yet" title="Permanent link">&para;</a></h2>
+<p>haven is younger than chezmoi. These are the known gaps as of v0.3.0:</p>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>chezmoi</th>
+<th>haven</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>In-repo encryption</strong></td>
+<td>age and GPG support for encrypting files before committing</td>
+<td>Not supported. Workaround: use <code>op()</code> to read secrets from 1Password at apply time instead of storing them in the repo</td>
+</tr>
+<tr>
+<td><strong><code>modify_</code> scripts</strong></td>
+<td>Scripts that transform the existing destination file</td>
+<td>Skipped on import. Workaround: convert to a <code>.tmpl</code> file with <code>get_env()</code> or <code>op()</code> calls</td>
+</tr>
+<tr>
+<td><strong><code>run_onchange_</code> scripts</strong></td>
+<td>Re-run a script when its content changes</td>
+<td>Not supported — only <code>run_once_</code></td>
+</tr>
+<tr>
+<td><strong><code>chezmoi cat</code></strong></td>
+<td>Print rendered output of a template without applying</td>
+<td>Not implemented. Workaround: <code>haven apply --dry-run --dest /tmp/staging</code></td>
+</tr>
+<tr>
+<td><strong><code>chezmoi execute-template</code></strong></td>
+<td>Evaluate a template expression from the CLI</td>
+<td>Not implemented</td>
+</tr>
+<tr>
+<td><strong><code>chezmoi chattr</code></strong></td>
+<td>Change the magic-name attributes of a tracked file</td>
+<td>Not implemented. Rename the source file manually</td>
+</tr>
+<tr>
+<td><strong><code>chezmoi merge</code></strong></td>
+<td>Three-way merge when source and destination have both changed</td>
+<td>Not implemented</td>
+</tr>
+<tr>
+<td><strong>Multiple secret backends</strong></td>
+<td>Bitwarden, LastPass, Vault, Keeper, Passbolt, etc.</td>
+<td>Only 1Password via <code>op()</code></td>
+</tr>
+<tr>
+<td><strong><code>chezmoi doctor</code></strong></td>
+<td>Diagnostic check of the environment</td>
+<td>Not implemented</td>
+</tr>
+<tr>
+<td><strong><code>chezmoi dump</code></strong></td>
+<td>Dump the full source state as JSON/YAML</td>
+<td>Not implemented</td>
+</tr>
+<tr>
+<td><strong>Interactive template prompts</strong></td>
+<td><code>promptString</code>, <code>promptBool</code>, <code>promptChoice</code></td>
+<td>Not supported in templates</td>
+</tr>
+<tr>
+<td><strong>Per-file templates for external archives</strong></td>
+<td><code>.chezmoiexternal.toml</code> with templated URLs</td>
+<td><code>extfile_</code> supports SHA verification; no templated URLs yet</td>
+</tr>
+</tbody>
+</table>
+<p>If any of these are blocking your migration, open an issue on GitHub or continue
+using chezmoi for that file while managing the rest with haven.</p>
+<hr />
+<h2 id="setting-up-homebrew-with-modules-and-profiles">Setting up Homebrew with modules and profiles<a class="headerlink" href="#setting-up-homebrew-with-modules-and-profiles" title="Permanent link">&para;</a></h2>
+<p>This is where haven diverges from chezmoi. chezmoi tracks dotfiles; managing
+packages is out of scope. haven tracks both in the same repo.</p>
+<h3 id="brewfiles">Brewfiles<a class="headerlink" href="#brewfiles" title="Permanent link">&para;</a></h3>
+<p>haven Brewfiles live at <code>brew/Brewfile</code> (master) and <code>brew/Brewfile.&lt;module&gt;</code>
+(per-module). Create them manually or use <code>haven brew install</code> to add packages
+and keep them in sync automatically:</p>
+<pre><code class="language-sh"># Add a formula to the master Brewfile
+haven brew install ripgrep
+
+# Add a formula to a named module's Brewfile
+haven brew install ripgrep --module shell
+
+# Add a cask
+haven brew install iterm2 --cask
+
+# Remove a package from all Brewfiles
+haven brew uninstall ripgrep
+</code></pre>
+<p>Or write the Brewfile directly:</p>
+<pre><code class="language-sh"># brew/Brewfile.shell
+brew &quot;fish&quot;
+brew &quot;starship&quot;
+brew &quot;ripgrep&quot;
+brew &quot;fd&quot;
+brew &quot;bat&quot;
+cask &quot;iterm2&quot;
+</code></pre>
+<h3 id="modules">Modules<a class="headerlink" href="#modules" title="Permanent link">&para;</a></h3>
+<p>A module is a TOML file at <code>modules/&lt;name&gt;.toml</code>. It ties a Brewfile (and
+optional mise config) to a name:</p>
+<pre><code class="language-toml"># modules/shell.toml
+[homebrew]
+brewfile = &quot;brew/Brewfile.shell&quot;
+
+[mise]
+config = &quot;source/mise.toml&quot;
+</code></pre>
+<p>Modules group related packages. You might have <code>shell.toml</code>, <code>work.toml</code>,
+<code>dev.toml</code>, or <code>personal.toml</code>. Files in <code>source/</code> are not listed in
+modules — their encoded filenames are the complete record.</p>
+<h3 id="profiles">Profiles<a class="headerlink" href="#profiles" title="Permanent link">&para;</a></h3>
+<p>Profiles live in <code>haven.toml</code> and control which modules apply on each machine:</p>
+<pre><code class="language-toml">[profile.default]
+modules = [&quot;shell&quot;, &quot;git&quot;]
+
+[profile.work]
+extends = &quot;default&quot;
+modules = [&quot;work&quot;, &quot;secrets&quot;]
+
+[profile.personal]
+extends = &quot;default&quot;
+modules = [&quot;personal&quot;]
+
+[profile.server]
+modules = [&quot;shell&quot;]
+</code></pre>
+<p><code>extends</code> inherits all parent modules first, then appends the child's list.</p>
+<p>Apply a profile:</p>
+<pre><code class="language-sh">haven apply --profile work
+haven status --profile personal
+</code></pre>
+<p><strong>Workflow tip:</strong> commit <code>haven.toml</code> with all your profiles. On a new machine,
+run <code>haven init gh:yourname/haven --apply --profile &lt;name&gt;</code> to clone the repo
+and apply the right profile in one step.</p>
+<hr />
+<h2 id="custom-template-variables">Custom template variables<a class="headerlink" href="#custom-template-variables" title="Permanent link">&para;</a></h2>
+<p>If you used <code>.chezmoidata.yaml</code> or <code>.chezmoidata.toml</code> for machine-specific
+variables, the importer writes them into <code>[data]</code> in <code>haven.toml</code>:</p>
+<pre><code class="language-toml"># haven.toml
+[data]
+work_email    = &quot;alice@corp.example&quot;
+kanata_path   = &quot;/usr/local/bin/kanata&quot;
+homebrew_path = &quot;/opt/homebrew&quot;
+</code></pre>
+<p>In any <code>.tmpl</code> file, access them as <code>{{ data.&lt;key&gt; }}</code>:</p>
+<pre><code class="language-sh"># source/dot_gitconfig.tmpl
+[user]
+  email = {{ data.work_email }}
+
+[core]
+  editor = {{ data.kanata_path }}
+</code></pre>
+<p>Run <code>haven data</code> to see all variables in scope, including the built-ins
+(<code>os</code>, <code>hostname</code>, <code>username</code>, <code>home_dir</code>, <code>source_dir</code>).</p>
+<hr />
+<h2 id="importing-ai-skills">Importing AI skills<a class="headerlink" href="#importing-ai-skills" title="Permanent link">&para;</a></h2>
+<p>If you already have Claude Code skills installed under <code>~/.claude/skills/</code>,
+haven can detect them and bring them under management:</p>
+<pre><code class="language-sh"># Scan and interactively import unmanaged skills
+haven ai scan ~/.claude/skills
+</code></pre>
+<p>For each unmanaged skill, haven inspects the git remote or searches the
+skills.sh registry to identify the source. You confirm, edit, or skip each one.
+Confirmed skills are appended to <code>ai/skills.toml</code>.</p>
+<p>After scanning:</p>
+<pre><code class="language-sh">haven apply --ai    # deploy and write ~/.claude/CLAUDE.md
+</code></pre>
+<h3 id="adding-new-skills">Adding new skills<a class="headerlink" href="#adding-new-skills" title="Permanent link">&para;</a></h3>
+<pre><code class="language-sh"># Browse what's available
+haven ai search browser
+haven ai search pdf
+
+# Add a skill from GitHub
+haven ai add gh:anthropics/skills/pdf-processing@v1.0
+
+# Add a locally developed skill
+haven ai add-local ~/projects/my-skill
+
+# Deploy
+haven apply --ai
+</code></pre>
+<h3 id="skills-in-aiskillstoml">Skills in ai/skills.toml<a class="headerlink" href="#skills-in-aiskillstoml" title="Permanent link">&para;</a></h3>
+<pre><code class="language-toml">[[skill]]
+name      = &quot;pdf-processing&quot;
+source    = &quot;gh:anthropics/skills/pdf-processing@v1.0&quot;
+platforms = &quot;all&quot;
+
+[[skill]]
+name      = &quot;my-commands&quot;
+source    = &quot;repo:&quot;             # bundled in this haven repo
+platforms = [&quot;claude-code&quot;]
+</code></pre>
+<p>Every <code>gh:</code> source is SHA-pinned in <code>haven.lock</code>. Run <code>haven ai update</code> to
+pull updates and refresh the pinned SHAs.</p>
+<hr />
+<h2 id="setting-up-a-new-machine">Setting up a new machine<a class="headerlink" href="#setting-up-a-new-machine" title="Permanent link">&para;</a></h2>
+<p>With chezmoi you run <code>chezmoi init --apply gh:yourname/dotfiles</code>. haven is similar:</p>
+<pre><code class="language-sh"># Install haven
+curl -fsSL https://raw.githubusercontent.com/johnstegeman/haven/main/install.sh | sh
+
+# Clone your repo and apply
+haven init gh:yourname/haven --apply
+
+# Or with a specific profile
+haven init gh:yourname/haven --apply --profile work
+</code></pre>
+<p><code>haven init --apply</code> clones the repo, then runs <code>haven apply</code>. If you also want
+Homebrew packages and AI skills:</p>
+<pre><code class="language-sh">haven init gh:yourname/haven --apply
+haven apply --brews          # install Homebrew packages
+haven apply --ai             # deploy AI skills
+</code></pre>
+<p>Or all at once:</p>
+<pre><code class="language-sh">haven apply                  # applies everything (files + brews + mise + ai)
+</code></pre>
+<hr />
+<h2 id="daily-workflow-after-migration">Daily workflow after migration<a class="headerlink" href="#daily-workflow-after-migration" title="Permanent link">&para;</a></h2>
+<p>After the initial migration, your workflow is almost identical to chezmoi's:</p>
+<pre><code class="language-sh"># Something drifted — check what changed
+haven status
+haven diff
+
+# Snap the live file back into source
+haven add ~/.zshrc --update
+
+# Push the update
+cd ~/.local/share/haven &amp;&amp; git add -A &amp;&amp; git commit -m &quot;update zshrc&quot; &amp;&amp; git push
+
+# Pull and apply on another machine
+cd ~/.local/share/haven &amp;&amp; git pull &amp;&amp; haven apply
+</code></pre>
+<p>There is no <code>haven update</code> shortcut (equivalent to <code>chezmoi update</code>) — you pull
+the repo manually. This is intentional: haven does not assume which VCS workflow
+you prefer. If you use jj, <code>jj git fetch &amp;&amp; jj rebase -d main@origin &amp;&amp; haven apply</code>.</p>
+<hr />
+<h2 id="troubleshooting-migration">Troubleshooting migration<a class="headerlink" href="#troubleshooting-migration" title="Permanent link">&para;</a></h2>
+<h3 id="templates-that-didnt-convert-cleanly">Templates that didn't convert cleanly<a class="headerlink" href="#templates-that-didnt-convert-cleanly" title="Permanent link">&para;</a></h3>
+<p>The importer emits a warning for each Go template construct it could not convert.
+Look for <code># haven: TODO</code> comments in the converted <code>.tmpl</code> files. Each one
+marks a construct you need to translate manually.</p>
+<p>Check the <a href="#template-syntax-conversion">template syntax table</a> above and the
+<a href="https://keats.github.io/tera/docs/">Tera documentation</a> for reference.</p>
+<h3 id="files-that-were-skipped">Files that were skipped<a class="headerlink" href="#files-that-were-skipped" title="Permanent link">&para;</a></h3>
+<p>Run with <code>--dry-run</code> to see the full list of what would be skipped and why:</p>
+<pre><code class="language-sh">haven import --from chezmoi --dry-run 2&gt;&amp;1 | grep -i skip
+</code></pre>
+<p>For <code>modify_</code> scripts: the typical chezmoi use case is injecting an environment
+variable or secret. Replace the <code>modify_</code> script with a <code>.tmpl</code> file that reads
+the value via <code>{{ get_env(name="VAR") }}</code> or <code>{{ op(path="op://...") }}</code>.</p>
+<h3 id="file-applies-but-looks-wrong">File applies but looks wrong<a class="headerlink" href="#file-applies-but-looks-wrong" title="Permanent link">&para;</a></h3>
+<pre><code class="language-sh">haven diff ~/.zshrc      # see exact diff between source and destination
+haven apply --dry-run    # preview full apply plan
+</code></pre>
+<h3 id="check-if-anything-in-your-home-dir-is-still-untracked">Check if anything in your home dir is still untracked<a class="headerlink" href="#check-if-anything-in-your-home-dir-is-still-untracked" title="Permanent link">&para;</a></h3>
+<pre><code class="language-sh">haven unmanaged
+haven unmanaged --path ~/.config --depth 4
+</code></pre>
+<h3 id="security-scan-before-committing">Security scan before committing<a class="headerlink" href="#security-scan-before-committing" title="Permanent link">&para;</a></h3>
+<p>Run a scan on the imported source files to catch anything that shouldn't be in
+the repo:</p>
+<pre><code class="language-sh">haven security-scan
+haven security-scan --entropy    # also flag high-entropy strings
+</code></pre>
+<p>Add false positives to <code>[security] allow</code> in <code>haven.toml</code>.</p>
+<hr />
+<h2 id="keeping-chezmoi-around-during-the-transition">Keeping chezmoi around during the transition<a class="headerlink" href="#keeping-chezmoi-around-during-the-transition" title="Permanent link">&para;</a></h2>
+<p>You do not have to switch all at once. chezmoi and haven can coexist: they manage
+different files. A pragmatic approach:</p>
+<ol>
+<li>Run <code>haven import --from chezmoi --dry-run</code> to see the full picture.</li>
+<li>Move your most-used dotfiles to haven first.</li>
+<li>For any file that uses a chezmoi feature haven doesn't support yet (e.g.
+   <code>modify_</code> scripts, age encryption), leave it in chezmoi.</li>
+<li>Add the chezmoi source directory to <code>config/ignore</code> in haven so it isn't
+   accidentally imported twice.</li>
+</ol>
+<p>When you are ready to cut over fully, run <code>chezmoi unmanage</code> on each file
+you've migrated and eventually <code>rm -rf ~/.local/share/chezmoi</code>.</p></div>
+            </div>
+        </div>
+
+        <footer class="col-md-12">
+            <hr>
+            <p>Documentation built with <a href="https://www.mkdocs.org/">MkDocs</a>.</p>
+        </footer>
+        <script src="../js/bootstrap.bundle.min.js"></script>
+        <script>
+            var base_url = "..",
+                shortcuts = {"help": 191, "next": 78, "previous": 80, "search": 83};
+        </script>
+        <script src="../js/base.js"></script>
+        <script src="../search/main.js"></script>
+
+        <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>From here you can search these documents. Enter your search terms below.</p>
+                <form>
+                    <div class="form-group">
+                        <input type="search" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results" data-no-results-text="No results found"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+
+    </body>
+</html>

@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        
+        
+        <link rel="canonical" href="https://johnstegeman.github.io/haven/reference/configuration/">
+        <link rel="shortcut icon" href="../../img/favicon.ico">
+        <title>Configuration - haven</title>
+        <link href="../../css/bootstrap.min.css" rel="stylesheet">
+        <link href="../../css/fontawesome.min.css" rel="stylesheet">
+        <link href="../../css/brands.min.css" rel="stylesheet">
+        <link href="../../css/solid.min.css" rel="stylesheet">
+        <link href="../../css/v4-font-face.min.css" rel="stylesheet">
+        <link href="../../css/base.css" rel="stylesheet">
+        <link id="hljs-light" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" >
+        <link id="hljs-dark" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css" disabled>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script>hljs.highlightAll();</script> 
+    </head>
+
+    <body>
+        <div class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary">
+            <div class="container">
+                <a class="navbar-brand" href="../..">haven</a>
+                <!-- Expander button -->
+                <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar-collapse" aria-controls="navbar-collapse" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <!-- Expanded navigation -->
+                <div id="navbar-collapse" class="navbar-collapse collapse">
+                        <!-- Main navigation -->
+                        <ul class="nav navbar-nav">
+                            <li class="nav-item">
+                                <a href="../.." class="nav-link">Home</a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="../../concepts/" class="nav-link">Concepts</a>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Getting Started</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../getting-started/installation/" class="dropdown-item">Installation</a>
+</li>
+                                    
+<li>
+    <a href="../../getting-started/quickstart/" class="dropdown-item">Quick Start</a>
+</li>
+                                    
+<li>
+    <a href="../../getting-started/new-machine/" class="dropdown-item">New Machine Setup</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Guides</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../guides/tracking-files/" class="dropdown-item">Tracking Files</a>
+</li>
+                                    
+<li>
+    <a href="../../guides/packages/" class="dropdown-item">Managing Packages</a>
+</li>
+                                    
+<li>
+    <a href="../../guides/ai-skills/" class="dropdown-item">AI Skills</a>
+</li>
+                                    
+<li>
+    <a href="../../guides/templates/" class="dropdown-item">Templates & Secrets</a>
+</li>
+                                    
+<li>
+    <a href="../../guides/profiles-modules/" class="dropdown-item">Profiles & Modules</a>
+</li>
+                                    
+<li>
+    <a href="../../guides/security/" class="dropdown-item">Security Scanning</a>
+</li>
+                                    
+<li>
+    <a href="../../guides/vcs/" class="dropdown-item">VCS Backend</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">For chezmoi Users</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../for-chezmoi-users/" class="dropdown-item">Overview</a>
+</li>
+                                    
+<li>
+    <a href="../../for-chezmoi-users/migration/" class="dropdown-item">Migration Guide</a>
+</li>
+                                    
+<li>
+    <a href="../../for-chezmoi-users/commands/" class="dropdown-item">Command Equivalence</a>
+</li>
+                                    
+<li>
+    <a href="../../for-chezmoi-users/templates/" class="dropdown-item">Template Conversion</a>
+</li>
+                                    
+<li>
+    <a href="../../for-chezmoi-users/gaps/" class="dropdown-item">Feature Gaps</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle active" aria-current="page" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Reference</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../commands/" class="dropdown-item">Command Reference</a>
+</li>
+                                    
+<li>
+    <a href="./" class="dropdown-item active" aria-current="page">Configuration</a>
+</li>
+                                    
+<li>
+    <a href="../magic-names/" class="dropdown-item">Magic-Name Encoding</a>
+</li>
+                                    
+<li>
+    <a href="../template-variables/" class="dropdown-item">Template Variables</a>
+</li>
+                                    
+<li>
+    <a href="../environment/" class="dropdown-item">Environment Variables</a>
+</li>
+                                    
+<li>
+    <a href="../repo-layout/" class="dropdown-item">Repo Layout</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item">
+                                <a href="../../changelog/" class="nav-link">Changelog</a>
+                            </li>
+                        </ul>
+
+                    <ul class="nav navbar-nav ms-md-auto">
+                        <li class="nav-item">
+                            <a href="#" class="nav-link" data-bs-toggle="modal" data-bs-target="#mkdocs_search_modal">
+                                <i class="fa fa-search"></i> Search
+                            </a>
+                        </li>
+                            <li class="nav-item">
+                                <a rel="prev" href="../commands/" class="nav-link">
+                                    <i class="fa fa-arrow-left"></i> Previous
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a rel="next" href="../magic-names/" class="nav-link">
+                                    Next <i class="fa fa-arrow-right"></i>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="https://github.com/johnstegeman/haven/edit/main/docs/reference/configuration.md" class="nav-link">Edit on johnstegeman/haven
+                                    </a>
+                            </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="row">
+                    <div class="col-md-3"><div class="navbar-expand-md bs-sidebar hidden-print affix" role="complementary">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggler collapsed" data-bs-toggle="collapse" data-bs-target="#toc-collapse" title="Table of Contents">
+            <span class="fa fa-angle-down"></span>
+        </button>
+    </div>
+
+    
+    <div id="toc-collapse" class="navbar-collapse collapse card bg-body-tertiary">
+        <ul class="nav flex-column">
+            
+            <li class="nav-item" data-bs-level="1"><a href="#configuration-reference" class="nav-link">Configuration Reference</a>
+              <ul class="nav flex-column">
+            <li class="nav-item" data-bs-level="2"><a href="#haventoml" class="nav-link">haven.toml</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#modulesnametoml" class="nav-link">modules/&lt;name&gt;.toml</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#aiplatformstoml" class="nav-link">ai/platforms.toml</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#aiskillsnameskilltoml" class="nav-link">ai/skills/&lt;name&gt;/skill.toml</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#configignore" class="nav-link">config/ignore</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#havenlock" class="nav-link">haven.lock</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+              </ul>
+            </li>
+        </ul>
+    </div>
+</div></div>
+                    <div class="col-md-9" role="main">
+
+<h1 id="configuration-reference">Configuration Reference<a class="headerlink" href="#configuration-reference" title="Permanent link">&para;</a></h1>
+<h2 id="haventoml"><code>haven.toml</code><a class="headerlink" href="#haventoml" title="Permanent link">&para;</a></h2>
+<p>The top-level configuration file at the repo root. All sections are optional.</p>
+<pre><code class="language-toml"># haven.toml
+
+[profile.default]
+modules = [&quot;shell&quot;, &quot;git&quot;, &quot;packages&quot;]
+
+[profile.work]
+extends = &quot;default&quot;
+modules = [&quot;work&quot;, &quot;secrets&quot;]
+
+[data]
+work_email    = &quot;alice@corp.example&quot;
+kanata_path   = &quot;/usr/local/bin/kanata&quot;
+
+[security]
+allow = [
+  &quot;~/.config/gh/hosts.yml&quot;,
+]
+
+[vcs]
+backend = &quot;git&quot;    # or &quot;jj&quot;
+
+[telemetry]
+enabled = false
+</code></pre>
+<h3 id="profilename"><code>[profile.&lt;name&gt;]</code><a class="headerlink" href="#profilename" title="Permanent link">&para;</a></h3>
+<p>Declares a profile — a named set of modules to apply.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>modules</code></td>
+<td>string array</td>
+<td>Module names to activate for this profile.</td>
+</tr>
+<tr>
+<td><code>extends</code></td>
+<td>string</td>
+<td>Parent profile name. Parent's modules are applied first.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="data"><code>[data]</code><a class="headerlink" href="#data" title="Permanent link">&para;</a></h3>
+<p>Custom variables available in all <code>.tmpl</code> files as <code>{{ data.&lt;key&gt; }}</code>.</p>
+<p>Only flat string values are supported. Arrays and nested tables are not.</p>
+<h3 id="security"><code>[security]</code><a class="headerlink" href="#security" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>allow</code></td>
+<td>string array</td>
+<td>Glob patterns for files to skip in security scanning. Same syntax as <code>config/ignore</code>.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="vcs"><code>[vcs]</code><a class="headerlink" href="#vcs" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>backend</code></td>
+<td><code>"git"</code> or <code>"jj"</code></td>
+<td>VCS backend for clone and init operations.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="telemetry"><code>[telemetry]</code><a class="headerlink" href="#telemetry" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>enabled</code></td>
+<td>bool</td>
+<td>Enable local telemetry logging to <code>~/.haven/telemetry.jsonl</code>. Default: <code>false</code>.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="modulesnametoml"><code>modules/&lt;name&gt;.toml</code><a class="headerlink" href="#modulesnametoml" title="Permanent link">&para;</a></h2>
+<p>Per-module configuration. All sections are optional.</p>
+<pre><code class="language-toml"># modules/shell.toml
+
+[homebrew]
+brewfile = &quot;brew/Brewfile.shell&quot;
+
+[mise]
+config = &quot;source/mise.toml&quot;
+
+requires_op = false
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>[homebrew] brewfile</code></td>
+<td>string</td>
+<td>Path to Brewfile, relative to repo root.</td>
+</tr>
+<tr>
+<td><code>[mise] config</code></td>
+<td>string</td>
+<td>Path to mise config file, relative to repo root.</td>
+</tr>
+<tr>
+<td><code>requires_op</code></td>
+<td>bool</td>
+<td>If <code>true</code>, skip brew/mise if <code>op</code> CLI is unavailable or not signed in. Default: <code>false</code>.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="aiplatformstoml"><code>ai/platforms.toml</code><a class="headerlink" href="#aiplatformstoml" title="Permanent link">&para;</a></h2>
+<p>Declares which AI agent platforms are active on this machine.</p>
+<pre><code class="language-toml">active = [&quot;claude-code&quot;]
+
+[platform.claude-code]
+skills_dir = &quot;~/.claude/skills&quot;
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>active</code></td>
+<td>Array of platform IDs to activate.</td>
+</tr>
+<tr>
+<td><code>[platform.&lt;id&gt;] skills_dir</code></td>
+<td>Directory where skills for this platform are deployed.</td>
+</tr>
+</tbody>
+</table>
+<p>Run <code>haven ai discover</code> to auto-generate this file by scanning installed platforms.</p>
+<hr />
+<h2 id="aiskillsnameskilltoml"><code>ai/skills/&lt;name&gt;/skill.toml</code><a class="headerlink" href="#aiskillsnameskilltoml" title="Permanent link">&para;</a></h2>
+<p>Declares a single AI skill.</p>
+<pre><code class="language-toml">source    = &quot;gh:anthropics/skills/pdf-processing@v1.0&quot;
+platforms = &quot;all&quot;
+deploy    = &quot;symlink&quot;
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>source</code></td>
+<td>string</td>
+<td>Skill source: <code>gh:owner/repo[/subpath][@ref]</code> or <code>dir:~/path</code>.</td>
+</tr>
+<tr>
+<td><code>platforms</code></td>
+<td>string or array</td>
+<td><code>"all"</code>, <code>"cross-client"</code>, or array of platform IDs.</td>
+</tr>
+<tr>
+<td><code>deploy</code></td>
+<td><code>"symlink"</code> or <code>"copy"</code></td>
+<td>Deploy method. Default: <code>"symlink"</code>.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="configignore"><code>config/ignore</code><a class="headerlink" href="#configignore" title="Permanent link">&para;</a></h2>
+<p>gitignore-style patterns for files to exclude from <code>apply</code>, <code>status</code>, and <code>diff</code>.</p>
+<pre><code># config/ignore
+
+{% if os == &quot;macos&quot; %}
+.DS_Store
+{% endif %}
+
+.ssh/id_*
+.config/*/history
+.local/share/some-app/**
+
+!.local/share/some-app/keep-this
+</code></pre>
+<p>This file is a Tera template — evaluated at runtime on every command that loads it. If the template fails to render, haven warns and falls back to ignoring nothing.</p>
+<h3 id="pattern-rules">Pattern rules<a class="headerlink" href="#pattern-rules" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Syntax</th>
+<th>Matches</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>#</code> at start</td>
+<td>Comment (ignored)</td>
+</tr>
+<tr>
+<td><code>*</code></td>
+<td>Any non-<code>/</code> characters</td>
+</tr>
+<tr>
+<td><code>**</code></td>
+<td>Any characters including <code>/</code></td>
+</tr>
+<tr>
+<td><code>?</code></td>
+<td>Any single non-<code>/</code> character</td>
+</tr>
+<tr>
+<td><code>!</code> prefix</td>
+<td>Negate — un-ignores a previously matched path</td>
+</tr>
+<tr>
+<td>Pattern with no <code>/</code></td>
+<td>Basename only</td>
+</tr>
+<tr>
+<td>Pattern with <code>/</code></td>
+<td>Full path from home root</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="havenlock"><code>haven.lock</code><a class="headerlink" href="#havenlock" title="Permanent link">&para;</a></h2>
+<p>Auto-generated. Records SHA256 hashes of all fetched external sources.</p>
+<pre><code class="language-toml"># haven.lock — auto-generated, do not edit by hand
+
+[skill.&quot;gh:anthropics/skills/pdf-processing@v1.0&quot;]
+sha        = &quot;abc123def456...&quot;
+fetched_at = &quot;2026-03-21T10:00:00Z&quot;
+</code></pre>
+<p>Commit this file alongside your config. Run <code>haven ai update</code> to intentionally upgrade a skill and refresh its SHA.</p></div>
+            </div>
+        </div>
+
+        <footer class="col-md-12">
+            <hr>
+            <p>Documentation built with <a href="https://www.mkdocs.org/">MkDocs</a>.</p>
+        </footer>
+        <script src="../../js/bootstrap.bundle.min.js"></script>
+        <script>
+            var base_url = "../..",
+                shortcuts = {"help": 191, "next": 78, "previous": 80, "search": 83};
+        </script>
+        <script src="../../js/base.js"></script>
+        <script src="../../search/main.js"></script>
+
+        <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>From here you can search these documents. Enter your search terms below.</p>
+                <form>
+                    <div class="form-group">
+                        <input type="search" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results" data-no-results-text="No results found"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+
+    </body>
+</html>

@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        
+        
+        <link rel="canonical" href="https://johnstegeman.github.io/haven/reference/commands/">
+        <link rel="shortcut icon" href="../../img/favicon.ico">
+        <title>Command Reference - haven</title>
+        <link href="../../css/bootstrap.min.css" rel="stylesheet">
+        <link href="../../css/fontawesome.min.css" rel="stylesheet">
+        <link href="../../css/brands.min.css" rel="stylesheet">
+        <link href="../../css/solid.min.css" rel="stylesheet">
+        <link href="../../css/v4-font-face.min.css" rel="stylesheet">
+        <link href="../../css/base.css" rel="stylesheet">
+        <link id="hljs-light" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" >
+        <link id="hljs-dark" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css" disabled>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script>hljs.highlightAll();</script> 
+    </head>
+
+    <body>
+        <div class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary">
+            <div class="container">
+                <a class="navbar-brand" href="../..">haven</a>
+                <!-- Expander button -->
+                <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar-collapse" aria-controls="navbar-collapse" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <!-- Expanded navigation -->
+                <div id="navbar-collapse" class="navbar-collapse collapse">
+                        <!-- Main navigation -->
+                        <ul class="nav navbar-nav">
+                            <li class="nav-item">
+                                <a href="../.." class="nav-link">Home</a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="../../concepts/" class="nav-link">Concepts</a>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Getting Started</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../getting-started/installation/" class="dropdown-item">Installation</a>
+</li>
+                                    
+<li>
+    <a href="../../getting-started/quickstart/" class="dropdown-item">Quick Start</a>
+</li>
+                                    
+<li>
+    <a href="../../getting-started/new-machine/" class="dropdown-item">New Machine Setup</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Guides</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../guides/tracking-files/" class="dropdown-item">Tracking Files</a>
+</li>
+                                    
+<li>
+    <a href="../../guides/packages/" class="dropdown-item">Managing Packages</a>
+</li>
+                                    
+<li>
+    <a href="../../guides/ai-skills/" class="dropdown-item">AI Skills</a>
+</li>
+                                    
+<li>
+    <a href="../../guides/templates/" class="dropdown-item">Templates & Secrets</a>
+</li>
+                                    
+<li>
+    <a href="../../guides/profiles-modules/" class="dropdown-item">Profiles & Modules</a>
+</li>
+                                    
+<li>
+    <a href="../../guides/security/" class="dropdown-item">Security Scanning</a>
+</li>
+                                    
+<li>
+    <a href="../../guides/vcs/" class="dropdown-item">VCS Backend</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">For chezmoi Users</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../for-chezmoi-users/" class="dropdown-item">Overview</a>
+</li>
+                                    
+<li>
+    <a href="../../for-chezmoi-users/migration/" class="dropdown-item">Migration Guide</a>
+</li>
+                                    
+<li>
+    <a href="../../for-chezmoi-users/commands/" class="dropdown-item">Command Equivalence</a>
+</li>
+                                    
+<li>
+    <a href="../../for-chezmoi-users/templates/" class="dropdown-item">Template Conversion</a>
+</li>
+                                    
+<li>
+    <a href="../../for-chezmoi-users/gaps/" class="dropdown-item">Feature Gaps</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle active" aria-current="page" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Reference</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="./" class="dropdown-item active" aria-current="page">Command Reference</a>
+</li>
+                                    
+<li>
+    <a href="../configuration/" class="dropdown-item">Configuration</a>
+</li>
+                                    
+<li>
+    <a href="../magic-names/" class="dropdown-item">Magic-Name Encoding</a>
+</li>
+                                    
+<li>
+    <a href="../template-variables/" class="dropdown-item">Template Variables</a>
+</li>
+                                    
+<li>
+    <a href="../environment/" class="dropdown-item">Environment Variables</a>
+</li>
+                                    
+<li>
+    <a href="../repo-layout/" class="dropdown-item">Repo Layout</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item">
+                                <a href="../../changelog/" class="nav-link">Changelog</a>
+                            </li>
+                        </ul>
+
+                    <ul class="nav navbar-nav ms-md-auto">
+                        <li class="nav-item">
+                            <a href="#" class="nav-link" data-bs-toggle="modal" data-bs-target="#mkdocs_search_modal">
+                                <i class="fa fa-search"></i> Search
+                            </a>
+                        </li>
+                            <li class="nav-item">
+                                <a rel="prev" href="../../for-chezmoi-users/gaps/" class="nav-link">
+                                    <i class="fa fa-arrow-left"></i> Previous
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a rel="next" href="../configuration/" class="nav-link">
+                                    Next <i class="fa fa-arrow-right"></i>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="https://github.com/johnstegeman/haven/edit/main/docs/reference/commands.md" class="nav-link">Edit on johnstegeman/haven
+                                    </a>
+                            </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="row">
+                    <div class="col-md-3"><div class="navbar-expand-md bs-sidebar hidden-print affix" role="complementary">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggler collapsed" data-bs-toggle="collapse" data-bs-target="#toc-collapse" title="Table of Contents">
+            <span class="fa fa-angle-down"></span>
+        </button>
+    </div>
+
+    
+    <div id="toc-collapse" class="navbar-collapse collapse card bg-body-tertiary">
+        <ul class="nav flex-column">
+            
+            <li class="nav-item" data-bs-level="1"><a href="#command-reference" class="nav-link">Command Reference</a>
+              <ul class="nav flex-column">
+            <li class="nav-item" data-bs-level="2"><a href="#quick-reference" class="nav-link">Quick reference</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#global-options" class="nav-link">Global options</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#haven-init" class="nav-link">haven init</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#haven-add" class="nav-link">haven add</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#haven-remove" class="nav-link">haven remove</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#haven-apply" class="nav-link">haven apply</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#haven-diff" class="nav-link">haven diff</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#haven-status" class="nav-link">haven status</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#haven-list" class="nav-link">haven list</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#haven-source-path" class="nav-link">haven source-path</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#haven-data" class="nav-link">haven data</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#haven-brew-install" class="nav-link">haven brew install</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#haven-brew-uninstall" class="nav-link">haven brew uninstall</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#haven-import" class="nav-link">haven import</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#haven-ai-discover" class="nav-link">haven ai discover</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#haven-ai-add" class="nav-link">haven ai add</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#haven-ai-fetch" class="nav-link">haven ai fetch</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#haven-ai-update" class="nav-link">haven ai update</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#haven-ai-remove" class="nav-link">haven ai remove</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#haven-ai-search" class="nav-link">haven ai search</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#haven-ai-scan" class="nav-link">haven ai scan</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#haven-telemetry" class="nav-link">haven telemetry</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#haven-upgrade" class="nav-link">haven upgrade</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#haven-unmanaged" class="nav-link">haven unmanaged</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#haven-security-scan" class="nav-link">haven security-scan</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#haven-completions" class="nav-link">haven completions</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#haven-vcs" class="nav-link">haven vcs</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+              </ul>
+            </li>
+        </ul>
+    </div>
+</div></div>
+                    <div class="col-md-9" role="main">
+
+<h1 id="command-reference">Command Reference<a class="headerlink" href="#command-reference" title="Permanent link">&para;</a></h1>
+<h2 id="quick-reference">Quick reference<a class="headerlink" href="#quick-reference" title="Permanent link">&para;</a></h2>
+<pre><code>haven init [source] [--branch &lt;b&gt;] [--apply] [--profile &lt;p&gt;]
+haven list [--profile &lt;p&gt;] [--files] [--brews] [--ai]
+haven add &lt;file&gt; [--link] [--apply] [--update]
+haven remove &lt;file&gt; [--dry-run]
+haven apply [--profile &lt;p&gt;] [--module &lt;m&gt;] [--dry-run]
+            [--files] [--brews] [--ai]
+            [--apply-externals]
+            [--remove-unreferenced-brews] [--interactive] [--zap]
+haven diff  [--profile &lt;p&gt;] [--module &lt;m&gt;]
+            [--files] [--brews] [--ai]
+            [--stat] [--color always|never|auto]
+haven status [--profile &lt;p&gt;] [--files] [--brews] [--ai]
+haven source-path
+haven brew install &lt;name&gt; [--cask] [--module &lt;m&gt;]
+haven brew uninstall &lt;name&gt; [--cask]
+haven import --from chezmoi [--source &lt;dir&gt;] [--dry-run]
+             [--include-ignored-files]
+haven ai discover
+haven ai add &lt;source&gt; [--name &lt;n&gt;] [--platforms &lt;p&gt;] [--deploy symlink|copy]
+haven ai fetch [&lt;name&gt;]
+haven ai update [&lt;name&gt;]
+haven ai remove &lt;name&gt; [--yes]
+haven ai search &lt;query&gt; [--limit &lt;n&gt;]
+haven ai scan &lt;path&gt; [--dry-run]
+haven data
+haven unmanaged [--path &lt;p&gt;] [--depth &lt;n&gt;]
+haven upgrade [--check] [--force]
+haven telemetry [--enable] [--disable]
+                [--note|--action|--bug|--question &quot;&lt;message&gt;&quot;]
+                [--list] [--list-notes] [--list-actions] [--list-bugs] [--list-questions]
+haven security-scan [--entropy]
+haven completions fish|zsh|bash
+haven vcs
+</code></pre>
+<h2 id="global-options">Global options<a class="headerlink" href="#global-options" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--dir &lt;path&gt;</code></td>
+<td><code>~/.local/share/haven</code></td>
+<td>haven repo directory. Also read from <code>HAVEN_DIR</code> env var.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="haven-init"><code>haven init</code><a class="headerlink" href="#haven-init" title="Permanent link">&para;</a></h2>
+<p>Create or clone a haven repository. Use this once, on first-time setup. For subsequent re-provisioning of an already-initialized machine, use <code>haven apply</code>.</p>
+<pre><code class="language-sh">haven init [source] [--branch &lt;b&gt;] [--apply] [--profile &lt;p&gt;]
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Argument/Option</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>source</code></td>
+<td>Optional. Git URL or <code>gh:owner/repo[@ref]</code>. Omit to create a blank scaffold.</td>
+</tr>
+<tr>
+<td><code>--branch &lt;b&gt;</code></td>
+<td>Branch to clone. Overrides any <code>@ref</code> in source.</td>
+</tr>
+<tr>
+<td><code>--apply</code></td>
+<td>Apply the cloned repo immediately after cloning. Requires a source.</td>
+</tr>
+<tr>
+<td><code>--profile &lt;p&gt;</code></td>
+<td>Profile to apply. Requires <code>--apply</code>.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="haven-add"><code>haven add</code><a class="headerlink" href="#haven-add" title="Permanent link">&para;</a></h2>
+<p>Start tracking a dotfile by copying it into <code>source/</code>.</p>
+<p>For directories: if the directory is a git repo, interactively prompts to track it as an external clone (re-cloned on apply) or recursively copy its files.</p>
+<pre><code class="language-sh">haven add &lt;file&gt; [--link] [--apply] [--update]
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Argument/Option</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>file</code></td>
+<td>Path to the file or directory to track.</td>
+</tr>
+<tr>
+<td><code>--link</code></td>
+<td>Track as a symlink: on apply, the destination is symlinked back to <code>source/</code>.</td>
+</tr>
+<tr>
+<td><code>--apply</code></td>
+<td>Immediately install after adding. Only valid with <code>--link</code>.</td>
+</tr>
+<tr>
+<td><code>--update</code></td>
+<td>Re-copy the file even if already tracked. Without this flag, adding an already-tracked file is an error.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="haven-remove"><code>haven remove</code><a class="headerlink" href="#haven-remove" title="Permanent link">&para;</a></h2>
+<p>Stop tracking a dotfile by removing it from <code>source/</code>. The live file on disk is <strong>not</strong> touched.</p>
+<pre><code class="language-sh">haven remove &lt;file&gt; [--dry-run]
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Argument/Option</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>file</code></td>
+<td>Destination path to stop tracking.</td>
+</tr>
+<tr>
+<td><code>--dry-run</code></td>
+<td>Print what would be removed without deleting any files.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="haven-apply"><code>haven apply</code><a class="headerlink" href="#haven-apply" title="Permanent link">&para;</a></h2>
+<p>Apply tracked files and packages to this machine.</p>
+<p>By default all sections are applied. Use <code>--files</code>, <code>--brews</code>, and/or <code>--ai</code> to apply only specific sections.</p>
+<pre><code class="language-sh">haven apply [--profile &lt;p&gt;] [--module &lt;m&gt;] [--dry-run]
+            [--files] [--brews] [--ai]
+            [--apply-externals]
+            [--remove-unreferenced-brews] [--interactive] [--zap]
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--profile &lt;p&gt;</code></td>
+<td>Profile to apply. Default: last-used profile, or <code>default</code>.</td>
+</tr>
+<tr>
+<td><code>--module &lt;m&gt;</code></td>
+<td>Scope brew and mise to this module. <strong>File operations are always global.</strong></td>
+</tr>
+<tr>
+<td><code>--dry-run</code></td>
+<td>Print the plan without writing any files.</td>
+</tr>
+<tr>
+<td><code>--files</code></td>
+<td>Apply dotfile copies/symlinks.</td>
+</tr>
+<tr>
+<td><code>--brews</code></td>
+<td>Run <code>brew bundle install</code>.</td>
+</tr>
+<tr>
+<td><code>--ai</code></td>
+<td>Deploy AI skills.</td>
+</tr>
+<tr>
+<td><code>--apply-externals</code></td>
+<td>Pull (update) existing <code>extdir_</code> git clones. Without this, existing clones are left as-is.</td>
+</tr>
+<tr>
+<td><code>--remove-unreferenced-brews</code></td>
+<td>After installing, uninstall leaf formula/cask not in any active Brewfile.</td>
+</tr>
+<tr>
+<td><code>--interactive</code></td>
+<td>Like <code>--remove-unreferenced-brews</code> but prompts before removing.</td>
+</tr>
+<tr>
+<td><code>--zap</code></td>
+<td>Like <code>--remove-unreferenced-brews</code> but also passes <code>--zap</code> to cask uninstall, removing app data.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="haven-diff"><code>haven diff</code><a class="headerlink" href="#haven-diff" title="Permanent link">&para;</a></h2>
+<p>Show the diff between tracked source files/packages and live state. Exits 0 when up to date, 1 when drift is found.</p>
+<pre><code class="language-sh">haven diff [--profile &lt;p&gt;] [--module &lt;m&gt;]
+           [--files] [--brews] [--ai]
+           [--stat] [--color always|never|auto]
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--profile &lt;p&gt;</code></td>
+<td>Profile to diff.</td>
+</tr>
+<tr>
+<td><code>--module &lt;m&gt;</code></td>
+<td>Scope brew and AI diff to this module.</td>
+</tr>
+<tr>
+<td><code>--files</code></td>
+<td>Diff dotfiles.</td>
+</tr>
+<tr>
+<td><code>--brews</code></td>
+<td>Diff Homebrew packages.</td>
+</tr>
+<tr>
+<td><code>--ai</code></td>
+<td>Diff AI skills.</td>
+</tr>
+<tr>
+<td><code>--stat</code></td>
+<td>Show summary (file names + change counts) instead of full diff.</td>
+</tr>
+<tr>
+<td><code>--color &lt;mode&gt;</code></td>
+<td><code>always</code>, <code>never</code>, or <code>auto</code> (default).</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="haven-status"><code>haven status</code><a class="headerlink" href="#haven-status" title="Permanent link">&para;</a></h2>
+<p>Show drift between tracked source files and live destinations.</p>
+<p>Drift markers: <code>✓</code> clean · <code>M</code> modified · <code>?</code> missing · <code>!</code> source missing</p>
+<pre><code class="language-sh">haven status [--profile &lt;p&gt;] [--files] [--brews] [--ai]
+</code></pre>
+<hr />
+<h2 id="haven-list"><code>haven list</code><a class="headerlink" href="#haven-list" title="Permanent link">&para;</a></h2>
+<p>List tracked files, Homebrew packages, and AI skills.</p>
+<pre><code class="language-sh">haven list [--profile &lt;p&gt;] [--files] [--brews] [--ai]
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--profile &lt;p&gt;</code></td>
+<td>Scope to a specific profile.</td>
+</tr>
+<tr>
+<td><code>--files</code></td>
+<td>Show tracked files only.</td>
+</tr>
+<tr>
+<td><code>--brews</code></td>
+<td>Show Homebrew packages only.</td>
+</tr>
+<tr>
+<td><code>--ai</code></td>
+<td>Show AI skills only.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="haven-source-path"><code>haven source-path</code><a class="headerlink" href="#haven-source-path" title="Permanent link">&para;</a></h2>
+<p>Print the absolute path to the haven repo directory and exit.</p>
+<pre><code class="language-sh">haven source-path
+# Use in scripts:
+cd $(haven source-path)
+$EDITOR $(haven source-path)/haven.toml
+</code></pre>
+<hr />
+<h2 id="haven-data"><code>haven data</code><a class="headerlink" href="#haven-data" title="Permanent link">&para;</a></h2>
+<p>Show all template variables available in <code>.tmpl</code> files on this machine.</p>
+<pre><code class="language-sh">haven data
+</code></pre>
+<hr />
+<h2 id="haven-brew-install"><code>haven brew install</code><a class="headerlink" href="#haven-brew-install" title="Permanent link">&para;</a></h2>
+<p>Install a Homebrew formula or cask and record it in a Brewfile.</p>
+<pre><code class="language-sh">haven brew install &lt;name&gt; [--cask] [--module &lt;m&gt;]
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--cask</code></td>
+<td>Install as a cask.</td>
+</tr>
+<tr>
+<td><code>--module &lt;m&gt;</code></td>
+<td>Record in this module's Brewfile. Default: master <code>brew/Brewfile</code>.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="haven-brew-uninstall"><code>haven brew uninstall</code><a class="headerlink" href="#haven-brew-uninstall" title="Permanent link">&para;</a></h2>
+<p>Uninstall a formula or cask and remove it from all Brewfiles.</p>
+<pre><code class="language-sh">haven brew uninstall &lt;name&gt; [--cask]
+</code></pre>
+<hr />
+<h2 id="haven-import"><code>haven import</code><a class="headerlink" href="#haven-import" title="Permanent link">&para;</a></h2>
+<p>Import dotfiles from another dotfile manager (one-time migration). Currently only <code>chezmoi</code> is supported.</p>
+<pre><code class="language-sh">haven import --from chezmoi [--source &lt;dir&gt;] [--dry-run] [--include-ignored-files]
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--from &lt;manager&gt;</code></td>
+<td>Source format. Currently only <code>chezmoi</code>.</td>
+</tr>
+<tr>
+<td><code>--source &lt;dir&gt;</code></td>
+<td>Path to source directory. Auto-detected if not given.</td>
+</tr>
+<tr>
+<td><code>--dry-run</code></td>
+<td>Preview without writing any files.</td>
+</tr>
+<tr>
+<td><code>--include-ignored-files</code></td>
+<td>Import files matching <code>.chezmoiignore</code> patterns.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="haven-ai-discover"><code>haven ai discover</code><a class="headerlink" href="#haven-ai-discover" title="Permanent link">&para;</a></h2>
+<p>Scan this machine for installed AI agent platforms and update <code>ai/platforms.toml</code>.</p>
+<h2 id="haven-ai-add"><code>haven ai add</code><a class="headerlink" href="#haven-ai-add" title="Permanent link">&para;</a></h2>
+<p>Add a skill declaration.</p>
+<pre><code class="language-sh">haven ai add &lt;source&gt; [--name &lt;n&gt;] [--platforms &lt;p&gt;] [--deploy symlink|copy]
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>source</code></td>
+<td><code>gh:owner/repo[/subpath][@ref]</code> or <code>dir:~/path</code>.</td>
+</tr>
+<tr>
+<td><code>--name &lt;n&gt;</code></td>
+<td>Local name. Default: inferred from source.</td>
+</tr>
+<tr>
+<td><code>--platforms &lt;p&gt;</code></td>
+<td><code>all</code>, <code>cross-client</code>, or comma-separated platform IDs. Default: <code>all</code>.</td>
+</tr>
+<tr>
+<td><code>--deploy &lt;method&gt;</code></td>
+<td><code>symlink</code> (default) or <code>copy</code>.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="haven-ai-fetch"><code>haven ai fetch</code><a class="headerlink" href="#haven-ai-fetch" title="Permanent link">&para;</a></h2>
+<p>Download skills to cache without deploying.</p>
+<pre><code class="language-sh">haven ai fetch [&lt;name&gt;]
+</code></pre>
+<h2 id="haven-ai-update"><code>haven ai update</code><a class="headerlink" href="#haven-ai-update" title="Permanent link">&para;</a></h2>
+<p>Pull latest versions + update lock SHAs.</p>
+<pre><code class="language-sh">haven ai update [&lt;name&gt;]
+</code></pre>
+<h2 id="haven-ai-remove"><code>haven ai remove</code><a class="headerlink" href="#haven-ai-remove" title="Permanent link">&para;</a></h2>
+<p>Remove a skill.</p>
+<pre><code class="language-sh">haven ai remove &lt;name&gt; [--yes]
+</code></pre>
+<h2 id="haven-ai-search"><code>haven ai search</code><a class="headerlink" href="#haven-ai-search" title="Permanent link">&para;</a></h2>
+<p>Search the <a href="https://skills.sh">skills.sh</a> registry.</p>
+<pre><code class="language-sh">haven ai search &lt;query&gt; [--limit &lt;n&gt;]
+</code></pre>
+<h2 id="haven-ai-scan"><code>haven ai scan</code><a class="headerlink" href="#haven-ai-scan" title="Permanent link">&para;</a></h2>
+<p>Interactively import unmanaged skills from a directory.</p>
+<pre><code class="language-sh">haven ai scan &lt;path&gt; [--dry-run]
+</code></pre>
+<hr />
+<h2 id="haven-telemetry"><code>haven telemetry</code><a class="headerlink" href="#haven-telemetry" title="Permanent link">&para;</a></h2>
+<p>Manage local telemetry. Without flags, prints current status.</p>
+<pre><code class="language-sh">haven telemetry [--enable] [--disable]
+                [--note|--action|--bug|--question &quot;&lt;message&gt;&quot;]
+                [--list] [--list-notes] [--list-actions] [--list-bugs] [--list-questions]
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--enable</code></td>
+<td>Enable telemetry in <code>haven.toml</code>.</td>
+</tr>
+<tr>
+<td><code>--disable</code></td>
+<td>Disable telemetry in <code>haven.toml</code>.</td>
+</tr>
+<tr>
+<td><code>--note "&lt;text&gt;"</code></td>
+<td>Append a free-form note (ID prefix <code>N</code>).</td>
+</tr>
+<tr>
+<td><code>--action "&lt;text&gt;"</code></td>
+<td>Record a deliberate action (ID prefix <code>A</code>).</td>
+</tr>
+<tr>
+<td><code>--bug "&lt;text&gt;"</code></td>
+<td>Record a bug observed (ID prefix <code>B</code>).</td>
+</tr>
+<tr>
+<td><code>--question "&lt;text&gt;"</code></td>
+<td>Record a question for later investigation (ID prefix <code>Q</code>).</td>
+</tr>
+<tr>
+<td><code>--list</code></td>
+<td>Print all entries.</td>
+</tr>
+<tr>
+<td><code>--list-notes</code></td>
+<td>Print only notes.</td>
+</tr>
+<tr>
+<td><code>--list-actions</code></td>
+<td>Print only actions.</td>
+</tr>
+<tr>
+<td><code>--list-bugs</code></td>
+<td>Print only bugs.</td>
+</tr>
+<tr>
+<td><code>--list-questions</code></td>
+<td>Print only questions.</td>
+</tr>
+</tbody>
+</table>
+<p>Annotation flags always write to <code>~/.haven/telemetry.jsonl</code> regardless of whether telemetry is enabled. Each annotation gets an auto-generated sequenced ID (e.g. <code>B000001</code>).</p>
+<hr />
+<h2 id="haven-upgrade"><code>haven upgrade</code><a class="headerlink" href="#haven-upgrade" title="Permanent link">&para;</a></h2>
+<p>Upgrade haven to the latest version.</p>
+<pre><code class="language-sh">haven upgrade [--check] [--force]
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--check</code></td>
+<td>Check for update without installing. Exits 0 when up to date, 1 when update is available.</td>
+</tr>
+<tr>
+<td><code>--force</code></td>
+<td>Install even if already on latest.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="haven-unmanaged"><code>haven unmanaged</code><a class="headerlink" href="#haven-unmanaged" title="Permanent link">&para;</a></h2>
+<p>Find files in <code>~</code> not tracked by haven.</p>
+<pre><code class="language-sh">haven unmanaged [--path &lt;p&gt;] [--depth &lt;n&gt;]
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--path &lt;p&gt;</code></td>
+<td>Directory to scan. Default: <code>~</code>.</td>
+</tr>
+<tr>
+<td><code>--depth &lt;n&gt;</code></td>
+<td>Maximum scan depth. Default: 3.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="haven-security-scan"><code>haven security-scan</code><a class="headerlink" href="#haven-security-scan" title="Permanent link">&para;</a></h2>
+<p>Scan all tracked source files for secrets and sensitive content.</p>
+<pre><code class="language-sh">haven security-scan [--entropy]
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--entropy</code></td>
+<td>Also flag high-entropy strings (≥16 chars, Shannon entropy &gt;4.5 bits/char).</td>
+</tr>
+</tbody>
+</table>
+<p>Exits 0 when clean, 1 when findings are reported.</p>
+<hr />
+<h2 id="haven-completions"><code>haven completions</code><a class="headerlink" href="#haven-completions" title="Permanent link">&para;</a></h2>
+<p>Print a shell completion script to stdout.</p>
+<pre><code class="language-sh">haven completions &lt;shell&gt;    # fish, zsh, or bash
+</code></pre>
+<hr />
+<h2 id="haven-vcs"><code>haven vcs</code><a class="headerlink" href="#haven-vcs" title="Permanent link">&para;</a></h2>
+<p>Show the active VCS backend and its configuration source.</p>
+<pre><code class="language-sh">haven vcs
+</code></pre></div>
+            </div>
+        </div>
+
+        <footer class="col-md-12">
+            <hr>
+            <p>Documentation built with <a href="https://www.mkdocs.org/">MkDocs</a>.</p>
+        </footer>
+        <script src="../../js/bootstrap.bundle.min.js"></script>
+        <script>
+            var base_url = "../..",
+                shortcuts = {"help": 191, "next": 78, "previous": 80, "search": 83};
+        </script>
+        <script src="../../js/base.js"></script>
+        <script src="../../search/main.js"></script>
+
+        <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>From here you can search these documents. Enter your search terms below.</p>
+                <form>
+                    <div class="form-group">
+                        <input type="search" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results" data-no-results-text="No results found"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+
+    </body>
+</html>

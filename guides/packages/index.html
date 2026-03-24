@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        
+        
+        <link rel="canonical" href="https://johnstegeman.github.io/haven/guides/packages/">
+        <link rel="shortcut icon" href="../../img/favicon.ico">
+        <title>Managing Packages - haven</title>
+        <link href="../../css/bootstrap.min.css" rel="stylesheet">
+        <link href="../../css/fontawesome.min.css" rel="stylesheet">
+        <link href="../../css/brands.min.css" rel="stylesheet">
+        <link href="../../css/solid.min.css" rel="stylesheet">
+        <link href="../../css/v4-font-face.min.css" rel="stylesheet">
+        <link href="../../css/base.css" rel="stylesheet">
+        <link id="hljs-light" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" >
+        <link id="hljs-dark" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css" disabled>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script>hljs.highlightAll();</script> 
+    </head>
+
+    <body>
+        <div class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary">
+            <div class="container">
+                <a class="navbar-brand" href="../..">haven</a>
+                <!-- Expander button -->
+                <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar-collapse" aria-controls="navbar-collapse" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <!-- Expanded navigation -->
+                <div id="navbar-collapse" class="navbar-collapse collapse">
+                        <!-- Main navigation -->
+                        <ul class="nav navbar-nav">
+                            <li class="nav-item">
+                                <a href="../.." class="nav-link">Home</a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="../../concepts/" class="nav-link">Concepts</a>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Getting Started</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../getting-started/installation/" class="dropdown-item">Installation</a>
+</li>
+                                    
+<li>
+    <a href="../../getting-started/quickstart/" class="dropdown-item">Quick Start</a>
+</li>
+                                    
+<li>
+    <a href="../../getting-started/new-machine/" class="dropdown-item">New Machine Setup</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle active" aria-current="page" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Guides</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../tracking-files/" class="dropdown-item">Tracking Files</a>
+</li>
+                                    
+<li>
+    <a href="./" class="dropdown-item active" aria-current="page">Managing Packages</a>
+</li>
+                                    
+<li>
+    <a href="../ai-skills/" class="dropdown-item">AI Skills</a>
+</li>
+                                    
+<li>
+    <a href="../templates/" class="dropdown-item">Templates & Secrets</a>
+</li>
+                                    
+<li>
+    <a href="../profiles-modules/" class="dropdown-item">Profiles & Modules</a>
+</li>
+                                    
+<li>
+    <a href="../security/" class="dropdown-item">Security Scanning</a>
+</li>
+                                    
+<li>
+    <a href="../vcs/" class="dropdown-item">VCS Backend</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">For chezmoi Users</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../for-chezmoi-users/" class="dropdown-item">Overview</a>
+</li>
+                                    
+<li>
+    <a href="../../for-chezmoi-users/migration/" class="dropdown-item">Migration Guide</a>
+</li>
+                                    
+<li>
+    <a href="../../for-chezmoi-users/commands/" class="dropdown-item">Command Equivalence</a>
+</li>
+                                    
+<li>
+    <a href="../../for-chezmoi-users/templates/" class="dropdown-item">Template Conversion</a>
+</li>
+                                    
+<li>
+    <a href="../../for-chezmoi-users/gaps/" class="dropdown-item">Feature Gaps</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Reference</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../reference/commands/" class="dropdown-item">Command Reference</a>
+</li>
+                                    
+<li>
+    <a href="../../reference/configuration/" class="dropdown-item">Configuration</a>
+</li>
+                                    
+<li>
+    <a href="../../reference/magic-names/" class="dropdown-item">Magic-Name Encoding</a>
+</li>
+                                    
+<li>
+    <a href="../../reference/template-variables/" class="dropdown-item">Template Variables</a>
+</li>
+                                    
+<li>
+    <a href="../../reference/environment/" class="dropdown-item">Environment Variables</a>
+</li>
+                                    
+<li>
+    <a href="../../reference/repo-layout/" class="dropdown-item">Repo Layout</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item">
+                                <a href="../../changelog/" class="nav-link">Changelog</a>
+                            </li>
+                        </ul>
+
+                    <ul class="nav navbar-nav ms-md-auto">
+                        <li class="nav-item">
+                            <a href="#" class="nav-link" data-bs-toggle="modal" data-bs-target="#mkdocs_search_modal">
+                                <i class="fa fa-search"></i> Search
+                            </a>
+                        </li>
+                            <li class="nav-item">
+                                <a rel="prev" href="../tracking-files/" class="nav-link">
+                                    <i class="fa fa-arrow-left"></i> Previous
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a rel="next" href="../ai-skills/" class="nav-link">
+                                    Next <i class="fa fa-arrow-right"></i>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="https://github.com/johnstegeman/haven/edit/main/docs/guides/packages.md" class="nav-link">Edit on johnstegeman/haven
+                                    </a>
+                            </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="row">
+                    <div class="col-md-3"><div class="navbar-expand-md bs-sidebar hidden-print affix" role="complementary">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggler collapsed" data-bs-toggle="collapse" data-bs-target="#toc-collapse" title="Table of Contents">
+            <span class="fa fa-angle-down"></span>
+        </button>
+    </div>
+
+    
+    <div id="toc-collapse" class="navbar-collapse collapse card bg-body-tertiary">
+        <ul class="nav flex-column">
+            
+            <li class="nav-item" data-bs-level="1"><a href="#managing-packages" class="nav-link">Managing Packages</a>
+              <ul class="nav flex-column">
+            <li class="nav-item" data-bs-level="2"><a href="#homebrew" class="nav-link">Homebrew</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#mise-language-runtimes" class="nav-link">mise (language runtimes)</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#modules" class="nav-link">Modules</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#profiles" class="nav-link">Profiles</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#custom-template-variables" class="nav-link">Custom template variables</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+              </ul>
+            </li>
+        </ul>
+    </div>
+</div></div>
+                    <div class="col-md-9" role="main">
+
+<h1 id="managing-packages">Managing Packages<a class="headerlink" href="#managing-packages" title="Permanent link">&para;</a></h1>
+<p>haven manages Homebrew packages and mise language runtimes alongside your dotfiles, keeping everything in sync in a single repo.</p>
+<h2 id="homebrew">Homebrew<a class="headerlink" href="#homebrew" title="Permanent link">&para;</a></h2>
+<h3 id="installing-packages">Installing packages<a class="headerlink" href="#installing-packages" title="Permanent link">&para;</a></h3>
+<p>Use <code>haven brew install</code> instead of bare <code>brew install</code> — it runs the install <em>and</em> updates your Brewfile so the package is tracked:</p>
+<pre><code class="language-sh">haven brew install ripgrep
+haven brew install bat
+haven brew install iterm2 --cask          # GUI apps and fonts
+haven brew install ripgrep --module shell  # add to a specific module's Brewfile
+</code></pre>
+<h3 id="uninstalling-packages">Uninstalling packages<a class="headerlink" href="#uninstalling-packages" title="Permanent link">&para;</a></h3>
+<pre><code class="language-sh">haven brew uninstall ripgrep
+haven brew uninstall iterm2 --cask
+</code></pre>
+<p>Removes the formula from <strong>all</strong> Brewfiles in the repo, then runs <code>brew uninstall</code>.</p>
+<h3 id="brewfile-layout">Brewfile layout<a class="headerlink" href="#brewfile-layout" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Path</th>
+<th>Used when</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>brew/Brewfile</code></td>
+<td><code>haven brew install</code> with no <code>--module</code></td>
+</tr>
+<tr>
+<td><code>brew/Brewfile.&lt;name&gt;</code></td>
+<td><code>haven brew install --module &lt;name&gt;</code></td>
+</tr>
+</tbody>
+</table>
+<p>You can also write Brewfiles directly:</p>
+<pre><code># brew/Brewfile.shell
+brew &quot;fish&quot;
+brew &quot;starship&quot;
+brew &quot;ripgrep&quot;
+brew &quot;fd&quot;
+brew &quot;bat&quot;
+cask &quot;iterm2&quot;
+</code></pre>
+<h3 id="applying-brewfiles">Applying Brewfiles<a class="headerlink" href="#applying-brewfiles" title="Permanent link">&para;</a></h3>
+<pre><code class="language-sh">haven apply --brews                        # install packages from all active Brewfiles
+haven apply --brews --module shell         # only the shell module's Brewfile
+</code></pre>
+<h3 id="removing-unreferenced-packages">Removing unreferenced packages<a class="headerlink" href="#removing-unreferenced-packages" title="Permanent link">&para;</a></h3>
+<pre><code class="language-sh">haven apply --brews --remove-unreferenced-brews   # auto-remove anything not in a Brewfile
+haven apply --brews --interactive                  # prompt before removing each package
+haven apply --brews --zap                          # remove + zap cask app data
+</code></pre>
+<h3 id="checking-homebrew-drift">Checking Homebrew drift<a class="headerlink" href="#checking-homebrew-drift" title="Permanent link">&para;</a></h3>
+<pre><code class="language-sh">haven status --brews    # which packages are present / missing
+haven diff --brews      # detailed diff
+</code></pre>
+<h2 id="mise-language-runtimes">mise (language runtimes)<a class="headerlink" href="#mise-language-runtimes" title="Permanent link">&para;</a></h2>
+<p><a href="https://mise.jdx.dev/">mise</a> manages language runtimes (Node.js, Python, Ruby, Go, etc.). haven integrates with it via module configuration.</p>
+<h3 id="configuring-mise-in-a-module">Configuring mise in a module<a class="headerlink" href="#configuring-mise-in-a-module" title="Permanent link">&para;</a></h3>
+<pre><code class="language-toml"># modules/shell.toml
+[mise]
+config = &quot;source/mise.toml&quot;    # path relative to repo root
+</code></pre>
+<p>On apply, haven runs <code>mise install</code> using the specified config file. If mise is not installed, the section is skipped with a hint.</p>
+<h3 id="example-misetoml">Example mise.toml<a class="headerlink" href="#example-misetoml" title="Permanent link">&para;</a></h3>
+<pre><code class="language-toml"># source/mise.toml
+[tools]
+node = &quot;lts&quot;
+python = &quot;3.12&quot;
+go = &quot;latest&quot;
+</code></pre>
+<p>Track this file with haven:</p>
+<pre><code class="language-sh">haven add ~/.mise.toml
+# or reference source/mise.toml directly in your module
+</code></pre>
+<h2 id="modules">Modules<a class="headerlink" href="#modules" title="Permanent link">&para;</a></h2>
+<p>Modules group Homebrew packages and mise configs under a name. They control <em>packages only</em> — dotfiles are tracked via magic-name encoding in <code>source/</code>, not modules.</p>
+<h3 id="creating-a-module">Creating a module<a class="headerlink" href="#creating-a-module" title="Permanent link">&para;</a></h3>
+<pre><code class="language-toml"># modules/shell.toml
+[homebrew]
+brewfile = &quot;brew/Brewfile.shell&quot;
+
+[mise]
+config = &quot;source/mise.toml&quot;
+</code></pre>
+<pre><code class="language-toml"># modules/work.toml
+[homebrew]
+brewfile = &quot;brew/Brewfile.work&quot;
+
+requires_op = true    # skip if 1Password isn't available
+</code></pre>
+<h3 id="1password-guard">1Password guard<a class="headerlink" href="#1password-guard" title="Permanent link">&para;</a></h3>
+<p>Adding <code>requires_op = true</code> to a module causes haven to skip that module's brew and mise steps if the <code>op</code> CLI is not installed or the user is not signed in — instead of failing hard:</p>
+<pre><code class="language-toml"># modules/secrets.toml
+requires_op = true
+
+[homebrew]
+brewfile = &quot;brew/Brewfile.secrets&quot;
+</code></pre>
+<h2 id="profiles">Profiles<a class="headerlink" href="#profiles" title="Permanent link">&para;</a></h2>
+<p>Profiles control which modules are active on each machine. Declared in <code>haven.toml</code>:</p>
+<pre><code class="language-toml">[profile.default]
+modules = [&quot;shell&quot;, &quot;git&quot;, &quot;packages&quot;]
+
+[profile.work]
+extends = &quot;default&quot;         # inherits all modules from default
+modules = [&quot;work&quot;, &quot;secrets&quot;]
+
+[profile.personal]
+extends = &quot;default&quot;
+modules = [&quot;personal&quot;]
+
+[profile.minimal]
+modules = [&quot;shell&quot;]
+</code></pre>
+<p><code>extends</code> gives you single-level inheritance — the parent's modules are applied first, then the child's are appended (duplicates removed).</p>
+<h3 id="applying-a-profile">Applying a profile<a class="headerlink" href="#applying-a-profile" title="Permanent link">&para;</a></h3>
+<pre><code class="language-sh">haven apply --profile work
+haven apply --profile minimal
+haven status --profile work
+</code></pre>
+<p>The last-used profile is saved in <code>~/.haven/state.json</code> and reused automatically unless overridden.</p>
+<h3 id="new-machine-tip">New machine tip<a class="headerlink" href="#new-machine-tip" title="Permanent link">&para;</a></h3>
+<p>Commit <code>haven.toml</code> with all your profiles. On a new machine:</p>
+<pre><code class="language-sh">haven init gh:yourname/haven --apply --profile work
+</code></pre>
+<p>One command clones the repo and applies the right profile.</p>
+<h2 id="custom-template-variables">Custom template variables<a class="headerlink" href="#custom-template-variables" title="Permanent link">&para;</a></h2>
+<p>Add machine-specific variables to <code>haven.toml</code> for use in <code>.tmpl</code> files:</p>
+<pre><code class="language-toml">[data]
+work_email    = &quot;alice@corp.example&quot;
+kanata_path   = &quot;/usr/local/bin/kanata&quot;
+homebrew_path = &quot;/opt/homebrew&quot;
+</code></pre>
+<p>Access them in any <code>.tmpl</code> file as <code>{{ data.&lt;key&gt; }}</code>. Run <code>haven data</code> to see all variables in scope.</p></div>
+            </div>
+        </div>
+
+        <footer class="col-md-12">
+            <hr>
+            <p>Documentation built with <a href="https://www.mkdocs.org/">MkDocs</a>.</p>
+        </footer>
+        <script src="../../js/bootstrap.bundle.min.js"></script>
+        <script>
+            var base_url = "../..",
+                shortcuts = {"help": 191, "next": 78, "previous": 80, "search": 83};
+        </script>
+        <script src="../../js/base.js"></script>
+        <script src="../../search/main.js"></script>
+
+        <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>From here you can search these documents. Enter your search terms below.</p>
+                <form>
+                    <div class="form-group">
+                        <input type="search" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results" data-no-results-text="No results found"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+
+    </body>
+</html>

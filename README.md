@@ -198,6 +198,16 @@ haven ai fetch             # download skills to cache without deploying
 haven ai update            # re-fetch + update lock SHAs
 haven ai search <query>    # search skills.sh registry
 haven ai scan ~/.claude/skills  # import existing unmanaged skills
+haven ai backends          # list available skill backends
+```
+
+The default backend (`native`) fetches skills directly from GitHub with SHA-256
+verification. To use the [SkillKit](https://skillkit.dev) marketplace instead,
+add `ai/config.toml`:
+
+```toml
+[skills]
+backend = "skillkit"   # delegates to `skillkit team install`
 ```
 
 ---

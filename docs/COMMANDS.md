@@ -27,6 +27,7 @@ haven ai update [<name>]
 haven ai remove <name> [--yes]
 haven ai search <query> [--limit <n>]
 haven ai scan <path> [--dry-run]
+haven ai backends
 haven data
 haven unmanaged [--path <p>] [--depth <n>]
 haven upgrade [--check] [--force]
@@ -474,6 +475,27 @@ For each unmanaged skill found, haven tries to identify its GitHub source via:
 If a source is found it is shown as a suggestion; the user is prompted to
 confirm (`y`), edit the source (`e`), or skip (`n`) each skill. Skills that
 are already tracked in `ai/skills.toml` are silently skipped.
+
+### `haven ai backends`
+
+List all known skill backends with their availability status. The currently
+active backend (from `ai/config.toml`, or `native` by default) is marked.
+
+```
+haven ai backends
+```
+
+Output example:
+
+```
+Skill backends:
+  ✓ native   (active) — built-in, zero dependencies
+  ✗ skillkit — runner 'npx' not found — install Node.js or set runner = "bunx"
+    akm      — not yet implemented
+```
+
+See [Skill Backends](skill-backends.md) in the reference for configuration
+details and switching instructions.
 
 ---
 

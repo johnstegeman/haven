@@ -42,6 +42,7 @@ nav:
   - Reference:
     - Command Reference: reference/commands.md
     - Configuration: reference/configuration.md
+    - Skill Backends: reference/skill-backends.md
     - Magic-Name Encoding: reference/magic-names.md
     - Template Variables: reference/template-variables.md
     - Environment Variables: reference/environment.md

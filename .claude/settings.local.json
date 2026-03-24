@@ -26,7 +26,15 @@
       "Bash(grep -r \"maccask\\\\|class OS\\\\|module OS\" /Users/jstegeman/Projects/dfiles --include=*.rs --include=*.toml --include=*.md)",
       "WebFetch(domain:yadm.io)",
       "Bash(jj diff:*)",
-      "Bash(grep -v \"^+++\\\\|^+use\\\\|^+ *//\\\\|^+ *$\")"
+      "Bash(grep -v \"^+++\\\\|^+use\\\\|^+ *//\\\\|^+ *$\")",
+      "WebFetch(domain:www.skillkit.sh)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:api.github.com)",
+      "WebSearch",
+      "Skill(plan-ceo-review)",
+      "Bash(~/.claude/skills/gstack/bin/gstack-review-read)",
+      "Bash(/Users/jstegeman/Projects/dfiles/docs/designs/swappable-skill-backends.md:*)"
     ]
   }
 }

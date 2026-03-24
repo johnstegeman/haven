@@ -448,13 +448,16 @@ fn encode_rel_path(home: &Path, rel: &Path, private: bool, executable: bool, sym
     Ok(parts.iter().collect::<PathBuf>())
 }
 
-/// Resolve a path, expanding `~` if needed.
+/// Resolve a path, expanding `~` if needed, and making relative paths absolute.
 fn resolve_path(path: &Path) -> Result<PathBuf> {
     let s = path.to_string_lossy();
     if s.starts_with("~/") || s == "~" {
         expand_tilde(&s)
-    } else {
+    } else if path.is_absolute() {
         Ok(path.to_path_buf())
+    } else {
+        let cwd = std::env::current_dir().context("Cannot determine current directory")?;
+        Ok(cwd.join(path))
     }
 }
 

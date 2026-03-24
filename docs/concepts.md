@@ -39,8 +39,8 @@ Each directory in the repo has a distinct purpose:
 ```
 source/dot_zshrc                    →  ~/.zshrc
 source/dot_config/git/config        →  ~/.config/git/config
-source/private_dot_ssh/config       →  ~/.ssh/config  (chmod 0600)
-source/executable_dot_local/bin/foo →  ~/.local/bin/foo  (chmod 0755)
+source/private_dot_ssh/config       →  ~/.ssh/config  (chmod 0700 on the .ssh directory)
+source/dot_local/bin/executable_foo →  ~/.local/bin/foo  (chmod 0755)
 source/dot_gitconfig.tmpl           →  ~/.gitconfig  (rendered via Tera before writing)
 source/dot_config/extdir_nvim       →  ~/.config/nvim  (cloned from git on apply)
 ```

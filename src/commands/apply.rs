@@ -842,7 +842,9 @@ fn apply_scripts(scripts: &[crate::source::ScriptEntry], state: &mut State) -> R
 ///   1. Validate each skill, check cache hits. Collect `gh:` cache-miss tasks.
 ///   2. Fetch all cache-miss skills in parallel (one thread per skill).
 ///      On failure: mark skill as failed, continue with others.
-///   3. Deploy all non-failed skills and write AiState once (atomic).
+///   3. Deploy all non-failed skills via backend.deploy_all() and write AiState
+///      once (atomic). NativeBackend deploys per-skill; SkillKitBackend calls
+///      `skillkit team install` once with a generated manifest.
 fn apply_ai_skills(
     opts: &ApplyOptions<'_>,
     state: &mut State,
@@ -868,8 +870,10 @@ fn apply_ai_skills(
     // Validate backend config and availability before starting any work.
     let ai_config = AiConfig::load(opts.repo_root)?;
     let backend = create_backend(&ai_config, opts.state_dir)?;
-    // SkillCache drives the native parallel-fetch phase (Phase 1/2).
-    // Phase 3 (SkillKitBackend) will replace this with deploy_all() bulk invocation.
+    // SkillCache drives the native parallel-fetch phase.
+    // deploy_all() handles the deploy phase for all backends:
+    //   NativeBackend  — default loops over deploy() per skill.
+    //   SkillKitBackend — overrides to call `skillkit team install` once.
     let skill_cache = SkillCache::new(opts.state_dir);
 
     // Collect existing deployed state so we can check ownership.
@@ -1053,8 +1057,26 @@ fn apply_ai_skills(
     }
 
     // ── Phase 3: deploy ───────────────────────────────────────────────────────
+    //
+    // Build a flat list of (skill, target) pairs — deduplicating by target path
+    // so github-copilot and cross-client platforms sharing ~/.agents/skills/ only
+    // result in a single deploy call — then hand the entire batch to deploy_all().
+    //
+    // NativeBackend: default deploy_all() loops per-skill.
+    // SkillKitBackend: override calls `skillkit team install` once.
 
-    let mut skills_applied = 0usize;
+    struct DeployEntry {
+        skill_name: String,
+        source_str: String,
+        sha: Option<String>,
+        deploy_method: String,
+        platform_id: String,
+        resolved: ResolvedSkill,
+        target: DeploymentTarget,
+    }
+
+    let mut deploy_entries: Vec<DeployEntry> = Vec::new();
+    let mut seen_targets: HashSet<PathBuf> = HashSet::new();
 
     for plan in &plans {
         if plan.failed {
@@ -1064,60 +1086,67 @@ fn apply_ai_skills(
             Some(p) => p,
             None => continue, // unreachable for non-failed plans
         };
-
-        // Deploy to each platform, deduplicating by resolved target path.
-        let mut deployed_targets: HashSet<PathBuf> = HashSet::new();
-
         for platform in &plan.target_platforms {
-            let target = platform.skills_dir.join(&plan.skill.name);
-
+            let target_path = platform.skills_dir.join(&plan.skill.name);
             // Deduplicate: github-copilot and cross-client both use ~/.agents/skills/.
-            if deployed_targets.contains(&target) {
+            if seen_targets.contains(&target_path) {
                 continue;
             }
-            deployed_targets.insert(target.clone());
-
-            let resolved = ResolvedSkill {
-                name: plan.skill.name.clone(),
-                cached_path: skill_path.clone(),
-                sha: plan.sha.clone().unwrap_or_default(),
-                metadata: SkillMetadata::default(),
-            };
-            let deploy_target = DeploymentTarget {
+            seen_targets.insert(target_path);
+            deploy_entries.push(DeployEntry {
+                skill_name: plan.skill.name.clone(),
+                source_str: plan.source_str.to_string(),
+                sha: plan.sha.clone(),
+                deploy_method: plan.skill.deploy.as_str().to_string(),
                 platform_id: platform.id.clone(),
-                skills_dir: platform.skills_dir.clone(),
-                deploy_method: plan.skill.deploy.clone(),
-                owned_targets: owned_targets.clone(),
-            };
-            match backend.deploy(&resolved, &deploy_target) {
-                Ok(result) if result.deployed => {
-                    let platform_map = ai_state
-                        .deployed_skills
-                        .entry(platform.id.clone())
-                        .or_default();
-                    platform_map.insert(
-                        plan.skill.name.clone(),
-                        AiDeployedEntry {
-                            source: plan.source_str.to_string(),
-                            deploy: plan.skill.deploy.as_str().to_string(),
-                            target: result.target_path.clone(),
-                            applied_at: Utc::now().to_rfc3339(),
-                            sha: plan.sha.clone(),
-                        },
-                    );
-                    println!("  ✓ {} → {}", plan.skill.name, result.target_path.display());
-                    skills_applied += 1;
+                resolved: ResolvedSkill {
+                    name: plan.skill.name.clone(),
+                    cached_path: skill_path.clone(),
+                    sha: plan.sha.clone().unwrap_or_default(),
+                    metadata: SkillMetadata::default(),
+                },
+                target: DeploymentTarget {
+                    platform_id: platform.id.clone(),
+                    skills_dir: platform.skills_dir.clone(),
+                    deploy_method: plan.skill.deploy.clone(),
+                    owned_targets: owned_targets.clone(),
+                },
+            });
+        }
+    }
+
+    let mut skills_applied = 0usize;
+
+    if !deploy_entries.is_empty() {
+        let pairs: Vec<(&ResolvedSkill, &DeploymentTarget)> =
+            deploy_entries.iter().map(|e| (&e.resolved, &e.target)).collect();
+        match backend.deploy_all(&pairs) {
+            Ok(results) => {
+                for (entry, result) in deploy_entries.iter().zip(results.iter()) {
+                    if result.deployed {
+                        let platform_map = ai_state
+                            .deployed_skills
+                            .entry(entry.platform_id.clone())
+                            .or_default();
+                        platform_map.insert(
+                            entry.skill_name.clone(),
+                            AiDeployedEntry {
+                                source: entry.source_str.clone(),
+                                deploy: entry.deploy_method.clone(),
+                                target: result.target_path.clone(),
+                                applied_at: Utc::now().to_rfc3339(),
+                                sha: entry.sha.clone(),
+                            },
+                        );
+                        println!("  ✓ {} → {}", entry.skill_name, result.target_path.display());
+                        skills_applied += 1;
+                    }
+                    // was_collision=true: NativeBackend already printed the warning
                 }
-                Ok(_) => {
-                    // Collision — warned + skipped inside deploy_skill.
-                }
-                Err(e) => {
-                    eprintln!(
-                        "  error: skill '{}' → {} — deploy failed: {:#}",
-                        plan.skill.name, target.display(), e
-                    );
-                    skills_failed += 1;
-                }
+            }
+            Err(e) => {
+                eprintln!("  error: deploy failed: {:#}", e);
+                skills_failed += deploy_entries.len();
             }
         }
     }

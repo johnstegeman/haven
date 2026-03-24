@@ -14,6 +14,7 @@ use std::path::Path;
 use crate::ai_config::{AiConfig, BackendKind};
 use crate::skill_backend::SkillBackend;
 use crate::skill_backend_native::NativeBackend;
+use crate::skill_backend_skillkit::SkillKitBackend;
 use crate::util::is_on_path;
 
 /// Instantiate the backend specified in `config`.
@@ -32,13 +33,7 @@ pub fn create_backend(config: &AiConfig, state_dir: &Path) -> Result<Box<dyn Ski
                     config.runner
                 );
             }
-            // SkillKitBackend will be implemented in Phase 3.
-            // For now, check availability and return a placeholder error so the
-            // factory skeleton compiles and the availability path is tested.
-            anyhow::bail!(
-                "skill backend 'skillkit' is not yet implemented in this build of haven\n\
-                 hint: use `backend = \"native\"` in ai/config.toml"
-            )
+            Ok(Box::new(SkillKitBackend::new(config)))
         }
 
         BackendKind::Akm => {

@@ -170,6 +170,20 @@ impl SkillBackend for NativeBackend {
 
 // ─── SKILL.md frontmatter parser ─────────────────────────────────────────────
 
+#[allow(dead_code)]
+/// Public helper: parse a SKILL.md at `skill_path` and return its metadata.
+/// Used by SkillKitBackend to delegate SKILL.md validation.
+pub fn validate_skill_md(skill_path: &Path) -> Result<SkillMetadata> {
+    let skill_md = skill_path.join("SKILL.md");
+    if !skill_md.exists() {
+        anyhow::bail!("SKILL.md not found in {}", skill_path.display());
+    }
+    let content = std::fs::read_to_string(&skill_md)
+        .with_context(|| format!("Cannot read {}", skill_md.display()))?;
+    parse_skill_md_frontmatter(&content)
+        .with_context(|| format!("Invalid SKILL.md in {}", skill_md.display()))
+}
+
 /// Raw deserialization target for SKILL.md YAML frontmatter.
 #[derive(Deserialize)]
 struct SkillFrontmatter {

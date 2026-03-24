@@ -19,6 +19,7 @@ mod ai_config;
 mod skill_backend;
 mod skill_backend_factory;
 mod skill_backend_native;
+mod skill_backend_skillkit;
 mod skill_cache;
 mod util;
 mod source;

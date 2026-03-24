@@ -27,7 +27,8 @@ use crate::vcs::{self, MigrateOutcome, VcsBackend};
 use crate::config::module::expand_tilde;
 use crate::fs::{apply_permissions, backup_file, copy_to_dest, write_to_dest};
 use crate::ignore::IgnoreList;
-use crate::skill_cache::SkillCache;
+use crate::skill_backend::{DeploymentTarget, ResolvedSkill, SkillBackend, SkillMetadata};
+use crate::skill_backend_native::NativeBackend;
 use crate::source::{scan, scan_scripts, ScriptExecWhen, SourceEntry};
 use crate::state::{AiDeployedEntry, ModuleState, State};
 use crate::template::TemplateContext;
@@ -862,7 +863,8 @@ fn apply_ai_skills(
     }
 
     let active_platforms = platforms_config.resolve_active_platforms()?;
-    let skill_cache = SkillCache::new(opts.state_dir);
+    let backend = NativeBackend::new(opts.state_dir);
+    let skill_cache = backend.cache();
 
     // Collect existing deployed state so we can check ownership.
     let mut ai_state = state.ai.clone().unwrap_or_default();
@@ -1069,13 +1071,20 @@ fn apply_ai_skills(
             }
             deployed_targets.insert(target.clone());
 
-            match crate::ai_skill::deploy_skill(
-                skill_path,
-                &target,
-                &plan.skill.deploy,
-                &owned_targets,
-            ) {
-                Ok(true) => {
+            let resolved = ResolvedSkill {
+                name: plan.skill.name.clone(),
+                cached_path: skill_path.clone(),
+                sha: plan.sha.clone().unwrap_or_default(),
+                metadata: SkillMetadata::default(),
+            };
+            let deploy_target = DeploymentTarget {
+                platform_id: platform.id.clone(),
+                skills_dir: platform.skills_dir.clone(),
+                deploy_method: plan.skill.deploy.clone(),
+                owned_targets: owned_targets.clone(),
+            };
+            match backend.deploy(&resolved, &deploy_target) {
+                Ok(result) if result.deployed => {
                     let platform_map = ai_state
                         .deployed_skills
                         .entry(platform.id.clone())
@@ -1085,16 +1094,16 @@ fn apply_ai_skills(
                         AiDeployedEntry {
                             source: plan.source_str.to_string(),
                             deploy: plan.skill.deploy.as_str().to_string(),
-                            target: target.clone(),
+                            target: result.target_path.clone(),
                             applied_at: Utc::now().to_rfc3339(),
                             sha: plan.sha.clone(),
                         },
                     );
-                    println!("  ✓ {} → {}", plan.skill.name, target.display());
+                    println!("  ✓ {} → {}", plan.skill.name, result.target_path.display());
                     skills_applied += 1;
                 }
-                Ok(false) => {
-                    // Warned + skipped inside deploy_skill.
+                Ok(_) => {
+                    // Collision — warned + skipped inside deploy_skill.
                 }
                 Err(e) => {
                     eprintln!(

@@ -15,6 +15,8 @@ mod ignore;
 mod lock;
 mod mise;
 mod onepassword;
+mod skill_backend;
+mod skill_backend_native;
 mod skill_cache;
 mod source;
 mod state;

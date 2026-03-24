@@ -45,6 +45,11 @@ impl SkillCache {
         }
     }
 
+    /// Return the root directory where skills are cached.
+    pub fn cache_dir(&self) -> &Path {
+        &self.cache_dir
+    }
+
     /// Return the cache path for a `GhSource`.
     pub fn cache_path(&self, source: &GhSource) -> PathBuf {
         self.cache_dir.join(source.cache_key())

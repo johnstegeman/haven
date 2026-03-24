@@ -27,8 +27,10 @@ use crate::vcs::{self, MigrateOutcome, VcsBackend};
 use crate::config::module::expand_tilde;
 use crate::fs::{apply_permissions, backup_file, copy_to_dest, write_to_dest};
 use crate::ignore::IgnoreList;
-use crate::skill_backend::{DeploymentTarget, ResolvedSkill, SkillBackend, SkillMetadata};
-use crate::skill_backend_native::NativeBackend;
+use crate::ai_config::AiConfig;
+use crate::skill_backend::{DeploymentTarget, ResolvedSkill, SkillMetadata};
+use crate::skill_backend_factory::create_backend;
+use crate::skill_cache::SkillCache;
 use crate::source::{scan, scan_scripts, ScriptExecWhen, SourceEntry};
 use crate::state::{AiDeployedEntry, ModuleState, State};
 use crate::template::TemplateContext;
@@ -863,8 +865,12 @@ fn apply_ai_skills(
     }
 
     let active_platforms = platforms_config.resolve_active_platforms()?;
-    let backend = NativeBackend::new(opts.state_dir);
-    let skill_cache = backend.cache();
+    // Validate backend config and availability before starting any work.
+    let ai_config = AiConfig::load(opts.repo_root)?;
+    let backend = create_backend(&ai_config, opts.state_dir)?;
+    // SkillCache drives the native parallel-fetch phase (Phase 1/2).
+    // Phase 3 (SkillKitBackend) will replace this with deploy_all() bulk invocation.
+    let skill_cache = SkillCache::new(opts.state_dir);
 
     // Collect existing deployed state so we can check ownership.
     let mut ai_state = state.ai.clone().unwrap_or_default();

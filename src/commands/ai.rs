@@ -116,13 +116,7 @@ fn is_platform_installed(platform: &crate::ai_platform::PlatformPlugin) -> bool 
 
 /// Return true if `name` can be found on PATH using `which`.
 fn which_on_path(name: &str) -> bool {
-    std::process::Command::new("which")
-        .arg(name)
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status()
-        .map(|s| s.success())
-        .unwrap_or(false)
+    crate::util::is_on_path(name)
 }
 
 /// Load the `active` list from `ai/platforms.toml`, returning an empty vec if
@@ -1091,6 +1085,31 @@ fn filter_skills<'a>(
         None => skills.iter().collect(),
         Some(n) => skills.iter().filter(|s| s.name == n).collect(),
     }
+}
+
+// ─── backends ─────────────────────────────────────────────────────────────────
+
+pub struct BackendsOptions<'a> {
+    pub repo_root: &'a std::path::Path,
+}
+
+/// List all known skill backends and their availability on this machine.
+pub fn backends(opts: &BackendsOptions<'_>) -> Result<()> {
+    let config = crate::ai_config::AiConfig::load(opts.repo_root)
+        .unwrap_or_default();
+    let active = config.backend.as_str();
+    let infos = crate::skill_backend_factory::list_backends(&config);
+
+    println!("Skill backends:");
+    println!();
+    for info in &infos {
+        let marker = if info.name == active { " *" } else { "  " };
+        let status = if info.available { "✓" } else { "✗" };
+        println!("{} {}  {} — {}", marker, status, info.name, info.note);
+    }
+    println!();
+    println!("  * = active backend (from ai/config.toml, or default)");
+    Ok(())
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────

@@ -15,9 +15,12 @@ mod ignore;
 mod lock;
 mod mise;
 mod onepassword;
+mod ai_config;
 mod skill_backend;
+mod skill_backend_factory;
 mod skill_backend_native;
 mod skill_cache;
+mod util;
 mod source;
 mod state;
 mod telemetry;
@@ -175,6 +178,15 @@ enum AiAction {
         #[arg(long)]
         dry_run: bool,
     },
+
+    /// List all known skill backends and their availability on this machine.
+    ///
+    /// Checks whether each backend's required runner is present on PATH.
+    /// The active backend (from ai/config.toml) is marked with *.
+    ///
+    /// Example:
+    ///   haven ai backends
+    Backends,
 }
 
 #[derive(Subcommand)]
@@ -1193,6 +1205,11 @@ fn run() -> Result<()> {
                     state_dir: &state_dir,
                     dir: path,
                     dry_run: *dry_run,
+                })?;
+            }
+            AiAction::Backends => {
+                commands::ai::backends(&commands::ai::BackendsOptions {
+                    repo_root: &repo,
                 })?;
             }
         },

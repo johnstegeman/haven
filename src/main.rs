@@ -1196,6 +1196,7 @@ fn run() -> Result<()> {
             }
             AiAction::Search { query, limit } => {
                 commands::ai::search(&commands::ai::SearchOptions {
+                    repo_root: &repo,
                     query,
                     limit: *limit,
                 })?;

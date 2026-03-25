@@ -1,0 +1,7 @@
+[tasks]
+test = "cargo test"
+test-verbose = "cargo test -- --nocapture"
+build = "cargo build --release"
+lint = "cargo clippy -- -D warnings"
+docs = "mkdocs gh-deploy --force"
+docs-serve = "mkdocs serve"

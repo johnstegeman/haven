@@ -2,3 +2,4 @@
 /site
 .gstack/
 .claude/settings.local.json
+.claude/**

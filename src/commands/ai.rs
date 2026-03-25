@@ -12,6 +12,7 @@ use anyhow::{Context, Result};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
+use crate::ai_config::{AiConfig, BackendKind};
 use crate::ai_platform::{platform_registry, PlatformsConfig};
 use crate::ai_skill::{DeployMethod, SkillSource, SkillsConfig};
 use crate::lock::LockFile;
@@ -662,16 +663,22 @@ fn find_deployed_paths(state_dir: &Path, skill_name: &str) -> Vec<(String, PathB
 
 /// Options for `haven ai search`.
 pub struct SearchOptions<'a> {
+    pub repo_root: &'a Path,
     pub query: &'a str,
     pub limit: u8,
 }
 
-/// Search skills.sh and display matching skills with their gh: sources.
+/// Search for skills using the configured backend and display matching results.
 pub fn search(opts: &SearchOptions<'_>) -> Result<()> {
-    print!("Searching skills.sh for '{}' ...", opts.query);
+    let ai_config = AiConfig::load(opts.repo_root)?;
+    let backend_label = match ai_config.backend {
+        BackendKind::SkillKit => "skillkit",
+        _ => "skills.sh",
+    };
+    print!("Searching {} for '{}' ...", backend_label, opts.query);
     io::stdout().flush()?;
 
-    let results = skillssh_search(opts.query, opts.limit as usize)?;
+    let results = dispatch_search(&ai_config, opts.query, opts.limit as usize)?;
     println!();
 
     if results.is_empty() {
@@ -681,7 +688,11 @@ pub fn search(opts: &SearchOptions<'_>) -> Result<()> {
 
     println!("{} result(s):\n", results.len());
     for entry in &results {
-        println!("  {}  ({} installs)", entry.gh_source(), entry.installs);
+        if let Some(installs) = entry.installs {
+            println!("  {}  ({} installs)", entry.source, installs);
+        } else {
+            println!("  {}", entry.source);
+        }
     }
     println!();
     println!("To add a skill:  haven ai add <gh:source>");
@@ -704,6 +715,7 @@ pub struct ScanOptions<'a> {
 pub fn scan(opts: &ScanOptions<'_>) -> Result<()> {
     let scan_dir = expand_dir(opts.dir)?;
     let skill_cache_dir = opts.state_dir.join("skills");
+    let ai_config = AiConfig::load(opts.repo_root)?;
 
     // Load existing skills to skip already-managed ones.
     let existing_names: std::collections::HashSet<String> = SkillsConfig::load(opts.repo_root)?
@@ -797,6 +809,10 @@ pub fn scan(opts: &ScanOptions<'_>) -> Result<()> {
         // Try git detection first.
         let detected = detect_gh_source(real_path);
 
+        // For skills without a detected git source, search the configured backend once
+        // (limit=10) and reuse the results for both the best-match display and the ?-prompt.
+        let mut scan_search_results: Vec<SearchEntry> = Vec::new();
+
         let proposed = match &detected {
             Some(src) => {
                 let detail = git_remote_url(real_path)
@@ -805,35 +821,36 @@ pub fn scan(opts: &ScanOptions<'_>) -> Result<()> {
                 src.clone()
             }
             None => {
-                // Fall back to skills.sh search.
-                print!("  No git remote — searching skills.sh for '{}' ...", name);
+                let backend_label = match ai_config.backend {
+                    BackendKind::SkillKit => "skillkit",
+                    _ => "skills.sh",
+                };
+                print!("  No git remote — searching {} for '{}' ...", backend_label, name);
                 io::stdout().flush()?;
-                let results = skillssh_search(name, 5).unwrap_or_default();
+                scan_search_results = dispatch_search(&ai_config, name, 10).unwrap_or_default();
                 println!();
 
-                if results.is_empty() {
-                    println!("  No matches found on skills.sh.");
+                if scan_search_results.is_empty() {
+                    println!("  No matches found on {}.", backend_label);
                     println!("  Skip with 'n' or enter a source manually with 'e'.");
                     String::new()
                 } else {
-                    let best = &results[0];
-                    let dup_note = if results.len() > 1 {
-                        format!("  ({} results — use '?' to see all)", results.len())
+                    let best = &scan_search_results[0];
+                    let dup_note = if scan_search_results.len() > 1 {
+                        format!("  ({} results — use '?' to see all)", scan_search_results.len())
                     } else {
                         String::new()
                     };
-                    println!(
-                        "  Best match: {}  ({} installs){}",
-                        best.gh_source(), best.installs, dup_note
-                    );
-                    best.gh_source()
+                    let installs_note = best.installs.map(|n| format!(" ({} installs)", n)).unwrap_or_default();
+                    println!("  Best match: {}{}{}",best.source, installs_note, dup_note);
+                    best.source.clone()
                 }
             }
         };
 
         // Interactive prompt loop.
-        let all_results: Option<Vec<SkillsShEntry>> = if detected.is_none() {
-            Some(skillssh_search(name, 10).unwrap_or_default())
+        let all_results: Option<Vec<SearchEntry>> = if detected.is_none() {
+            Some(scan_search_results)
         } else {
             None
         };
@@ -899,10 +916,11 @@ pub fn scan(opts: &ScanOptions<'_>) -> Result<()> {
                 "?" => {
                     let results = all_results.as_deref().unwrap_or(&[]);
                     if results.is_empty() {
-                        println!("  No skills.sh results available.");
+                        println!("  No search results available.");
                     } else {
                         for (i, r) in results.iter().enumerate() {
-                            println!("    {}. {}  ({} installs)", i + 1, r.gh_source(), r.installs);
+                            let installs_note = r.installs.map(|n| format!("  ({} installs)", n)).unwrap_or_default();
+                            println!("    {}. {}{}", i + 1, r.source, installs_note);
                         }
                         print!("  Pick [1-{}] or (n)ext/(e)nter manually: ", results.len());
                         io::stdout().flush()?;
@@ -911,7 +929,7 @@ pub fn scan(opts: &ScanOptions<'_>) -> Result<()> {
                         let pick = pick.trim();
                         if let Ok(n) = pick.parse::<usize>() {
                             if n >= 1 && n <= results.len() {
-                                let chosen = results[n - 1].gh_source();
+                                let chosen = results[n - 1].source.clone();
                                 if opts.dry_run {
                                     println!("  (dry-run) Would add: {}", chosen);
                                 } else {
@@ -952,7 +970,25 @@ pub fn scan(opts: &ScanOptions<'_>) -> Result<()> {
     Ok(())
 }
 
-// ─── skills.sh API ────────────────────────────────────────────────────────────
+// ─── search dispatch ──────────────────────────────────────────────────────────
+
+/// Unified search result returned by all backends.
+pub struct SearchEntry {
+    /// Full `gh:owner/repo/skill` source string.
+    pub source: String,
+    /// Install count from the registry, if available.
+    pub installs: Option<u64>,
+}
+
+/// Route a search query to the appropriate backend based on `AiConfig`.
+fn dispatch_search(config: &AiConfig, query: &str, limit: usize) -> Result<Vec<SearchEntry>> {
+    match config.backend {
+        BackendKind::SkillKit => skillkit_search(&config.runner, query, limit, config.timeout_secs),
+        _ => skillssh_search(query, limit),
+    }
+}
+
+// ─── skills.sh backend ────────────────────────────────────────────────────────
 
 #[derive(serde::Deserialize)]
 struct SkillsShResponse {
@@ -966,13 +1002,7 @@ struct SkillsShEntry {
     installs: u64,
 }
 
-impl SkillsShEntry {
-    fn gh_source(&self) -> String {
-        format!("gh:{}", self.id)
-    }
-}
-
-fn skillssh_search(query: &str, limit: usize) -> Result<Vec<SkillsShEntry>> {
+fn skillssh_search(query: &str, limit: usize) -> Result<Vec<SearchEntry>> {
     let response = ureq::get("https://skills.sh/api/search")
         .query("q", query)
         .query("limit", &limit.to_string())
@@ -985,7 +1015,91 @@ fn skillssh_search(query: &str, limit: usize) -> Result<Vec<SkillsShEntry>> {
     let parsed: SkillsShResponse = serde_json::from_str(&response)
         .context("skills.sh response could not be parsed")?;
 
-    Ok(parsed.skills)
+    Ok(parsed.skills.into_iter().map(|e| SearchEntry {
+        source: format!("gh:{}", e.id),
+        installs: Some(e.installs),
+    }).collect())
+}
+
+// ─── skillkit search backend ──────────────────────────────────────────────────
+
+/// Search via `<runner> skillkit marketplace search <query> --json --limit <n>`.
+///
+/// SkillKit's marketplace command outputs terminal escape codes (spinner) mixed
+/// into stdout, followed by a JSON object on the same line as the cursor-show
+/// escape. We locate the JSON by finding the first `{` in the output.
+///
+/// Output shape (after stripping escapes):
+/// ```json
+/// {"skills":[{"id":"owner/repo/path","name":"...","description":"..."}],"total":N,"query":"..."}
+/// ```
+/// `id` is `owner/repo/path` — we prepend `gh:` to form the Haven source key.
+fn skillkit_search(runner: &str, query: &str, limit: usize, timeout_secs: u64) -> Result<Vec<SearchEntry>> {
+    use std::process::{Command, Stdio};
+    use std::time::Duration;
+
+    let mut cmd = Command::new(runner);
+    if matches!(runner, "npx" | "bunx" | "bun") {
+        cmd.arg("skillkit");
+    }
+    let mut child = cmd
+        .args(["marketplace", "search", query, "--json", "--limit", &limit.to_string()])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .with_context(|| format!("failed to spawn '{}' skillkit marketplace search", runner))?;
+
+    let timeout = Duration::from_secs(timeout_secs);
+    let start = std::time::Instant::now();
+    loop {
+        match child.try_wait()? {
+            Some(status) => {
+                let output = child.wait_with_output()?;
+                if !status.success() {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    anyhow::bail!("skillkit marketplace search failed ({}): {}", status.code().unwrap_or(-1), stderr.trim());
+                }
+                let stdout = String::from_utf8(output.stdout)
+                    .context("skillkit marketplace search produced invalid UTF-8")?;
+                return parse_skillkit_search_results(&stdout);
+            }
+            None => {
+                if start.elapsed() >= timeout {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    anyhow::bail!("skillkit marketplace search timed out after {} seconds", timeout_secs);
+                }
+                std::thread::sleep(Duration::from_millis(100));
+            }
+        }
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct SkillKitMarketplaceResponse {
+    skills: Vec<SkillKitMarketplaceEntry>,
+}
+
+#[derive(serde::Deserialize)]
+struct SkillKitMarketplaceEntry {
+    /// "owner/repo/path" — Haven prepends "gh:" to form the source key.
+    id: String,
+}
+
+fn parse_skillkit_search_results(stdout: &str) -> Result<Vec<SearchEntry>> {
+    // SkillKit emits terminal escape codes (spinner) into stdout before the JSON.
+    // The JSON object always starts at the first '{'.
+    let json_start = match stdout.find('{') {
+        Some(i) => i,
+        None => return Ok(vec![]),
+    };
+    let json = &stdout[json_start..];
+    let response: SkillKitMarketplaceResponse = serde_json::from_str(json)
+        .with_context(|| format!("failed to parse skillkit marketplace search output: {json}"))?;
+    Ok(response.skills.into_iter().map(|e| SearchEntry {
+        source: format!("gh:{}", e.id),
+        installs: None,
+    }).collect())
 }
 
 // ─── git source detection ─────────────────────────────────────────────────────

@@ -42,12 +42,12 @@ use crate::skill_backend::{
 // ─── Backend struct ────────────────────────────────────────────────────────────
 
 pub struct AgentSkillsBackend {
-    runner: String,
+    runner: Vec<String>,
     timeout: Duration,
 }
 
 impl AgentSkillsBackend {
-    pub fn new(runner: String, timeout: Duration) -> Self {
+    pub fn new(runner: Vec<String>, timeout: Duration) -> Self {
         AgentSkillsBackend { runner, timeout }
     }
 }
@@ -60,7 +60,7 @@ impl SkillBackend for AgentSkillsBackend {
     }
 
     fn is_available(&self) -> bool {
-        crate::util::is_on_path(&self.runner)
+        crate::util::is_on_path(&self.runner[0])
     }
 
     /// No-op: agent-skills-cli manages its own cache.
@@ -108,7 +108,6 @@ impl SkillBackend for AgentSkillsBackend {
             agent_name,
             self.timeout,
         )?;
-
         // Verify by filesystem — target path is predictable from Haven's own config.
         let target_path = target.skills_dir.join(&skill.name);
         if target_path.exists() || target_path.is_symlink() {
@@ -143,7 +142,8 @@ impl SkillBackend for AgentSkillsBackend {
     /// If the command fails, the error is propagated. Stdout is not parsed (no `--json`
     /// flag on update) — all requested names are returned on a successful exit.
     fn update_all(&self, skills: &[(&str, &str)]) -> Result<Vec<String>> {
-        let mut cmd = std::process::Command::new(&self.runner);
+        let mut cmd = std::process::Command::new(&self.runner[0]);
+        cmd.args(&self.runner[1..]);
         cmd.arg("update");
         if skills.is_empty() {
             cmd.args(["--all", "-g", "-y"]);
@@ -213,7 +213,14 @@ fn map_source(source_str: &str) -> Result<(String, Option<String>)> {
                 let _ = dropped; // ref noted, not passed to agent-skills-cli
             }
             let repo_arg = format!("{}/{}", gh.owner, gh.repo);
-            Ok((repo_arg, gh.subpath.clone()))
+            // Use only the last path component as the -s selector.
+            // agent-skills-cli expects a skill name, not a repo-relative path.
+            // e.g. "gh:owner/repo/skills/jujutsu" → -s jujutsu, not -s skills/jujutsu
+            let skill_selector = gh
+                .subpath
+                .as_deref()
+                .map(|sp| sp.rsplit('/').next().unwrap_or(sp).to_string());
+            Ok((repo_arg, skill_selector))
         }
         SkillSource::Dir(path) => {
             // SkillSource::parse already expands tilde — path is absolute here.
@@ -255,13 +262,14 @@ fn map_platform_id(platform_id: &str) -> &str {
 // ─── Subprocess ───────────────────────────────────────────────────────────────
 
 fn run_agent_skills_install(
-    runner: &str,
+    runner: &[String],
     source: &str,
     skill_selector: Option<&str>,
     agent: &str,
     timeout: Duration,
 ) -> Result<()> {
-    let mut cmd = std::process::Command::new(runner);
+    let mut cmd = std::process::Command::new(&runner[0]);
+    cmd.args(&runner[1..]);
     cmd.args(["install", source, "-g", "-a", agent, "-y"]);
     if let Some(sel) = skill_selector {
         cmd.args(["-s", sel]);
@@ -273,13 +281,14 @@ fn run_agent_skills_install(
 fn run_with_timeout(
     mut cmd: std::process::Command,
     timeout: Duration,
-    runner: &str,
+    runner: &[String],
 ) -> Result<()> {
+    let runner_display = runner.join(" ");
     let mut child = cmd
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .spawn()
-        .with_context(|| format!("Failed to spawn '{}' — is it installed and on PATH?", runner))?;
+        .with_context(|| format!("Failed to spawn '{}' — is it installed and on PATH?", runner_display))?;
 
     let start = std::time::Instant::now();
     let poll_interval = Duration::from_millis(100);
@@ -299,13 +308,13 @@ fn run_with_timeout(
                 if msg.is_empty() {
                     anyhow::bail!(
                         "'{}' exited with status {}",
-                        runner,
+                        runner_display,
                         status.code().unwrap_or(-1)
                     );
                 } else {
                     anyhow::bail!(
                         "'{}' exited with status {}: {}",
-                        runner,
+                        runner_display,
                         status.code().unwrap_or(-1),
                         msg
                     );
@@ -317,14 +326,14 @@ fn run_with_timeout(
                     let _ = child.kill();
                     anyhow::bail!(
                         "'{}' timed out after {}s",
-                        runner,
+                        runner_display,
                         timeout.as_secs()
                     );
                 }
                 std::thread::sleep(poll_interval);
             }
             Err(e) => {
-                anyhow::bail!("Error waiting for '{}': {}", runner, e);
+                anyhow::bail!("Error waiting for '{}': {}", runner_display, e);
             }
         }
     }
@@ -402,6 +411,14 @@ mod tests {
     }
 
     #[test]
+    fn map_source_gh_deep_subpath_uses_last_component() {
+        // gh:owner/repo/skills/jujutsu → source=owner/repo, selector=jujutsu (not skills/jujutsu)
+        let (src, sel) = map_source("gh:johnstegeman/ai-skills/skills/jujutsu").unwrap();
+        assert_eq!(src, "johnstegeman/ai-skills");
+        assert_eq!(sel.as_deref(), Some("jujutsu"));
+    }
+
+    #[test]
     fn map_source_dir_absolute() {
         let (src, sel) = map_source("dir:/absolute/path/to/skill").unwrap();
         assert_eq!(src, "/absolute/path/to/skill");
@@ -460,7 +477,7 @@ mod tests {
         use std::collections::HashSet;
         use crate::ai_skill::DeployMethod;
 
-        let backend = AgentSkillsBackend::new("skills".to_string(), Duration::from_secs(30));
+        let backend = AgentSkillsBackend::new(vec!["skills".to_string()], Duration::from_secs(30));
         let skill = ResolvedSkill {
             name: "my-skill".to_string(),
             cached_path: PathBuf::new(),

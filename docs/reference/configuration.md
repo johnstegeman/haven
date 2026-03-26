@@ -109,6 +109,46 @@ Run `haven ai discover` to auto-generate this file by scanning installed platfor
 
 ---
 
+## `ai/config.toml`
+
+Optional file that configures the AI skill backend. All fields have defaults;
+the file can be omitted entirely.
+
+```toml
+# ai/config.toml
+
+[skills]
+backend      = "native"   # "native" | "agent-skills" | "akm"
+runner       = "skills"   # binary name, path, or array (agent-skills backend only)
+timeout_secs = 120        # subprocess timeout in seconds (agent-skills backend only)
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `backend` | string | `"native"` | Skill backend to use. |
+| `runner` | string or array | `"skills"` | Binary (or program + args array) used to invoke agent-skills-cli. |
+| `timeout_secs` | integer | `120` | Timeout for agent-skills-cli subprocesses. |
+
+### Runner examples
+
+```toml
+# Global install (default)
+runner = "skills"
+
+# Custom path
+runner = "/usr/local/bin/skills"
+
+# Via bunx — no global install required
+runner = ["bunx", "agent-skills-cli"]
+
+# Via npx
+runner = ["npx", "agent-skills-cli"]
+```
+
+Run `haven ai backends` to see which backends are available and which is active.
+
+---
+
 ## `ai/skills/<name>/skill.toml`
 
 Declares a single AI skill.

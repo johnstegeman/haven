@@ -241,26 +241,107 @@ pub fn run(opts: &UpgradeOptions) -> Result<()> {
     let current_exe =
         std::env::current_exe().context("Could not determine the current executable path")?;
 
-    // Write to a sibling temp file, then atomically rename over the live binary.
-    // Using rename() guarantees the swap is atomic on POSIX systems — readers never
-    // see a partial binary.
-    let temp_path = {
-        let mut p = current_exe.clone();
-        p.set_extension("new");
-        p
-    };
+    // Extract to a temp path in /tmp (always writable) so the extract step
+    // never fails due to permissions on the install directory.
+    let temp_path = std::env::temp_dir().join("haven.upgrade");
+    extract_binary(&archive_bytes, &temp_path)
+        .context("Failed to extract haven binary to temp location")?;
 
-    extract_binary(&archive_bytes, &temp_path)?;
-
-    std::fs::rename(&temp_path, &current_exe).with_context(|| {
-        format!(
-            "Failed to replace {} with the new binary. \
-             Try running with elevated permissions or install manually.",
-            current_exe.display()
-        )
-    })?;
+    // Try to install the binary atomically. On permission failure, offer sudo.
+    if let Err(e) = install_binary(&temp_path, &current_exe) {
+        if is_permission_denied(&e) {
+            eprintln!(
+                "error: Permission denied writing to {}.",
+                current_exe.display()
+            );
+            if prompt_sudo()? {
+                run_sudo_install(&temp_path, &current_exe)?;
+            } else {
+                let _ = std::fs::remove_file(&temp_path);
+                anyhow::bail!(
+                    "Upgrade cancelled. To install manually:\n  \
+                     sudo mv {} {}",
+                    temp_path.display(),
+                    current_exe.display()
+                );
+            }
+        } else {
+            let _ = std::fs::remove_file(&temp_path);
+            return Err(e);
+        }
+    }
 
     println!("haven upgraded to v{}.", latest);
+    Ok(())
+}
+
+/// Move `src` to `dest`, falling back to copy+delete if they are on different filesystems.
+fn install_binary(src: &std::path::Path, dest: &std::path::Path) -> Result<()> {
+    // EXDEV (cross-device link): 18 on Linux and macOS — rename across filesystems.
+    #[cfg(unix)]
+    const EXDEV: i32 = 18;
+
+    match std::fs::rename(src, dest) {
+        Ok(()) => Ok(()),
+        // Cross-device rename (e.g. /tmp → /usr/local/bin on a different mount) —
+        // fall back to copy+delete so we still get an atomic-ish swap.
+        #[cfg(unix)]
+        Err(e) if e.raw_os_error() == Some(EXDEV) => {
+            std::fs::copy(src, dest).with_context(|| {
+                format!("Failed to copy {} to {}", src.display(), dest.display())
+            })?;
+            let _ = std::fs::remove_file(src);
+            Ok(())
+        }
+        Err(e) => Err(e).with_context(|| {
+            format!(
+                "Failed to replace {} with the new binary",
+                dest.display()
+            )
+        }),
+    }
+}
+
+/// Return true if an error (or any cause in its chain) is a permission-denied I/O error.
+fn is_permission_denied(e: &anyhow::Error) -> bool {
+    e.chain().any(|cause| {
+        cause
+            .downcast_ref::<std::io::Error>()
+            .map(|io| io.kind() == std::io::ErrorKind::PermissionDenied)
+            .unwrap_or(false)
+    })
+}
+
+/// Ask the user whether to retry with sudo. Returns true if they say yes.
+fn prompt_sudo() -> Result<bool> {
+    use std::io::Write;
+    print!("Retry with sudo? [y/N] ");
+    std::io::stdout().flush().ok();
+    let mut line = String::new();
+    std::io::stdin()
+        .read_line(&mut line)
+        .context("Failed to read from stdin")?;
+    Ok(matches!(line.trim().to_ascii_lowercase().as_str(), "y" | "yes"))
+}
+
+/// Install the binary using sudo: `sudo mv <src> <dest> && sudo chmod 755 <dest>`.
+fn run_sudo_install(src: &std::path::Path, dest: &std::path::Path) -> Result<()> {
+    let mv_status = std::process::Command::new("sudo")
+        .args(["mv", &src.to_string_lossy(), &dest.to_string_lossy()])
+        .status()
+        .context("Failed to spawn sudo")?;
+    if !mv_status.success() {
+        anyhow::bail!("sudo mv failed with status {}", mv_status);
+    }
+
+    let chmod_status = std::process::Command::new("sudo")
+        .args(["chmod", "755", &dest.to_string_lossy()])
+        .status()
+        .context("Failed to spawn sudo chmod")?;
+    if !chmod_status.success() {
+        anyhow::bail!("sudo chmod failed with status {}", chmod_status);
+    }
+
     Ok(())
 }
 

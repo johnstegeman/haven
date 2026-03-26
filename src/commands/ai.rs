@@ -1033,15 +1033,17 @@ struct AgentSkillsSearchEntry {
     stars: Option<u64>,
 }
 
-fn agentskills_search(runner: &str, query: &str, limit: usize) -> Result<Vec<SearchEntry>> {
-    let output = std::process::Command::new(runner)
+fn agentskills_search(runner: &[String], query: &str, limit: usize) -> Result<Vec<SearchEntry>> {
+    let runner_display = runner.join(" ");
+    let output = std::process::Command::new(&runner[0])
+        .args(&runner[1..])
         .args(["search", query, "--json", "--limit", &limit.to_string()])
         .output()
-        .with_context(|| format!("Failed to run '{}' — is agent-skills-cli installed?", runner))?;
+        .with_context(|| format!("Failed to run '{}' — is agent-skills-cli installed?", runner_display))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        anyhow::bail!("'{}' search failed: {}", runner, stderr.trim());
+        anyhow::bail!("'{}' search failed: {}", runner_display, stderr.trim());
     }
 
     let text = String::from_utf8(output.stdout).context("agent-skills-cli output was not UTF-8")?;
@@ -1161,8 +1163,7 @@ pub struct BackendsOptions<'a> {
 
 /// List all known skill backends and their availability on this machine.
 pub fn backends(opts: &BackendsOptions<'_>) -> Result<()> {
-    let config = crate::ai_config::AiConfig::load(opts.repo_root)
-        .unwrap_or_default();
+    let config = crate::ai_config::AiConfig::load(opts.repo_root)?;
     let active = config.backend.as_str();
     let infos = crate::skill_backend_factory::list_backends();
 

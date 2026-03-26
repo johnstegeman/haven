@@ -2,9 +2,10 @@
 ///
 /// ```toml
 /// [skills]
-/// backend = "native"      # "native" | "agent-skills" | "akm"
-/// runner  = "skills"      # path to agent-skills-cli binary (agent-skills backend only)
-/// timeout_secs = 120      # subprocess timeout in seconds (agent-skills backend only)
+/// backend = "native"                        # "native" | "agent-skills" | "akm"
+/// runner  = "skills"                        # binary name or path (agent-skills backend only)
+/// runner  = ["bunx", "agent-skills-cli"]    # or an array: program + args prefix
+/// timeout_secs = 120                        # subprocess timeout in seconds (agent-skills backend only)
 /// ```
 ///
 /// When `ai/config.toml` is absent, all defaults apply (native backend).
@@ -35,9 +36,19 @@ impl BackendKind {
 #[derive(Debug, Clone)]
 pub struct AiConfig {
     pub backend: BackendKind,
-    /// Path or name of the agent-skills-cli runner binary (default: `"skills"`).
+    /// Runner command for the agent-skills-cli subprocess (default: `["skills"]`).
+    ///
+    /// The first element is the program, the rest are arguments prepended before the
+    /// subcommand. This lets users invoke via a package runner without a global install:
+    ///
+    /// ```toml
+    /// runner = ["bunx", "agent-skills-cli"]
+    /// runner = ["npx", "agent-skills-cli"]
+    /// runner = "/usr/local/bin/skills"   # string shorthand for single-element array
+    /// ```
+    ///
     /// Only used by `AgentSkills` backend (and future `Akm`).
-    pub runner: String,
+    pub runner: Vec<String>,
     /// Subprocess timeout in seconds (default: 120).
     /// Only used by `AgentSkills` backend (and future `Akm`).
     pub timeout_secs: u64,
@@ -47,7 +58,7 @@ impl Default for AiConfig {
     fn default() -> Self {
         AiConfig {
             backend: BackendKind::Native,
-            runner: "skills".to_string(),
+            runner: vec!["skills".to_string()],
             timeout_secs: 120,
         }
     }
@@ -77,10 +88,27 @@ struct RawAiConfig {
     skills: RawSkillsSection,
 }
 
+/// Accepts either `runner = "skills"` or `runner = ["bunx", "agent-skills-cli"]`.
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum RunnerValue {
+    Single(String),
+    Multi(Vec<String>),
+}
+
+impl From<RunnerValue> for Vec<String> {
+    fn from(v: RunnerValue) -> Self {
+        match v {
+            RunnerValue::Single(s) => vec![s],
+            RunnerValue::Multi(v) => v,
+        }
+    }
+}
+
 #[derive(Deserialize, Default)]
 struct RawSkillsSection {
     backend: Option<String>,
-    runner: Option<String>,
+    runner: Option<RunnerValue>,
     timeout_secs: Option<u64>,
 }
 
@@ -97,9 +125,16 @@ impl RawAiConfig {
             ),
         };
 
+        let runner = self.skills.runner
+            .map(Vec::from)
+            .unwrap_or_else(|| vec!["skills".to_string()]);
+        if runner.is_empty() {
+            anyhow::bail!("{}: 'runner' must not be an empty array", path_display);
+        }
+
         Ok(AiConfig {
             backend,
-            runner: self.skills.runner.unwrap_or_else(|| "skills".to_string()),
+            runner,
             timeout_secs: self.skills.timeout_secs.unwrap_or(120),
         })
     }
@@ -138,20 +173,40 @@ mod tests {
         write_config(&dir, "[skills]\nbackend = \"agent-skills\"\n");
         let cfg = AiConfig::load(dir.path()).unwrap();
         assert_eq!(cfg.backend, BackendKind::AgentSkills);
-        assert_eq!(cfg.runner, "skills");
+        assert_eq!(cfg.runner, vec!["skills"]);
         assert_eq!(cfg.timeout_secs, 120);
     }
 
     #[test]
-    fn ai_config_reads_custom_runner_and_timeout() {
+    fn ai_config_reads_string_runner() {
         let dir = TempDir::new().unwrap();
         write_config(
             &dir,
             "[skills]\nbackend = \"agent-skills\"\nrunner = \"/usr/local/bin/skills\"\ntimeout_secs = 60\n",
         );
         let cfg = AiConfig::load(dir.path()).unwrap();
-        assert_eq!(cfg.runner, "/usr/local/bin/skills");
+        assert_eq!(cfg.runner, vec!["/usr/local/bin/skills"]);
         assert_eq!(cfg.timeout_secs, 60);
+    }
+
+    #[test]
+    fn ai_config_reads_array_runner() {
+        let dir = TempDir::new().unwrap();
+        write_config(
+            &dir,
+            "[skills]\nbackend = \"agent-skills\"\nrunner = [\"bunx\", \"agent-skills-cli\"]\n",
+        );
+        let cfg = AiConfig::load(dir.path()).unwrap();
+        assert_eq!(cfg.runner, vec!["bunx", "agent-skills-cli"]);
+    }
+
+    #[test]
+    fn ai_config_errors_on_empty_runner_array() {
+        let dir = TempDir::new().unwrap();
+        write_config(&dir, "[skills]\nbackend = \"agent-skills\"\nrunner = []\n");
+        let err = AiConfig::load(dir.path()).unwrap_err();
+        let msg = format!("{err:#}");
+        assert!(msg.contains("empty"), "error should mention empty array: {msg}");
     }
 
     #[test]

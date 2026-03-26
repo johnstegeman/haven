@@ -7,6 +7,41 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [v0.7.6] — 2026-03-26
+
+### Added
+
+- **`runner` accepts an array** — the `runner` field in `ai/config.toml` now accepts
+  either a string or an array, letting you invoke `agent-skills-cli` via a package
+  runner without a global install:
+  ```toml
+  [skills]
+  backend = "agent-skills"
+  runner  = ["bunx", "agent-skills-cli"]   # or ["npx", "agent-skills-cli"]
+  runner  = "skills"                        # string shorthand still works
+  ```
+
+- **`haven upgrade` sudo fallback** — when the upgrade binary write fails with a
+  permission error (e.g. haven is installed in `/usr/local/bin`), the command now
+  detects this, prints a clear message, and asks:
+  ```
+  error: Permission denied writing to /usr/local/bin/haven.
+  Retry with sudo? [y/N]
+  ```
+  If you confirm, it runs `sudo mv` + `sudo chmod 755` to complete the install.
+  The download and checksum steps are not repeated. The extracted binary is staged
+  in `/tmp` rather than a sibling `.new` file, so the permission error is caught
+  at the move step rather than the extract step.
+
+### Fixed
+
+- **`haven ai backends` no longer silently shows native** — previously, any error
+  loading `ai/config.toml` (e.g. a parse error or missing file) would silently fall
+  back to the native backend, making it appear as the active backend even when
+  another was configured. The error is now propagated so you see what went wrong.
+
+---
+
 ## [v0.7.5] — 2026-03-26
 
 ### Added

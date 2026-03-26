@@ -341,6 +341,17 @@ haven upgrade [--check] [--force]
 | `--check` | Check for update without installing. Exits 0 when up to date, 1 when update is available. |
 | `--force` | Install even if already on latest. |
 
+If haven is installed in a system directory (e.g. `/usr/local/bin`), the write
+will fail with a permission error. The command detects this and prompts:
+
+```
+error: Permission denied writing to /usr/local/bin/haven.
+Retry with sudo? [y/N]
+```
+
+Answering `y` runs `sudo mv` + `sudo chmod 755` to complete the install without
+repeating the download.
+
 ---
 
 ## `haven unmanaged`

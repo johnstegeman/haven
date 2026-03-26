@@ -28,11 +28,11 @@ pub fn create_backend(config: &AiConfig, state_dir: &Path) -> Result<Box<dyn Ski
 
         BackendKind::AgentSkills => {
             let runner = config.runner.clone();
-            if !is_on_path(&runner) {
+            if !is_on_path(&runner[0]) {
                 anyhow::bail!(
                     "skill backend 'agent-skills' requires '{}' on PATH\n\
                      hint: install agent-skills-cli with: npm install -g agent-skills-cli",
-                    runner
+                    runner[0]
                 );
             }
             Ok(Box::new(AgentSkillsBackend::new(

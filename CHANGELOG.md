@@ -11,6 +11,49 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [v0.7.0] — 2026-03-26
+
+### Added
+
+- **Conflict detection** — `haven apply --files` now detects when you've edited a
+  deployed file since the last apply and asks what to do: `[s]kip`, `[o]verwrite`,
+  `[A]pply all`, or `[d]iff` (view a diff before deciding). Haven records a SHA-256
+  fingerprint of every file it writes, so it can tell the difference between "I
+  updated this in source" and "you edited this live copy". The `--on-conflict=<mode>`
+  flag skips the prompt: `skip` (CI-friendly, exits 1 when anything was skipped),
+  `overwrite` (always clobber), or `prompt` (default on a TTY).
+
+- **`C` marker in `haven status`** — files you've edited since the last apply now show
+  a `C` marker. Combined with the source-drift marker: `MC` means both the source and
+  your live copy have diverged. Run `haven status` before `haven apply` to see exactly
+  what you've locally modified.
+
+- **SkillKit `dir:` source support** — skills declared with `source = "dir:~/path"`
+  now work with the SkillKit backend. Haven expands the path and passes it to
+  `skillkit team install`, so local-development skills and marketplace skills can live
+  in the same manifest.
+
+- **`haven ai update` with SkillKit** — when the SkillKit backend is configured,
+  `haven ai update` now delegates to `skillkit team install --update` instead of the
+  native lock-clear path, letting SkillKit manage version pinning while haven manages
+  state tracking.
+
+- **SkillKit init guidance** — if `skillkit team install` exits non-zero, haven now
+  surfaces an actionable hint: run `npx skillkit@latest init` if the error looks like
+  an uninitialized agent, or `npx skillkit@latest doctor` for other failures.
+
+### Changed
+
+- **`docs/reference/skill-backends.md`** — the "native → skillkit" setup guide now
+  includes `skillkit init` as a required one-time-per-machine step. The `dir:` source
+  restriction note is corrected: `dir:` sources are now supported; only `repo:` sources
+  are unsupported with SkillKit.
+
+- **`docs/guides/ai-skills.md`** — SkillKit prerequisites now explicitly include
+  `npx skillkit@latest init` with an explanation of what it does.
+
+---
+
 ## [v0.6.0] — 2026-03-24
 
 ### Added

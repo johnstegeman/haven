@@ -160,7 +160,7 @@ fn read_nonempty(path: &Path) -> Option<String> {
 fn build_skills_section(skills_dir: &Path, commands_dir: Option<&Path>) -> String {
     let skills = crate::claude_md::scan_skills(skills_dir);
     let commands = commands_dir
-        .map(|d| crate::claude_md::scan_commands(d))
+        .map(crate::claude_md::scan_commands)
         .unwrap_or_default();
 
     let mut out = String::new();

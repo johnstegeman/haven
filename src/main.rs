@@ -453,6 +453,13 @@ enum Commands {
         #[arg(long)]
         run_scripts: bool,
 
+        /// How to resolve conflicts when the destination file was edited since
+        /// the last apply. `prompt` asks interactively (default on TTY, falls
+        /// back to `skip` in non-TTY environments). `skip` keeps the user's
+        /// version and exits 1. `overwrite` replaces silently and exits 0.
+        #[arg(long, value_name = "MODE", default_value = "prompt")]
+        on_conflict: String,
+
         /// VCS backend to use for new extdir clones: `git` (default) or `jj`.
         /// Overrides HAVEN_VCS env var and haven.toml [vcs] settings.
         #[arg(long, value_name = "BACKEND")]
@@ -1050,6 +1057,7 @@ fn run() -> Result<()> {
             files,
             brews,
             ai,
+            on_conflict,
             apply_externals,
             run_scripts,
             remove_unreferenced_brews,
@@ -1068,7 +1076,8 @@ fn run() -> Result<()> {
             let config_backend = vcs_from_config(&repo);
             let vcs_resolved = vcs::resolve(cli_backend, config_backend, Some(&repo))?;
             let vcs_backend = vcs_resolved.map(|r| r.backend).unwrap_or(vcs::VcsBackend::Git);
-            commands::apply::run(&commands::apply::ApplyOptions {
+            let on_conflict_mode: commands::apply::OnConflict = on_conflict.parse()?;
+            let outcome = commands::apply::run(&commands::apply::ApplyOptions {
                 repo_root: &repo,
                 dest_root: &dest_root_buf,
                 backup_dir: &backup_dir,
@@ -1086,7 +1095,11 @@ fn run() -> Result<()> {
                 interactive: *interactive,
                 zap: *zap,
                 vcs_backend,
+                on_conflict: on_conflict_mode,
             })?;
+            if outcome.had_conflict_skips {
+                std::process::exit(1);
+            }
         }
 
         Commands::Diff {
@@ -1128,6 +1141,7 @@ fn run() -> Result<()> {
                 repo_root: &repo,
                 dest_root: std::path::Path::new("/"),
                 claude_dir: &claude_dir,
+                state_dir: &state_dir,
                 profile: &resolved,
                 show_files: *files,
                 show_brews: *brews,

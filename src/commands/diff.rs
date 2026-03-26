@@ -106,7 +106,7 @@ pub fn run(opts: &DiffOptions<'_>) -> Result<bool> {
                     if let Some(ref pinned_ref) = marker.ref_name {
                         if let Some(head) = extdir_head_sha(&dest) {
                             let expected_sha = git_rev_parse_ref(&dest, pinned_ref);
-                            let at_ref = expected_sha.map_or(false, |s| s == head);
+                            let at_ref = expected_sha.is_some_and(|s| s == head);
                             if !at_ref {
                                 let short = &head[..head.len().min(8)];
                                 section_lines.push(format!(
@@ -134,7 +134,7 @@ pub fn run(opts: &DiffOptions<'_>) -> Result<bool> {
                     let src_text = std::fs::read_to_string(&entry.src);
                     match src_text.and_then(|t| {
                         crate::template::render(&t, &template_ctx)
-                            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
+                            .map_err(std::io::Error::other)
                     }) {
                         Err(e) => {
                             section_lines.push(format!(

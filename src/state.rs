@@ -4,6 +4,14 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+/// Fingerprint of a file applied by `haven apply`.
+/// Used to detect user edits since the last apply (conflict detection).
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct AppliedFileEntry {
+    /// Lowercase hex SHA-256 of the content written by haven at apply time.
+    pub sha256: String,
+}
+
 /// Written to `~/.haven/state.json` after every successful apply.
 /// Used by `haven status`, `haven diff`, and the future web dashboard.
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -26,6 +34,11 @@ pub struct State {
     /// Stored as absolute path strings. Prevents re-prompting on every apply.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub skipped_managed_files: Vec<String>,
+    /// SHA-256 fingerprints of files written by haven at last apply time.
+    /// Key: dest path as a `~/`-prefixed tilde string (e.g. `"~/.zshrc"`).
+    /// Absent in old state.json files — defaults to an empty map.
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub applied_files: HashMap<String, AppliedFileEntry>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -166,5 +179,60 @@ mod tests {
 
         let text = std::fs::read_to_string(dir.path().join("state.json")).unwrap();
         assert!(!text.contains("\"ai\""), "state.json should not contain ai key when ai is None");
+    }
+
+    #[test]
+    fn applied_file_entry_serde_round_trip() {
+        let entry = AppliedFileEntry {
+            sha256: "abc123def456".into(),
+        };
+        let json = serde_json::to_string(&entry).unwrap();
+        let back: AppliedFileEntry = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.sha256, "abc123def456");
+    }
+
+    #[test]
+    fn applied_files_empty_omitted() {
+        let dir = TempDir::new().unwrap();
+        let state = State {
+            version: "1".into(),
+            hostname: "host".into(),
+            ..Default::default()
+        };
+        state.save(dir.path()).unwrap();
+
+        let text = std::fs::read_to_string(dir.path().join("state.json")).unwrap();
+        assert!(!text.contains("applied_files"), "empty applied_files should be omitted");
+    }
+
+    #[test]
+    fn old_state_loads_without_applied_files() {
+        let dir = TempDir::new().unwrap();
+        std::fs::write(
+            dir.path().join("state.json"),
+            r#"{"version":"1","hostname":"old-host","modules":{}}"#,
+        )
+        .unwrap();
+
+        let state = State::load(dir.path()).unwrap();
+        assert!(state.applied_files.is_empty(), "missing applied_files should default to empty");
+    }
+
+    #[test]
+    fn state_with_applied_files_round_trips() {
+        let dir = TempDir::new().unwrap();
+        let mut state = State {
+            version: "1".into(),
+            hostname: "testhost".into(),
+            ..Default::default()
+        };
+        state.applied_files.insert(
+            "~/.zshrc".into(),
+            AppliedFileEntry { sha256: "deadbeef".into() },
+        );
+        state.save(dir.path()).unwrap();
+
+        let loaded = State::load(dir.path()).unwrap();
+        assert_eq!(loaded.applied_files["~/.zshrc"].sha256, "deadbeef");
     }
 }

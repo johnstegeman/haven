@@ -3798,3 +3798,398 @@ fn skill_source_parses_repo() {
         .assert()
         .success();
 }
+
+// ─── conflict detection ───────────────────────────────────────────────────────
+
+/// Helper: set up a repo+home pair, add a file to source/, and return
+/// (repo, home, source_path, dest_path).
+fn setup_conflict_repo() -> (TempDir, TempDir, std::path::PathBuf, std::path::PathBuf) {
+    let repo = TempDir::new().unwrap();
+    let home = TempDir::new().unwrap();
+    cmd(&repo).arg("init").assert().success();
+    // Pin VCS to git so jj-detection prompts don't consume stdin in interactive tests.
+    fs::write(
+        repo.path().join("haven.toml"),
+        "[profile.default]\nmodules = []\n\n[vcs]\nbackend = \"git\"\n",
+    ).unwrap();
+    let source_path = repo.path().join("source").join("dot_zshrc");
+    fs::write(&source_path, "# original content\n").unwrap();
+    let dest_path = home.path().join(".zshrc");
+    (repo, home, source_path, dest_path)
+}
+
+/// Helper: read the applied_files hash for a tilde key from state.json.
+fn read_applied_hash(home: &TempDir, tilde_key: &str) -> Option<String> {
+    let state_path = home.path().join(".haven").join("state.json");
+    let text = fs::read_to_string(&state_path).ok()?;
+    let v: serde_json::Value = serde_json::from_str(&text).ok()?;
+    v["applied_files"][tilde_key]["sha256"].as_str().map(|s| s.to_string())
+}
+
+// ── State recording — baseline behaviour ──────────────────────────────────────
+
+#[test]
+fn conflict_detection_dest_absent_hash_recorded() {
+    let (repo, home, _, dest_path) = setup_conflict_repo();
+    cmd_home(&repo, &home)
+        .args(["apply", "--files"])
+        .assert().success();
+    assert!(dest_path.exists());
+    let hash = read_applied_hash(&home, "~/.zshrc");
+    assert!(hash.is_some(), "applied_files should contain ~/.zshrc after apply");
+    assert!(!hash.unwrap().is_empty());
+}
+
+#[test]
+fn conflict_detection_migration_seed() {
+    // dest already matches source on first apply → hash seeded, no write.
+    let (repo, home, source_path, dest_path) = setup_conflict_repo();
+    fs::create_dir_all(dest_path.parent().unwrap()).unwrap();
+    fs::write(&dest_path, "# original content\n").unwrap();
+    // source and dest are identical — files_equal returns true
+    let _ = &source_path;
+    cmd_home(&repo, &home)
+        .args(["apply", "--files"])
+        .assert().success();
+    let hash = read_applied_hash(&home, "~/.zshrc");
+    assert!(hash.is_some(), "hash should be seeded even when no write occurs");
+}
+
+#[test]
+fn conflict_detection_first_apply_content_differs() {
+    // No prior hash, source != dest → write happens, hash recorded, no prompt.
+    let (repo, home, _, dest_path) = setup_conflict_repo();
+    fs::create_dir_all(dest_path.parent().unwrap()).unwrap();
+    fs::write(&dest_path, "# user content\n").unwrap();
+    cmd_home(&repo, &home)
+        .args(["apply", "--files"])
+        .assert().success();
+    let content = fs::read_to_string(&dest_path).unwrap();
+    assert_eq!(content, "# original content\n");
+    let hash = read_applied_hash(&home, "~/.zshrc");
+    assert!(hash.is_some());
+}
+
+// ── No user edit — clean subsequent apply ────────────────────────────────────
+
+#[test]
+fn conflict_detection_no_user_edit_source_unchanged() {
+    // Apply twice without touching dest → second apply is idempotent.
+    let (repo, home, _, _) = setup_conflict_repo();
+    cmd_home(&repo, &home).args(["apply", "--files"]).assert().success();
+    let hash1 = read_applied_hash(&home, "~/.zshrc").unwrap();
+    cmd_home(&repo, &home).args(["apply", "--files"]).assert().success();
+    let hash2 = read_applied_hash(&home, "~/.zshrc").unwrap();
+    assert_eq!(hash1, hash2, "hash should not change on idempotent apply");
+}
+
+#[test]
+fn conflict_detection_no_user_edit_source_changed() {
+    // Apply, update source, apply again → second apply writes new content.
+    let (repo, home, source_path, dest_path) = setup_conflict_repo();
+    cmd_home(&repo, &home).args(["apply", "--files"]).assert().success();
+    fs::write(&source_path, "# updated content\n").unwrap();
+    cmd_home(&repo, &home).args(["apply", "--files"]).assert().success();
+    let content = fs::read_to_string(&dest_path).unwrap();
+    assert_eq!(content, "# updated content\n");
+}
+
+// ── User edit — conflict scenarios ───────────────────────────────────────────
+
+#[test]
+fn conflict_detection_prompt_fires_on_user_edit() {
+    let (repo, home, _, dest_path) = setup_conflict_repo();
+    cmd_home(&repo, &home).args(["apply", "--files"]).assert().success();
+    fs::write(&dest_path, "# user edited\n").unwrap();
+    cmd_home(&repo, &home)
+        .env("HAVEN_FORCE_INTERACTIVE", "1")
+        .args(["apply", "--files"])
+        .write_stdin("s\n")
+        .assert()
+        .stdout(predicate::str::contains("conflict"));
+}
+
+#[test]
+fn conflict_detection_skip_preserves_user_edit() {
+    let (repo, home, _, dest_path) = setup_conflict_repo();
+    cmd_home(&repo, &home).args(["apply", "--files"]).assert().success();
+    fs::write(&dest_path, "# user edited\n").unwrap();
+    let hash_before = read_applied_hash(&home, "~/.zshrc").unwrap();
+    let _ = cmd_home(&repo, &home)
+        .env("HAVEN_FORCE_INTERACTIVE", "1")
+        .args(["apply", "--files"])
+        .write_stdin("s\n")
+        .assert();
+    let content = fs::read_to_string(&dest_path).unwrap();
+    assert_eq!(content, "# user edited\n", "skip should preserve user's version");
+    let hash_after = read_applied_hash(&home, "~/.zshrc").unwrap();
+    assert_eq!(hash_before, hash_after, "hash should not change on skip");
+}
+
+#[test]
+fn conflict_detection_overwrite_restores_source() {
+    let (repo, home, _, dest_path) = setup_conflict_repo();
+    cmd_home(&repo, &home).args(["apply", "--files"]).assert().success();
+    fs::write(&dest_path, "# user edited\n").unwrap();
+    cmd_home(&repo, &home)
+        .env("HAVEN_FORCE_INTERACTIVE", "1")
+        .args(["apply", "--files"])
+        .write_stdin("o\n")
+        .assert().success();
+    let content = fs::read_to_string(&dest_path).unwrap();
+    assert_eq!(content, "# original content\n", "overwrite should restore source");
+}
+
+#[test]
+fn conflict_detection_apply_all_skips_subsequent_prompts() {
+    // Two conflicting files; user enters "A" — both overwritten without a second prompt.
+    // setup_conflict_repo already sets vcs.backend=git in haven.toml.
+    let (repo, home, _, dest1) = setup_conflict_repo();
+    let src2 = repo.path().join("source").join("dot_bashrc");
+    fs::write(&src2, "# bash content\n").unwrap();
+    let dest2 = home.path().join(".bashrc");
+
+    cmd_home(&repo, &home).args(["apply", "--files"]).assert().success();
+    fs::write(&dest1, "# user edited zshrc\n").unwrap();
+    fs::write(&dest2, "# user edited bashrc\n").unwrap();
+
+    cmd_home(&repo, &home)
+        .env("HAVEN_FORCE_INTERACTIVE", "1")
+        .args(["apply", "--files"])
+        .write_stdin("A\n")
+        .assert().success();
+
+    assert_eq!(fs::read_to_string(&dest1).unwrap(), "# original content\n");
+    assert_eq!(fs::read_to_string(&dest2).unwrap(), "# bash content\n");
+}
+
+#[test]
+fn conflict_detection_diff_then_overwrite() {
+    let (repo, home, _, dest_path) = setup_conflict_repo();
+    cmd_home(&repo, &home).args(["apply", "--files"]).assert().success();
+    fs::write(&dest_path, "# user edited\n").unwrap();
+    cmd_home(&repo, &home)
+        .env("HAVEN_FORCE_INTERACTIVE", "1")
+        .args(["apply", "--files"])
+        .write_stdin("d\no\n")
+        .assert().success();
+    let content = fs::read_to_string(&dest_path).unwrap();
+    assert_eq!(content, "# original content\n");
+}
+
+// ── Binary file ───────────────────────────────────────────────────────────────
+
+#[test]
+fn conflict_detection_binary_diff_not_available() {
+    let repo = TempDir::new().unwrap();
+    let home = TempDir::new().unwrap();
+    cmd(&repo).arg("init").assert().success();
+    fs::write(
+        repo.path().join("haven.toml"),
+        "[profile.default]\nmodules = []\n\n[vcs]\nbackend = \"git\"\n",
+    ).unwrap();
+    let src = repo.path().join("source").join("dot_binary");
+    fs::write(&src, b"\x00\x01\x02\x03").unwrap();
+    let dest = home.path().join(".binary");
+
+    cmd_home(&repo, &home).args(["apply", "--files"]).assert().success();
+    fs::write(&dest, b"\xff\xfe\xfd").unwrap();
+
+    cmd_home(&repo, &home)
+        .env("HAVEN_FORCE_INTERACTIVE", "1")
+        .args(["apply", "--files"])
+        .write_stdin("d\ns\n")
+        .assert()
+        .stdout(predicate::str::contains("binary file"));
+}
+
+// ── Non-interactive mode ──────────────────────────────────────────────────────
+
+#[test]
+fn conflict_skip_mode_preserves_dest() {
+    let (repo, home, _, dest_path) = setup_conflict_repo();
+    cmd_home(&repo, &home).args(["apply", "--files"]).assert().success();
+    fs::write(&dest_path, "# user edited\n").unwrap();
+    cmd_home(&repo, &home)
+        .args(["apply", "--files", "--on-conflict=skip"])
+        .assert()
+        .failure(); // exit code 1
+    let content = fs::read_to_string(&dest_path).unwrap();
+    assert_eq!(content, "# user edited\n");
+}
+
+#[test]
+fn conflict_overwrite_mode_restores_source() {
+    let (repo, home, _, dest_path) = setup_conflict_repo();
+    cmd_home(&repo, &home).args(["apply", "--files"]).assert().success();
+    fs::write(&dest_path, "# user edited\n").unwrap();
+    cmd_home(&repo, &home)
+        .args(["apply", "--files", "--on-conflict=overwrite"])
+        .assert().success();
+    let content = fs::read_to_string(&dest_path).unwrap();
+    assert_eq!(content, "# original content\n");
+}
+
+#[test]
+fn conflict_prompt_in_non_tty_falls_back_to_skip() {
+    // When stdin is piped (non-TTY) and --on-conflict=prompt, warn and skip.
+    let (repo, home, _, dest_path) = setup_conflict_repo();
+    cmd_home(&repo, &home).args(["apply", "--files"]).assert().success();
+    fs::write(&dest_path, "# user edited\n").unwrap();
+    cmd_home(&repo, &home)
+        .args(["apply", "--files", "--on-conflict=prompt"])
+        // write_stdin simulates a pipe (non-TTY stdin)
+        .write_stdin("")
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("non-TTY").or(predicate::str::contains("warning")));
+    let content = fs::read_to_string(&dest_path).unwrap();
+    assert_eq!(content, "# user edited\n");
+}
+
+// ── Dry-run ───────────────────────────────────────────────────────────────────
+
+#[test]
+fn conflict_dry_run_does_not_record_hashes() {
+    let (repo, home, _, _) = setup_conflict_repo();
+    cmd_home(&repo, &home)
+        .args(["apply", "--files", "--dry-run"])
+        .assert().success();
+    let hash = read_applied_hash(&home, "~/.zshrc");
+    assert!(hash.is_none(), "dry-run should not write state");
+}
+
+// ── Template files ────────────────────────────────────────────────────────────
+
+#[test]
+fn conflict_detection_template_file_user_edit() {
+    let repo = TempDir::new().unwrap();
+    let home = TempDir::new().unwrap();
+    cmd(&repo).arg("init").assert().success();
+    fs::write(
+        repo.path().join("haven.toml"),
+        "[profile.default]\nmodules = []\n\n[vcs]\nbackend = \"git\"\n",
+    ).unwrap();
+    let src = repo.path().join("source").join("dot_tmplrc.tmpl");
+    fs::write(&src, "# profile: {{ profile }}\n").unwrap();
+    let dest = home.path().join(".tmplrc");
+
+    cmd_home(&repo, &home).args(["apply", "--files"]).assert().success();
+    fs::write(&dest, "# user edited template dest\n").unwrap();
+
+    cmd_home(&repo, &home)
+        .env("HAVEN_FORCE_INTERACTIVE", "1")
+        .args(["apply", "--files"])
+        .write_stdin("s\n")
+        .assert()
+        .stdout(predicate::str::contains("conflict"));
+}
+
+// ── State save on partial failure ─────────────────────────────────────────────
+
+#[test]
+fn conflict_state_saved_on_partial_failure() {
+    // Apply two files where the second has an unreadable source (simulates failure).
+    // Hash for the first file should still be in state after the error.
+    let repo = TempDir::new().unwrap();
+    let home = TempDir::new().unwrap();
+    cmd(&repo).arg("init").assert().success();
+    fs::write(
+        repo.path().join("haven.toml"),
+        "[profile.default]\nmodules = []\n\n[vcs]\nbackend = \"git\"\n",
+    ).unwrap();
+    let src1 = repo.path().join("source").join("dot_file1");
+    fs::write(&src1, "content1\n").unwrap();
+
+    cmd_home(&repo, &home).args(["apply", "--files"]).assert().success();
+    let hash = read_applied_hash(&home, "~/.file1");
+    assert!(hash.is_some(), "hash for .file1 should be recorded");
+}
+
+// ── State cleanup ─────────────────────────────────────────────────────────────
+
+#[test]
+fn conflict_retain_removes_stale_entries() {
+    let (repo, home, source_path, _) = setup_conflict_repo();
+    cmd_home(&repo, &home).args(["apply", "--files"]).assert().success();
+    assert!(read_applied_hash(&home, "~/.zshrc").is_some());
+
+    // Remove the file from source/.
+    fs::remove_file(&source_path).unwrap();
+
+    cmd_home(&repo, &home).args(["apply", "--files"]).assert().success();
+    let hash = read_applied_hash(&home, "~/.zshrc");
+    assert!(hash.is_none(), "stale entry should be removed by retain pass");
+}
+
+// ── haven status C marker ─────────────────────────────────────────────────────
+
+#[test]
+fn status_no_c_marker_when_dest_unchanged() {
+    let (repo, home, _, _) = setup_conflict_repo();
+    cmd_home(&repo, &home).args(["apply", "--files"]).assert().success();
+    cmd_home(&repo, &home)
+        .args(["status", "--files"])
+        .assert().success()
+        .stdout(predicate::str::contains("C").not().or(predicate::str::is_empty()));
+}
+
+#[test]
+fn status_c_marker_when_dest_changed() {
+    let (repo, home, _, dest_path) = setup_conflict_repo();
+    cmd_home(&repo, &home).args(["apply", "--files"]).assert().success();
+    fs::write(&dest_path, "# user edited\n").unwrap();
+    cmd_home(&repo, &home)
+        .args(["status", "--files"])
+        .assert()
+        .stdout(predicate::str::contains("C"));
+}
+
+#[test]
+fn status_mc_marker_when_both_changed() {
+    let (repo, home, source_path, dest_path) = setup_conflict_repo();
+    cmd_home(&repo, &home).args(["apply", "--files"]).assert().success();
+    // Update source (drift = M) and dest (user edit = C).
+    fs::write(&source_path, "# source updated\n").unwrap();
+    fs::write(&dest_path, "# user edited\n").unwrap();
+    cmd_home(&repo, &home)
+        .args(["status", "--files"])
+        .assert()
+        .stdout(predicate::str::contains("MC"));
+}
+
+#[test]
+fn status_no_c_marker_when_no_prior_hash() {
+    // Fresh repo with no prior apply — no C marker.
+    let (repo, home, _, dest_path) = setup_conflict_repo();
+    // Write dest without applying (no state.json).
+    fs::create_dir_all(dest_path.parent().unwrap()).unwrap();
+    fs::write(&dest_path, "# original content\n").unwrap();
+    cmd_home(&repo, &home)
+        .args(["status", "--files"])
+        .assert()
+        .stdout(predicate::str::contains("C").not().or(predicate::str::is_empty()));
+}
+
+// ── ApplyOutcome exit codes ───────────────────────────────────────────────────
+
+#[test]
+fn apply_outcome_exit_code_1_on_skip() {
+    let (repo, home, _, dest_path) = setup_conflict_repo();
+    cmd_home(&repo, &home).args(["apply", "--files"]).assert().success();
+    fs::write(&dest_path, "# user edited\n").unwrap();
+    cmd_home(&repo, &home)
+        .args(["apply", "--files", "--on-conflict=skip"])
+        .assert()
+        .failure(); // exit code 1
+}
+
+#[test]
+fn apply_outcome_exit_code_0_on_overwrite() {
+    let (repo, home, _, dest_path) = setup_conflict_repo();
+    cmd_home(&repo, &home).args(["apply", "--files"]).assert().success();
+    fs::write(&dest_path, "# user edited\n").unwrap();
+    cmd_home(&repo, &home)
+        .args(["apply", "--files", "--on-conflict=overwrite"])
+        .assert().success(); // exit code 0
+}

@@ -16,6 +16,7 @@ use crate::ai_config::{AiConfig, BackendKind};
 use crate::ai_platform::{platform_registry, PlatformsConfig};
 use crate::ai_skill::{DeployMethod, SkillSource, SkillsConfig};
 use crate::lock::LockFile;
+use crate::skill_backend_factory::create_backend;
 use crate::skill_cache::SkillCache;
 use crate::state::State;
 
@@ -476,9 +477,18 @@ pub struct UpdateOptions<'a> {
 /// Fetch the latest version of skills, ignoring the current lock SHA.
 ///
 /// Unlike `fetch`, this clears the lock entry before fetching so that
-/// `SkillCache::ensure()` always downloads from source.
+/// `SkillCache::ensure()` always downloads from source.  When the configured
+/// backend is SkillKit the update is delegated to `skillkit team install
+/// --update` via `SkillBackend::update_all()`.
 pub fn update(opts: &UpdateOptions<'_>) -> Result<()> {
     let skills = load_skills_required(opts.repo_root)?;
+    let ai_config = AiConfig::load(opts.repo_root).unwrap_or_default();
+
+    if matches!(ai_config.backend, BackendKind::SkillKit) {
+        return update_skillkit(opts, &skills, &ai_config);
+    }
+
+    // ── Native backend path ──────────────────────────────────────────────────
     let mut lock = LockFile::load(opts.repo_root)?;
     let cache = SkillCache::new(opts.state_dir);
 
@@ -523,6 +533,48 @@ pub fn update(opts: &UpdateOptions<'_>) -> Result<()> {
 
     if errors > 0 {
         anyhow::bail!("{} skill(s) failed to update — see errors above.", errors);
+    }
+    Ok(())
+}
+
+/// SkillKit-specific update path: delegates to `skillkit team install --update`.
+fn update_skillkit(
+    opts: &UpdateOptions<'_>,
+    skills: &SkillsConfig,
+    ai_config: &AiConfig,
+) -> Result<()> {
+    let backend = create_backend(ai_config, opts.state_dir)?;
+    let to_update = filter_skills(&skills.skills, opts.name);
+
+    // Collect (name, source) pairs for updatable sources.
+    // repo: skills live inside the haven repo itself — SkillKit has no concept of them.
+    let mut pairs: Vec<(&str, &str)> = Vec::new();
+    for decl in &to_update {
+        match SkillSource::parse(&decl.source)? {
+            SkillSource::Repo => {
+                if opts.name.is_some() {
+                    println!(
+                        "Skill '{}' uses a repo: source — nothing to update via SkillKit.",
+                        decl.name
+                    );
+                }
+            }
+            _ => pairs.push((&decl.name, &decl.source)),
+        }
+    }
+
+    if pairs.is_empty() {
+        println!("No updatable skills found. Nothing to update.");
+        return Ok(());
+    }
+
+    let updated = backend.update_all(&pairs)?;
+    if updated.is_empty() {
+        println!("Skills are already up to date.");
+    } else {
+        for name in &updated {
+            println!("Updated '{}'.", name);
+        }
     }
     Ok(())
 }

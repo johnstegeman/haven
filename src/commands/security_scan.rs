@@ -167,8 +167,7 @@ fn glob_matches_inner(pat: &str, s: &str) -> bool {
             }
             let s = &s[star_pos..];
             let rest = &pat[star_pos..];
-            if rest.starts_with("**") {
-                let after = &rest[2..];
+            if let Some(after) = rest.strip_prefix("**") {
                 // ** matches zero or more path segments (including separators)
                 if after.is_empty() {
                     return true;
@@ -176,10 +175,10 @@ fn glob_matches_inner(pat: &str, s: &str) -> bool {
                 let after = after.trim_start_matches('/');
                 // Try matching after at every position in s
                 for i in 0..=s.len() {
-                    if s[i..].starts_with('/') || i == 0 {
-                        if glob_matches_inner(after, if i == 0 { s } else { &s[i + 1..] }) {
-                            return true;
-                        }
+                    if (s[i..].starts_with('/') || i == 0)
+                        && glob_matches_inner(after, if i == 0 { s } else { &s[i + 1..] })
+                    {
+                        return true;
                     }
                 }
                 false

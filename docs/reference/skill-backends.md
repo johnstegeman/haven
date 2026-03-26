@@ -47,13 +47,18 @@ backend = "native"   # "native" | "skillkit"
 
 Delegates to the [SkillKit](https://skillkit.dev) CLI. Provides access to the SkillKit marketplace, cross-agent translation, and AI-powered skill recommendations.
 
-**Prerequisites:** Node.js (for `npx`) or Bun (for `bunx`), with SkillKit installed globally:
+**Prerequisites:** Node.js (for `npx`) or Bun (for `bunx`), with SkillKit installed and initialized:
 
 ```sh
 npm install -g skillkit
 # or
 bun add -g skillkit
+
+# One-time per-machine setup: detect installed agents and create their skill directories
+npx skillkit@latest init
 ```
+
+`skillkit init` is interactive — it detects which AI agent platforms are installed on your machine (Claude Code, Cursor, etc.) and creates the necessary skill directories for each one. Run it once per machine; re-run it when you install a new agent.
 
 **Configuration:**
 
@@ -82,7 +87,7 @@ On `haven apply --ai`, haven:
 
 **Lock file behavior:** `haven.lock` does NOT record SHAs for SkillKit-managed skills. Version pinning is delegated to SkillKit internally. The `fetch()` step returns a synthetic `sha: "managed-by-skillkit"` and is otherwise a no-op — SkillKit handles downloading during deployment.
 
-**Source restrictions:** SkillKit only supports `gh:` sources. Skills declared with `repo:` or `dir:` sources cause an immediate error when the SkillKit backend is active.
+**Source restrictions:** SkillKit supports `gh:` and `dir:` sources. Skills declared with a `repo:` source cause an immediate error when the SkillKit backend is active — `repo:` is a haven-internal source type with no SkillKit equivalent.
 
 **Unavailability behavior:** If the configured runner is not on PATH, `haven apply` exits immediately:
 
@@ -135,20 +140,26 @@ Your skill declarations (`ai/skills/`), platform config (`ai/platforms.toml`), a
    # or: bun add -g skillkit
    ```
 
-2. Create or update `ai/config.toml`:
+2. Initialize SkillKit for your agent platforms (one-time per machine):
+   ```sh
+   npx skillkit@latest init
+   ```
+   This detects which AI agents are installed (Claude Code, Cursor, etc.) and creates their skill directories. Re-run this whenever you install a new agent platform.
+
+3. Create or update `ai/config.toml`:
    ```toml
    [skills]
    backend = "skillkit"
    runner  = "npx"   # or "bunx" if you installed via bun
    ```
 
-3. Run apply:
+4. Run apply:
    ```sh
    haven apply --ai
    ```
    haven generates a `.skills` manifest from your existing `ai/skills/` declarations and calls `skillkit team install`. Your skills are redeployed to the same `skills_dir` locations as before.
 
-4. (Optional) Commit the change:
+5. (Optional) Commit the change:
    ```sh
    git add ai/config.toml && git commit -m "chore: switch to skillkit backend"
    ```

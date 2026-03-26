@@ -40,7 +40,7 @@ pub fn install(repo_root: &Path, name: &str, cask: bool, module_filter: Option<&
         let sort_flag = module_filter
             .and_then(|m| ModuleConfig::load(repo_root, m).ok())
             .and_then(|c| c.homebrew)
-            .map_or(false, |h| h.sort);
+            .is_some_and(|h| h.sort);
         if sort_flag {
             homebrew::sort_brewfile(&brewfile)?;
         }

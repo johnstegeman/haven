@@ -1,4 +1,4 @@
-/// Shared utilities used across multiple modules.
+//! Shared utilities used across multiple modules.
 
 /// Return true if `name` can be found on PATH using `which`.
 pub fn is_on_path(name: &str) -> bool {

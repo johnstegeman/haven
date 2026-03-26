@@ -25,15 +25,55 @@ use crate::github::GhSource;
 use crate::config::{sort_modules, HavenConfig, ModuleConfig};
 use crate::vcs::{self, MigrateOutcome, VcsBackend};
 use crate::config::module::expand_tilde;
-use crate::fs::{apply_permissions, backup_file, copy_to_dest, write_to_dest};
+use crate::fs::{apply_permissions, backup_file, copy_to_dest, sha256_of_bytes, sha256_of_str, write_to_dest};
 use crate::ignore::IgnoreList;
 use crate::ai_config::AiConfig;
 use crate::skill_backend::{DeploymentTarget, ResolvedSkill, SkillMetadata};
 use crate::skill_backend_factory::create_backend;
 use crate::skill_cache::SkillCache;
 use crate::source::{scan, scan_scripts, ScriptExecWhen, SourceEntry};
-use crate::state::{AiDeployedEntry, ModuleState, State};
+use crate::state::{AiDeployedEntry, AppliedFileEntry, ModuleState, State};
 use crate::template::TemplateContext;
+
+/// How to resolve a conflict when the destination file was edited since last apply.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OnConflict {
+    /// Prompt interactively (default when stdin is a TTY).
+    Prompt,
+    /// Skip the file (keep user's version). Exit code 1.
+    Skip,
+    /// Overwrite silently with source content. Exit code 0.
+    Overwrite,
+}
+
+impl std::str::FromStr for OnConflict {
+    type Err = anyhow::Error;
+    fn from_str(s: &str) -> Result<Self> {
+        match s {
+            "prompt"    => Ok(Self::Prompt),
+            "skip"      => Ok(Self::Skip),
+            "overwrite" => Ok(Self::Overwrite),
+            other => anyhow::bail!("unknown --on-conflict value '{}' (expected: prompt | skip | overwrite)", other),
+        }
+    }
+}
+
+/// Outcome returned from `run()`, distinct from an error.
+/// `had_conflict_skips = true` → caller should exit with code 1.
+pub struct ApplyOutcome {
+    pub had_conflict_skips: bool,
+}
+
+/// Mutable per-run state threaded through the file-application loop.
+struct ApplyRunState<'a> {
+    /// When true, overwrite all subsequent conflicts without prompting.
+    overwrite_all: bool,
+    /// When true, migrate all extdir entries to jj without prompting.
+    jj_migrate_all: bool,
+    state: &'a mut State,
+    /// Set to true when any conflict is resolved by skipping.
+    had_conflict_skips: bool,
+}
 
 pub struct ApplyOptions<'a> {
     pub repo_root: &'a Path,
@@ -71,6 +111,8 @@ pub struct ApplyOptions<'a> {
     /// VCS backend to use for new extdir clones. When set to Jj, also offers
     /// `jj git init --colocate` for existing extdirs that don't have a `.jj/`.
     pub vcs_backend: VcsBackend,
+    /// How to resolve conflicts when destination was edited since last apply.
+    pub on_conflict: OnConflict,
 }
 
 /// RAII guard that holds `~/.haven/apply.lock` for the duration of apply.
@@ -118,7 +160,7 @@ impl Drop for ApplyLock {
     }
 }
 
-pub fn run(opts: &ApplyOptions<'_>) -> Result<()> {
+pub fn run(opts: &ApplyOptions<'_>) -> Result<ApplyOutcome> {
     // Prevent two simultaneous `haven apply` runs from racing on state.json.
     let _lock = if !opts.dry_run {
         Some(ApplyLock::acquire(opts.state_dir)?)
@@ -133,6 +175,13 @@ pub fn run(opts: &ApplyOptions<'_>) -> Result<()> {
     // ── 1. Scan and apply all source files ───────────────────────────────────
     let ignore = IgnoreList::load(opts.repo_root, &template_ctx);
     let entries = scan(&source_dir, &ignore)?;
+
+    // Load state early so conflict detection has access to prior hashes.
+    let mut state = if opts.dry_run {
+        State::default()
+    } else {
+        State::load(opts.state_dir)?
+    };
 
     if opts.dry_run {
         let mut sections = Vec::new();
@@ -150,18 +199,23 @@ pub fn run(opts: &ApplyOptions<'_>) -> Result<()> {
 
     // ── 1. Source files ───────────────────────────────────────────────────────
     let mut files_applied = 0usize;
+    let mut had_conflict_skips = false;
     if opts.apply_files {
         if opts.dry_run {
             println!("[files]");
         }
-        // Track whether user said "always" for jj migration prompts this session.
-        let mut jj_migrate_all = false;
+        let mut run_state = ApplyRunState {
+            overwrite_all: false,
+            jj_migrate_all: false,
+            state: &mut state,
+            had_conflict_skips: false,
+        };
         for entry in &entries {
             if opts.dry_run {
                 print_dry_run_entry(entry, opts.dest_root);
                 continue;
             }
-            if apply_entry(entry, opts, &template_ctx, &mut jj_migrate_all)? {
+            if apply_entry(entry, opts, &template_ctx, &mut run_state)? {
                 files_applied += 1;
             }
         }
@@ -178,6 +232,7 @@ pub fn run(opts: &ApplyOptions<'_>) -> Result<()> {
             for (dir_path, tracked) in &exact_dirs {
                 purge_exact_dir(dir_path, tracked, opts.backup_dir)?;
             }
+            had_conflict_skips = run_state.had_conflict_skips;
         }
     }
 
@@ -200,7 +255,16 @@ pub fn run(opts: &ApplyOptions<'_>) -> Result<()> {
         }
     }
 
-    let mut state = State::load(opts.state_dir)?;
+    // ── Retain cleanup: remove stale applied_files entries ───────────────────
+    // Any dest that is no longer tracked should not carry a lingering hash.
+    if opts.apply_files && !opts.dry_run {
+        let tracked: HashSet<&str> = entries.iter()
+            .filter(|e| !e.flags.extdir && !e.flags.extfile && !e.flags.symlink && !e.flags.create_only)
+            .map(|e| e.dest_tilde.as_str())
+            .collect();
+        state.applied_files.retain(|k, _| tracked.contains(k.as_str()));
+    }
+
     let mut lock = crate::lock::LockFile::load(opts.repo_root)?;
     let mut module_applied = 0usize;
 
@@ -340,7 +404,7 @@ pub fn run(opts: &ApplyOptions<'_>) -> Result<()> {
         );
     }
 
-    Ok(())
+    Ok(ApplyOutcome { had_conflict_skips })
 }
 
 // ─── Extdir marker ────────────────────────────────────────────────────────────
@@ -548,7 +612,7 @@ fn apply_entry(
     entry: &SourceEntry,
     opts: &ApplyOptions<'_>,
     template_ctx: &TemplateContext,
-    jj_migrate_all: &mut bool,
+    run_state: &mut ApplyRunState<'_>,
 ) -> Result<bool> {
     // Expand dest and rebase onto dest_root.
     let dest = resolve_dest(
@@ -584,7 +648,7 @@ fn apply_entry(
             content.ref_name.as_deref(),
             &dest,
             opts,
-            jj_migrate_all,
+            &mut run_state.jj_migrate_all,
         )?;
         println!("  ✓ {}", dest.display());
         return Ok(true);
@@ -638,41 +702,107 @@ fn apply_entry(
         return Ok(true);
     }
 
-    // create_only: seed-only file — don't overwrite if destination already exists.
+    // create_only: seed-only file — excluded from hash tracking (apply never
+    // overwrites them, so a C marker in status would be misleading).
     if entry.flags.create_only && dest.exists() {
         println!("  ~ {} (create_only — already exists, not overwritten)", dest.display());
         return Ok(false);
     }
 
-    // Render template or read source content, then skip if dest is already identical.
-    let new_content: Option<String>; // Some(_) for templates, None for plain copies
-    if entry.flags.template {
+    // Render template or read source content.
+    // Some(_) for templates, None for plain copies
+    let new_content: Option<String> = if entry.flags.template {
         let source_text = std::fs::read_to_string(&entry.src)
             .with_context(|| format!("Cannot read template {}", entry.src.display()))?;
         let rendered = crate::template::render(&source_text, template_ctx)
             .with_context(|| format!("Cannot render template '{}'", entry.src.display()))?;
-        new_content = Some(rendered);
+        Some(rendered)
     } else {
-        new_content = None;
-    }
+        None
+    };
 
-    // Skip backup + write when dest is already up to date.
+    // ── Conflict detection ────────────────────────────────────────────────────
+    // Path A: no prior hash in state — use existing idempotency logic.
+    // Path B: prior hash exists — check whether dest was edited since last apply.
     if dest.exists() && !dest.is_symlink() {
-        let already_matches = match &new_content {
-            Some(rendered) => std::fs::read_to_string(&dest)
-                .map(|existing| existing == *rendered)
-                .unwrap_or(false),
-            None => files_equal(&entry.src, &dest),
-        };
-        if already_matches {
-            // Re-apply permissions in case they drifted, then silently return.
-            if entry.flags.private || entry.flags.executable {
-                apply_permissions(&dest, entry.flags.private, entry.flags.executable)
-                    .with_context(|| format!("Cannot set permissions on {}", dest.display()))?;
+        let prior = run_state.state.applied_files.get(&entry.dest_tilde).cloned();
+        match prior {
+            None => {
+                // Path A: no prior hash. Check idempotency with files_equal / string compare.
+                let already_matches = match &new_content {
+                    Some(rendered) => std::fs::read_to_string(&dest)
+                        .map(|existing| existing == *rendered)
+                        .unwrap_or(false),
+                    None => files_equal(&entry.src, &dest),
+                };
+                if already_matches {
+                    // Seed the hash so conflict detection is active from next apply.
+                    let hash = match &new_content {
+                        Some(rendered) => sha256_of_str(rendered),
+                        None => {
+                            let bytes = std::fs::read(&dest).unwrap_or_default();
+                            sha256_of_bytes(&bytes)
+                        }
+                    };
+                    run_state.state.applied_files.insert(
+                        entry.dest_tilde.clone(),
+                        AppliedFileEntry { sha256: hash },
+                    );
+                    // Re-apply permissions in case they drifted, then silently return.
+                    if entry.flags.private || entry.flags.executable {
+                        apply_permissions(&dest, entry.flags.private, entry.flags.executable)
+                            .with_context(|| format!("Cannot set permissions on {}", dest.display()))?;
+                    }
+                    return Ok(false);
+                }
+                // Path A fall-through: dest differs from source — write it (no prompt).
             }
-            return Ok(false);
+            Some(prior_entry) => {
+                // Path B: prior hash exists. Read dest bytes to detect user edit.
+                let dest_bytes = std::fs::read(&dest)
+                    .with_context(|| format!("Cannot read {}", dest.display()))?;
+                let dest_hash = sha256_of_bytes(&dest_bytes);
+
+                if dest_hash != prior_entry.sha256 {
+                    // User edited dest since last apply — resolve conflict.
+                    let action = resolve_conflict(entry, opts, run_state, &dest, &dest_bytes, &new_content)?;
+                    match action {
+                        ConflictAction::Skip => {
+                            run_state.had_conflict_skips = true;
+                            println!("  ~ {} (skipped — keeping your version)", dest.display());
+                            return Ok(false);
+                        }
+                        ConflictAction::Overwrite => {
+                            // Fall through to the write path below.
+                        }
+                    }
+                } else {
+                    // dest unchanged since last apply. Check if source changed.
+                    let source_matches = match &new_content {
+                        Some(rendered) => std::str::from_utf8(&dest_bytes)
+                            .map(|s| s == rendered.as_str())
+                            .unwrap_or(false),
+                        None => {
+                            let src_bytes = std::fs::read(&entry.src)
+                                .with_context(|| format!("Cannot read {}", entry.src.display()))?;
+                            dest_bytes == src_bytes
+                        }
+                    };
+                    if source_matches {
+                        // Still identical — no write needed.
+                        if entry.flags.private || entry.flags.executable {
+                            apply_permissions(&dest, entry.flags.private, entry.flags.executable)
+                                .with_context(|| format!("Cannot set permissions on {}", dest.display()))?;
+                        }
+                        return Ok(false);
+                    }
+                    // Source changed, dest unchanged — write silently (no prompt).
+                }
+            }
         }
     }
+
+    // ── Write ─────────────────────────────────────────────────────────────────
 
     // Back up existing file before overwriting.
     if dest.exists() {
@@ -681,16 +811,26 @@ fn apply_entry(
         println!("  backed up {} → {}", dest.display(), backup.display());
     }
 
-    match &new_content {
+    let written_hash = match &new_content {
         Some(rendered) => {
             write_to_dest(rendered, &dest)
                 .with_context(|| format!("Cannot write rendered file to {}", dest.display()))?;
+            sha256_of_str(rendered)
         }
         None => {
+            let src_bytes = std::fs::read(&entry.src)
+                .with_context(|| format!("Cannot read {}", entry.src.display()))?;
             copy_to_dest(&entry.src, &dest)
                 .with_context(|| format!("Cannot copy {} → {}", entry.src.display(), dest.display()))?;
+            sha256_of_bytes(&src_bytes)
         }
-    }
+    };
+
+    // Record hash so conflict detection fires on the next apply.
+    run_state.state.applied_files.insert(
+        entry.dest_tilde.clone(),
+        AppliedFileEntry { sha256: written_hash },
+    );
 
     if entry.flags.private || entry.flags.executable {
         apply_permissions(&dest, entry.flags.private, entry.flags.executable)
@@ -699,6 +839,116 @@ fn apply_entry(
 
     println!("  ✓ {}", dest.display());
     Ok(true)
+}
+
+// ─── Conflict resolution ──────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ConflictAction {
+    Skip,
+    Overwrite,
+}
+
+/// Resolve a conflict according to `opts.on_conflict`.
+/// When `Prompt`, uses `ApplyRunState::overwrite_all` to short-circuit subsequent prompts.
+fn resolve_conflict(
+    entry: &SourceEntry,
+    opts: &ApplyOptions<'_>,
+    run_state: &mut ApplyRunState<'_>,
+    dest: &Path,
+    dest_bytes: &[u8],
+    new_content: &Option<String>,
+) -> Result<ConflictAction> {
+    if run_state.overwrite_all {
+        return Ok(ConflictAction::Overwrite);
+    }
+
+    match opts.on_conflict {
+        OnConflict::Overwrite => return Ok(ConflictAction::Overwrite),
+        OnConflict::Skip => return Ok(ConflictAction::Skip),
+        OnConflict::Prompt => {}
+    }
+
+    // Non-TTY: warn and skip.
+    // HAVEN_FORCE_INTERACTIVE=1 bypasses the TTY check (for integration tests).
+    use std::io::IsTerminal;
+    let force_interactive = std::env::var("HAVEN_FORCE_INTERACTIVE").as_deref() == Ok("1");
+    if !force_interactive && !std::io::stdin().is_terminal() {
+        eprintln!(
+            "warning: {} was edited since last apply; --on-conflict=prompt requires a TTY — skipping",
+            entry.dest_tilde
+        );
+        return Ok(ConflictAction::Skip);
+    }
+
+    // Interactive prompt loop.
+    loop {
+        print!(
+            "  conflict: {} was edited since last apply.\n  [s]kip / [o]verwrite / [A]pply all / [d]iff: ",
+            entry.dest_tilde
+        );
+        use std::io::Write;
+        std::io::stdout().flush()?;
+
+        let mut line = String::new();
+        std::io::stdin().read_line(&mut line)?;
+        match line.trim() {
+            "s" | "S" => return Ok(ConflictAction::Skip),
+            "o" | "O" => return Ok(ConflictAction::Overwrite),
+            "A" => {
+                run_state.overwrite_all = true;
+                return Ok(ConflictAction::Overwrite);
+            }
+            "d" | "D" => {
+                show_conflict_diff(entry, dest, dest_bytes, new_content);
+                // Loop — show prompt again after diff.
+            }
+            _ => {
+                eprintln!("  Please enter s, o, A, or d.");
+            }
+        }
+    }
+}
+
+/// Print a unified diff of what haven would write vs. what is currently on disk.
+fn show_conflict_diff(
+    entry: &SourceEntry,
+    dest: &Path,
+    dest_bytes: &[u8],
+    new_content: &Option<String>,
+) {
+    let dest_str = match std::str::from_utf8(dest_bytes) {
+        Ok(s) => s.to_owned(),
+        Err(_) => {
+            println!("  (binary file — diff not available)");
+            return;
+        }
+    };
+
+    let src_str: String = match new_content {
+        Some(rendered) => rendered.clone(),
+        None => match std::fs::read(&entry.src).ok().and_then(|b| String::from_utf8(b).ok()) {
+            Some(s) => s,
+            None => {
+                println!("  (binary file — diff not available)");
+                return;
+            }
+        },
+    };
+
+    let label_dest = dest.to_string_lossy();
+    let label_src = &entry.dest_tilde;
+    match crate::diff_util::unified_diff(&dest_str, &src_str, &label_dest, label_src, 3) {
+        Some(diff) => {
+            use std::io::IsTerminal;
+            if std::io::stdout().is_terminal() {
+                print!("{}", crate::diff_util::colorize_diff(&diff));
+            } else {
+                print!("{}", diff);
+            }
+        }
+        None => println!("  (no diff — files are identical)"),
+    }
 }
 
 /// Return true if both paths exist and have identical byte content.
@@ -770,7 +1020,7 @@ fn print_dry_run_entry(entry: &SourceEntry, dest_root: &Path) {
         "  source/{} → {}{}",
         entry.src
             .components()
-            .last()
+            .next_back()
             .map(|c| c.as_os_str().to_string_lossy().into_owned())
             .unwrap_or_default(),
         dest.display(),
@@ -799,11 +1049,11 @@ fn apply_scripts(scripts: &[crate::source::ScriptEntry], state: &mut State) -> R
     let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
 
     for script in scripts {
-        if script.when == ScriptExecWhen::Once {
-            if state.scripts_run.contains_key(&script.name) {
-                println!("  ~ {} (already run — skipped)", script.name);
-                continue;
-            }
+        if script.when == ScriptExecWhen::Once
+            && state.scripts_run.contains_key(&script.name)
+        {
+            println!("  ~ {} (already run — skipped)", script.name);
+            continue;
         }
 
         print!("  running {}… ", script.name);
@@ -1323,11 +1573,10 @@ fn apply_vcs_external(
 ) -> Result<()> {
     if dest.exists() {
         // When backend is jj, offer migration for plain-git dirs.
-        if opts.vcs_backend == VcsBackend::Jj {
-            match vcs::ensure_colocated(dest, *jj_migrate_all)? {
-                MigrateOutcome::MigratedAll => { *jj_migrate_all = true; }
-                _ => {}
-            }
+        if opts.vcs_backend == VcsBackend::Jj
+            && vcs::ensure_colocated(dest, *jj_migrate_all)? == MigrateOutcome::MigratedAll
+        {
+            *jj_migrate_all = true;
         }
 
         let git_dir = dest.join(".git");

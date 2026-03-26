@@ -143,11 +143,11 @@ fn install_symlink(dest: &Path, source_file: &Path) -> Result<()> {
     use std::os::unix::fs::symlink;
 
     // If dest already is the correct symlink, nothing to do.
-    if dest.is_symlink() {
-        if std::fs::read_link(dest).ok().as_deref() == Some(source_file) {
-            println!("Symlink already in place: {}", dest.display());
-            return Ok(());
-        }
+    if dest.is_symlink()
+        && std::fs::read_link(dest).ok().as_deref() == Some(source_file)
+    {
+        println!("Symlink already in place: {}", dest.display());
+        return Ok(());
     }
 
     // Back up the existing file before replacing it.
@@ -220,7 +220,7 @@ fn add_as_extdir(repo_root: &Path, dir: &Path, _remote_name: &str, url: &str, ig
         return Ok(());
     }
 
-    if !dir.strip_prefix(&home).is_ok() {
+    if dir.strip_prefix(&home).is_err() {
         bail!("{} is not under your home directory", dir.display());
     }
 

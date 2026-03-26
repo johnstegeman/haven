@@ -162,18 +162,6 @@ pub fn bundle_install(brew: &Path, brewfile: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Run `brew bundle check --file=<brewfile>`.
-///
-/// Returns `true` if all packages are installed, `false` otherwise.
-/// Silently returns `false` on any subprocess error.
-pub fn bundle_check(brew: &Path, brewfile: &Path) -> bool {
-    std::process::Command::new(brew)
-        .args(["bundle", "check", "--file"])
-        .arg(brewfile)
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
-}
 
 /// Run `brew install [--cask] <name>`.
 pub fn brew_install(brew: &Path, name: &str, cask: bool) -> Result<()> {
@@ -554,9 +542,9 @@ pub fn sort_brewfile(path: &Path) -> Result<()> {
         }
     }
 
-    tap_lines.sort_by(|a, b| brewfile_entry_sort_key(a, "tap").cmp(&brewfile_entry_sort_key(b, "tap")));
-    brew_lines.sort_by(|a, b| brewfile_entry_sort_key(a, "brew").cmp(&brewfile_entry_sort_key(b, "brew")));
-    cask_lines.sort_by(|a, b| brewfile_entry_sort_key(a, "cask").cmp(&brewfile_entry_sort_key(b, "cask")));
+    tap_lines.sort_by_key(|a| brewfile_entry_sort_key(a, "tap"));
+    brew_lines.sort_by_key(|a| brewfile_entry_sort_key(a, "brew"));
+    cask_lines.sort_by_key(|a| brewfile_entry_sort_key(a, "cask"));
 
     let mut tap_iter = tap_lines.iter();
     let mut brew_iter = brew_lines.iter();
@@ -590,7 +578,7 @@ pub fn sort_brewfile(path: &Path) -> Result<()> {
 /// Sort key for a Brewfile entry line: the short name (last `/`-component), lowercased.
 fn brewfile_entry_sort_key(line: &str, kind: &str) -> String {
     extract_entry_name(line.trim(), kind)
-        .map(|name| name.split('/').last().unwrap_or(&name).to_lowercase())
+        .map(|name| name.split('/').next_back().unwrap_or(&name).to_lowercase())
         .unwrap_or_else(|| line.to_lowercase())
 }
 

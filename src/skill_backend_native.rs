@@ -36,6 +36,7 @@ impl NativeBackend {
     /// optimisation (checking cache hits before spawning threads, and recording
     /// `cache_path` after threads complete).  Phase 2 will remove this once
     /// `apply_ai_skills` accepts a `Box<dyn SkillBackend>` from the factory.
+    #[allow(dead_code)]
     pub fn cache(&self) -> &SkillCache {
         &self.cache
     }
@@ -51,7 +52,7 @@ impl SkillBackend for NativeBackend {
             SkillSource::Gh(gh) => {
                 // Fast cache-hit path: if the cached SHA matches the lock, skip fetch.
                 if let Some(cached) = self.cache.cached_sha(gh) {
-                    if expected_sha.map_or(true, |e| e == cached) {
+                    if expected_sha.is_none_or(|e| e == cached) {
                         return Ok(FetchResult {
                             cached_path: self.cache.cache_path(gh),
                             sha: cached,

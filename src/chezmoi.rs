@@ -481,7 +481,13 @@ fn try_convert_if_directive(directive: &str) -> Option<String> {
 ///
 /// Directories starting with `.` are skipped entirely (they are chezmoi-internal
 /// or system directories — legitimate dotfile dirs use the `dot_` prefix).
-pub fn scan(source_dir: &Path, include_ignored: bool) -> Result<(Vec<ChezmoiEntry>, Vec<ChezmoiExternalEntry>, Vec<SkippedEntry>, Vec<ChezmoiScriptEntry>, Vec<ChezmoiBrewfileEntry>)> {
+type ScanResultKeeps = Vec<ChezmoiEntry>;
+type ScanResultExternals = Vec<ChezmoiExternalEntry>;
+type ScanResultSkipped = Vec<SkippedEntry>;
+type ScanResultScripts = Vec<ChezmoiScriptEntry>;
+type ScanResultBrewfiles = Vec<ChezmoiBrewfileEntry>;
+
+pub fn scan(source_dir: &Path, include_ignored: bool) -> Result<(ScanResultKeeps, ScanResultExternals, ScanResultSkipped, ScanResultScripts, ScanResultBrewfiles)> {
     let managed = chezmoi_managed_paths(source_dir);
 
     let mut keeps: Vec<ChezmoiEntry> = Vec::new();
@@ -1240,7 +1246,7 @@ fn extract_brew_bundle_file(rest: &str) -> Option<String> {
             return Some(path.to_string());
         }
     } else if let Some(after) = rest.strip_prefix("--file ") {
-        let path = after.trim_start().split_whitespace().next()?.trim_matches(|c| c == '"' || c == '\'');
+        let path = after.split_whitespace().next()?.trim_matches(|c| c == '"' || c == '\'');
         if !path.is_empty() {
             return Some(path.to_string());
         }

@@ -1,6 +1,7 @@
 /// File system utilities: backup, copy, sensitive-file detection.
 use anyhow::{Context, Result};
 use chrono::Utc;
+use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 
 /// Patterns that should never be auto-tracked without explicit confirmation.
@@ -43,12 +44,7 @@ pub fn is_sensitive_with_rule(name: &str) -> Option<&'static str> {
             return Some(p);
         }
     }
-    for &s in SENSITIVE_SUFFIXES {
-        if lower.ends_with(s) {
-            return Some(s);
-        }
-    }
-    None
+    SENSITIVE_SUFFIXES.iter().find(|&&s| lower.ends_with(s)).copied().map(|v| v as _)
 }
 
 /// Returns true if the filename matches a sensitive pattern.
@@ -144,6 +140,16 @@ pub fn apply_permissions(_dest: &Path, _private: bool, _executable: bool) -> Res
     Ok(()) // Windows: permission bits are not supported
 }
 
+/// Compute the lowercase hex SHA-256 of a byte slice.
+pub fn sha256_of_bytes(data: &[u8]) -> String {
+    format!("{:x}", Sha256::digest(data))
+}
+
+/// Compute the lowercase hex SHA-256 of a UTF-8 string.
+pub fn sha256_of_str(s: &str) -> String {
+    sha256_of_bytes(s.as_bytes())
+}
+
 /// Copy `src` to `dest`, creating parent directories as needed.
 pub fn copy_to_dest(src: &Path, dest: &Path) -> Result<()> {
     if let Some(parent) = dest.parent() {
@@ -154,4 +160,23 @@ pub fn copy_to_dest(src: &Path, dest: &Path) -> Result<()> {
     std::fs::copy(src, dest)
         .with_context(|| format!("Cannot copy {} → {}", src.display(), dest.display()))?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sha256_of_bytes_known_vector() {
+        // SHA-256 of empty input is well-known.
+        assert_eq!(
+            sha256_of_bytes(b""),
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        );
+    }
+
+    #[test]
+    fn sha256_of_str_matches_bytes() {
+        assert_eq!(sha256_of_str("hello"), sha256_of_bytes(b"hello"));
+    }
 }

@@ -110,10 +110,12 @@ for what's imported and what's skipped.
 haven init                    # initialize a new haven repo
 haven add ~/.zshrc            # start tracking a file
 haven remove ~/.zshrc         # stop tracking a file (live file untouched)
-haven apply                   # deploy tracked files to this machine
-haven apply --dry-run         # preview without writing anything
-haven apply --dest ~/staging  # apply to a staging directory (for testing)
-haven status                  # show drift between source and live files
+haven apply                          # deploy tracked files to this machine
+haven apply --dry-run                # preview without writing anything
+haven apply --on-conflict=skip       # skip user-edited files (CI-safe, exits 1)
+haven apply --on-conflict=overwrite  # always overwrite user-edited files
+haven apply --dest ~/staging         # apply to a staging directory (for testing)
+haven status                         # show drift; C = you edited, M = source changed
 haven diff                    # show file-level diff between source and live
 haven source-path             # print the path to the haven repo
 haven brew install <formula>  # brew install + update Brewfile
@@ -202,13 +204,21 @@ haven ai backends          # list available skill backends
 ```
 
 The default backend (`native`) fetches skills directly from GitHub with SHA-256
-verification. To use the [SkillKit](https://skillkit.dev) marketplace instead,
-add `ai/config.toml`:
+verification. To use the [SkillKit](https://skillkit.dev) marketplace instead:
+
+```sh
+npm install -g skillkit
+npx skillkit@latest init   # one-time: initialize agent directories
+```
 
 ```toml
+# ai/config.toml
 [skills]
 backend = "skillkit"   # delegates to `skillkit team install`
 ```
+
+SkillKit supports both `gh:` marketplace skills and `dir:~/path` local skills.
+Run `npx skillkit@latest init` once per machine (and again when you install a new agent).
 
 ---
 

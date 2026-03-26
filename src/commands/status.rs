@@ -4,8 +4,10 @@ use std::path::{Path, PathBuf};
 use crate::config::{sort_modules, HavenConfig, ModuleConfig};
 use crate::config::module::expand_tilde;
 use crate::drift::{check_drift, check_drift_link, check_drift_link_template, check_drift_template, drift_marker, DriftKind};
+use crate::fs::sha256_of_bytes;
 use crate::ignore::IgnoreList;
 use crate::source;
+use crate::state::State;
 use crate::template::TemplateContext;
 
 pub struct StatusOptions<'a> {
@@ -13,6 +15,8 @@ pub struct StatusOptions<'a> {
     pub dest_root: &'a Path,
     /// Where Claude Code skills/commands live (`~/.claude` in production).
     pub claude_dir: &'a Path,
+    /// Where state.json is stored (`~/.haven` in production).
+    pub state_dir: &'a Path,
     pub profile: &'a str,
     /// Show dotfile drift. When all three section flags are false, all sections show.
     pub show_files: bool,
@@ -38,13 +42,16 @@ pub fn run(opts: &StatusOptions<'_>) -> Result<()> {
     let template_ctx = TemplateContext::from_env(opts.profile, opts.repo_root, config.data.clone());
     let mut any_drift = false;
 
+    // Load state for conflict (C marker) detection.
+    let state = State::load(opts.state_dir).unwrap_or_default();
+
     // ── File drift ────────────────────────────────────────────────────────────────
     if show_files {
         let source_dir = opts.repo_root.join("source");
         let ignore = IgnoreList::load(opts.repo_root, &template_ctx);
         let entries = source::scan(&source_dir, &ignore)?;
 
-        let mut file_drift: Vec<(String, DriftKind)> = Vec::new();
+        let mut file_drift: Vec<(String, String)> = Vec::new();
         for entry in &entries {
             let dest_expanded = expand_tilde(&entry.dest_tilde)?;
             let dest = resolve_dest(dest_expanded, opts.dest_root);
@@ -69,16 +76,42 @@ pub fn run(opts: &StatusOptions<'_>) -> Result<()> {
                 check_drift(&entry.src, &dest)
             };
 
-            if drift != DriftKind::Clean {
-                file_drift.push((entry.dest_tilde.clone(), drift));
+            // C marker: check whether dest was edited since last apply.
+            // Only applies to plain/template files that have a prior hash.
+            // Symlinks, extdirs, extfiles, and create_only files are excluded.
+            let user_edited = if !entry.flags.extdir
+                && !entry.flags.extfile
+                && !entry.flags.symlink
+                && !entry.flags.create_only
+            {
+                if let Some(prior) = state.applied_files.get(&entry.dest_tilde) {
+                    match std::fs::read(&dest) {
+                        Ok(bytes) => sha256_of_bytes(&bytes) != prior.sha256,
+                        Err(_) => false, // unreadable dest — no C marker
+                    }
+                } else {
+                    false // no prior hash — no C marker
+                }
+            } else {
+                false
+            };
+
+            let marker = match (drift != DriftKind::Clean, user_edited) {
+                (true,  true)  => Some("MC".to_string()),
+                (true,  false) => Some(drift_marker(drift).to_string()),
+                (false, true)  => Some("C".to_string()),
+                (false, false) => None,
+            };
+            if let Some(m) = marker {
+                file_drift.push((entry.dest_tilde.clone(), m));
             }
         }
 
         if !file_drift.is_empty() {
             any_drift = true;
             println!("[files]");
-            for (label, kind) in file_drift {
-                println!("  {} {}", drift_marker(kind), label);
+            for (label, marker) in file_drift {
+                println!("  {} {}", marker, label);
             }
         }
     }

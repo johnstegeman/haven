@@ -174,7 +174,7 @@ fn print_dry_run_plan(chezmoi_source_dir: &std::path::Path, keeps: &[ChezmoiEntr
                     .unwrap_or("Brewfile");
                 let brew_dest = crate::chezmoi::brewfile_brew_dest(filename);
                 let resolved = try_expand_tilde(brewfile_path);
-                if resolved.map_or(false, |p| p.exists()) {
+                if resolved.is_some_and(|p| p.exists()) {
                     println!(
                         "  Would copy {} → {}  (referenced in script: {})",
                         brewfile_path, brew_dest, script.chezmoi_path.display(),
@@ -346,7 +346,7 @@ fn execute(opts: &ImportOptions<'_>, source_dir: &std::path::Path, keeps: &[Chez
     }
 
     // ── Import .chezmoidata.yaml / .chezmoidata.toml → [data] in haven.toml ──
-    let data_vars = chezmoi::scan_data_file(&source_dir)?;
+    let data_vars = chezmoi::scan_data_file(source_dir)?;
     if !data_vars.is_empty() {
         import_data_vars(opts.repo_root, &data_vars)?;
     }

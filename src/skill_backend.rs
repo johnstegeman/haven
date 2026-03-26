@@ -30,6 +30,7 @@ use crate::ai_skill::DeployMethod;
 
 // ─── Trait ────────────────────────────────────────────────────────────────────
 
+#[allow(dead_code)]
 pub trait SkillBackend: Send + Sync {
     /// Download a skill from source into local cache.
     ///
@@ -58,6 +59,19 @@ pub trait SkillBackend: Send + Sync {
         skills.iter().map(|(s, t)| self.deploy(s, t)).collect()
     }
 
+    /// Update already-installed skills to their latest versions.
+    ///
+    /// `skills`: the (name, source_str) pairs to update. An empty slice means
+    /// "update everything".
+    ///
+    /// Default implementation returns `Ok(vec![])` — callers that need update
+    /// semantics for the NativeBackend bypass this method and use the lock-clear
+    /// + `SkillCache::ensure` path instead.  External backends (e.g. SkillKit)
+    /// override this to invoke their own update command.
+    fn update_all(&self, _skills: &[(&str, &str)]) -> Result<Vec<String>> {
+        Ok(vec![])
+    }
+
     /// Remove a deployed skill from the filesystem.
     fn undeploy(&self, target: &Path) -> Result<()>;
 
@@ -79,6 +93,7 @@ pub trait SkillBackend: Send + Sync {
 
 // ─── Supporting types ─────────────────────────────────────────────────────────
 
+#[allow(dead_code)]
 pub struct FetchResult {
     /// Where the skill now lives on disk (cache dir for NativeBackend).
     pub cached_path: PathBuf,
@@ -89,6 +104,7 @@ pub struct FetchResult {
     pub was_cached: bool,
 }
 
+#[allow(dead_code)]
 pub struct ResolvedSkill {
     /// Skill name (directory name under `ai/skills/`).
     pub name: String,
@@ -100,6 +116,7 @@ pub struct ResolvedSkill {
     pub metadata: SkillMetadata,
 }
 
+#[allow(dead_code)]
 pub struct DeploymentTarget {
     /// Platform identifier (e.g. `"claude-code"`).
     pub platform_id: String,
@@ -111,6 +128,7 @@ pub struct DeploymentTarget {
     pub owned_targets: HashSet<PathBuf>,
 }
 
+#[allow(dead_code)]
 pub struct DeployResult {
     /// Absolute path where the skill was (or would be) deployed.
     pub target_path: PathBuf,
@@ -123,6 +141,7 @@ pub struct DeployResult {
 
 /// Metadata parsed from a `SKILL.md` frontmatter block.
 #[derive(Debug, Clone, Default)]
+#[allow(dead_code)]
 pub struct SkillMetadata {
     pub name: String,
     pub description: String,
@@ -132,6 +151,7 @@ pub struct SkillMetadata {
     pub metadata: HashMap<String, String>,
 }
 
+#[allow(dead_code)]
 pub struct CachedSkillInfo {
     /// Source key (e.g. `"gh:anthropics/skills/pdf-processing"`).
     pub source_key: String,

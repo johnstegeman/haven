@@ -141,6 +141,7 @@ fn run_from_source(opts: &InitOptions<'_>, source_str: &str) -> Result<()> {
             interactive: false,
             zap: false,
             vcs_backend: opts.vcs_backend,
+            on_conflict: apply::OnConflict::Prompt,
         })?;
 
         println!("\nNext steps:");

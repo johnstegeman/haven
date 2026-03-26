@@ -472,3 +472,30 @@ dead code — replaced with `state_dir` to enable cache lookup.
 
 **Effort:** S (human) → S (CC+gstack)
 **Priority:** P3
+
+---
+
+## P3: `haven status --changed` filter
+
+**What:** Add a `--changed` flag to `haven status` that filters output to only files with
+the `C` or `MC` marker (changed since last apply).
+
+**Why:** On large repos (200+ tracked files), `haven status` will list every file. After
+the conflict detection feature ships, users will often want to see *only* the files they've
+personally modified — not all drift. `--changed` makes triage fast.
+
+**Pros:** Trivial to implement — filter the already-computed status list before printing.
+Complements `haven apply --on-conflict=skip` in CI: run `haven status --changed` to see
+what was skipped.
+
+**Cons:** Adds one CLI flag. Zero implementation risk.
+
+**Context:** The `C` marker is added by the "conflict detection" feature (office-hours
+design: `jstegeman-HEAD-design-20260326-122506.md`). This TODO is only meaningful after
+that feature ships. The filter is a one-liner on the existing status output loop.
+
+**Depends on / blocked by:** ~~Conflict detection feature~~ shipped in v0.7.0 — unblocked.
+
+**Effort:** XS (human ~30min) → XS (CC+gstack ~2min)
+**Priority:** P3
+

@@ -169,7 +169,14 @@ No configuration required. This is what you get without any `ai/config.toml`.
 
 Delegates to the [SkillKit](https://skillkit.dev) CLI for access to its 400K+ skill marketplace, cross-agent skill translation, and AI-powered recommendations.
 
-**Prerequisites:** Node.js + `npm install -g skillkit` (or Bun).
+**Prerequisites:**
+
+```sh
+npm install -g skillkit      # or: bun add -g skillkit
+npx skillkit@latest init     # one-time per machine: initialize agent platforms
+```
+
+`skillkit init` detects which AI agent platforms you have installed (Claude Code, Cursor, etc.) and sets up their skill directories. Re-run it whenever you install a new agent.
 
 ```toml
 [skills]

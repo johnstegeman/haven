@@ -395,7 +395,11 @@ backend = &quot;native&quot;         # &quot;native&quot; (default) | &quot;skil
 <p>No configuration required. This is what you get without any <code>ai/config.toml</code>.</p>
 <h3 id="skillkit">skillkit<a class="headerlink" href="#skillkit" title="Permanent link">&para;</a></h3>
 <p>Delegates to the <a href="https://skillkit.dev">SkillKit</a> CLI for access to its 400K+ skill marketplace, cross-agent skill translation, and AI-powered recommendations.</p>
-<p><strong>Prerequisites:</strong> Node.js + <code>npm install -g skillkit</code> (or Bun).</p>
+<p><strong>Prerequisites:</strong></p>
+<pre><code class="language-sh">npm install -g skillkit      # or: bun add -g skillkit
+npx skillkit@latest init     # one-time per machine: initialize agent platforms
+</code></pre>
+<p><code>skillkit init</code> detects which AI agent platforms you have installed (Claude Code, Cursor, etc.) and sets up their skill directories. Re-run it whenever you install a new agent.</p>
 <pre><code class="language-toml">[skills]
 backend = &quot;skillkit&quot;
 runner  = &quot;npx&quot;       # &quot;npx&quot; (default) | &quot;bunx&quot; | &quot;bun&quot; | path to binary

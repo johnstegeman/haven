@@ -250,11 +250,15 @@ backend = &quot;native&quot;   # &quot;native&quot; | &quot;skillkit&quot;
 <hr />
 <h3 id="skillkit">skillkit<a class="headerlink" href="#skillkit" title="Permanent link">&para;</a></h3>
 <p>Delegates to the <a href="https://skillkit.dev">SkillKit</a> CLI. Provides access to the SkillKit marketplace, cross-agent translation, and AI-powered skill recommendations.</p>
-<p><strong>Prerequisites:</strong> Node.js (for <code>npx</code>) or Bun (for <code>bunx</code>), with SkillKit installed globally:</p>
+<p><strong>Prerequisites:</strong> Node.js (for <code>npx</code>) or Bun (for <code>bunx</code>), with SkillKit installed and initialized:</p>
 <pre><code class="language-sh">npm install -g skillkit
 # or
 bun add -g skillkit
+
+# One-time per-machine setup: detect installed agents and create their skill directories
+npx skillkit@latest init
 </code></pre>
+<p><code>skillkit init</code> is interactive — it detects which AI agent platforms are installed on your machine (Claude Code, Cursor, etc.) and creates the necessary skill directories for each one. Run it once per machine; re-run it when you install a new agent.</p>
 <p><strong>Configuration:</strong></p>
 <pre><code class="language-toml">[skills]
 backend      = &quot;skillkit&quot;
@@ -274,7 +278,7 @@ timeout_secs = 60           # subprocess timeout (default: 60)
 4. Regenerates CLAUDE.md from the deployed state.</p>
 <p><strong>Manifest format:</strong> <code>source</code> is the SkillKit marketplace ID — the <code>gh:</code> prefix is stripped and the path is preserved. <code>version</code> defaults to <code>"latest"</code> unless a pinned version is declared in <code>skill.toml</code>.</p>
 <p><strong>Lock file behavior:</strong> <code>haven.lock</code> does NOT record SHAs for SkillKit-managed skills. Version pinning is delegated to SkillKit internally. The <code>fetch()</code> step returns a synthetic <code>sha: "managed-by-skillkit"</code> and is otherwise a no-op — SkillKit handles downloading during deployment.</p>
-<p><strong>Source restrictions:</strong> SkillKit only supports <code>gh:</code> sources. Skills declared with <code>repo:</code> or <code>dir:</code> sources cause an immediate error when the SkillKit backend is active.</p>
+<p><strong>Source restrictions:</strong> SkillKit supports <code>gh:</code> and <code>dir:</code> sources. Skills declared with a <code>repo:</code> source cause an immediate error when the SkillKit backend is active — <code>repo:</code> is a haven-internal source type with no SkillKit equivalent.</p>
 <p><strong>Unavailability behavior:</strong> If the configured runner is not on PATH, <code>haven apply</code> exits immediately:</p>
 <pre><code>error: skill backend 'skillkit' requires 'npx' but it was not found on PATH
 hint: install Node.js, or set `runner = &quot;bunx&quot;` in ai/config.toml
@@ -341,6 +345,12 @@ hint: switch to the native backend: echo 'backend = &quot;native&quot;' &gt;&gt;
    <code>sh
    npm install -g skillkit
    # or: bun add -g skillkit</code></p>
+</li>
+<li>
+<p>Initialize SkillKit for your agent platforms (one-time per machine):
+   <code>sh
+   npx skillkit@latest init</code>
+   This detects which AI agents are installed (Claude Code, Cursor, etc.) and creates their skill directories. Re-run this whenever you install a new agent platform.</p>
 </li>
 <li>
 <p>Create or update <code>ai/config.toml</code>:

@@ -225,7 +225,7 @@ pub fn run(opts: &UpgradeOptions) -> Result<()> {
         REPO, latest
     );
     let archive_url = format!("{}/{}", base_url, archive_name);
-    let shasums_url = format!("{}/SHA256SUMS", base_url);
+    let shasums_url = format!("{}/haven-v{}-SHA256SUMS", base_url, latest);
 
     println!("Downloading {}...", archive_name);
     let archive_bytes = download_bytes(&archive_url)

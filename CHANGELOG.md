@@ -11,6 +11,16 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [v0.7.1] — 2026-03-26
+
+### Fixed
+
+- **`hv upgrade` checksum verification** — the upgrade command was requesting
+  `SHA256SUMS` but the release workflow publishes `haven-vX.Y.Z-SHA256SUMS`.
+  This caused all self-upgrade attempts from v0.7.0 to fail with a 404 error.
+
+---
+
 ## [v0.7.0] — 2026-03-26
 
 ### Added

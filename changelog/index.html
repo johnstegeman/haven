@@ -193,7 +193,7 @@
             
             <li class="nav-item" data-bs-level="1"><a href="#changelog" class="nav-link">Changelog</a>
               <ul class="nav flex-column">
-            <li class="nav-item" data-bs-level="2"><a href="#unreleased" class="nav-link">[Unreleased]</a>
+            <li class="nav-item" data-bs-level="2"><a href="#v075-2026-03-26" class="nav-link">[v0.7.5] — 2026-03-26</a>
               <ul class="nav flex-column">
               </ul>
             </li>
@@ -245,7 +245,30 @@
 <p>Format: <a href="https://keepachangelog.com/en/1.1.0/">Keep a Changelog</a>.
 Versioning: <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <hr />
-<h2 id="unreleased">[Unreleased]<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<h2 id="v075-2026-03-26">[v0.7.5] — 2026-03-26<a class="headerlink" href="#v075-2026-03-26" title="Permanent link">&para;</a></h2>
+<h3 id="added">Added<a class="headerlink" href="#added" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>AgentSkills backend</strong> — new <code>backend = "agent-skills"</code> in <code>ai/config.toml</code>
+  delegates skill fetch and deployment to <a href="https://www.agentskills.in/">agent-skills-cli</a>.
+  Gives access to 175K+ marketplace skills with cross-agent deployment (<code>-a</code> flag).
+  Requires <code>npm install -g agent-skills-cli</code> (Node.js 18+). Haven retains full control
+  of CLAUDE.md generation, <code>state.json</code> ownership, and collision detection.
+  Configuration:
+  <code>toml
+  [skills]
+  backend      = "agent-skills"
+  runner       = "skills"   # default; accepts full path to binary
+  timeout_secs = 120        # default</code>
+  Search (<code>haven ai search</code>) routes to the agent-skills marketplace when this
+  backend is active.</li>
+</ul>
+<h3 id="removed">Removed<a class="headerlink" href="#removed" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>SkillKit backend</strong> — the <code>skillkit</code> backend has been removed. The <code>native</code>
+  backend remains the only supported backend. Any <code>ai/config.toml</code> with
+  <code>backend = "skillkit"</code> will error with an "unknown skill backend" message;
+  remove that line or set <code>backend = "native"</code> to continue.</li>
+</ul>
 <hr />
 <h2 id="v071-2026-03-26">[v0.7.1] — 2026-03-26<a class="headerlink" href="#v071-2026-03-26" title="Permanent link">&para;</a></h2>
 <h3 id="fixed">Fixed<a class="headerlink" href="#fixed" title="Permanent link">&para;</a></h3>
@@ -256,7 +279,7 @@ Versioning: <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a
 </ul>
 <hr />
 <h2 id="v070-2026-03-26">[v0.7.0] — 2026-03-26<a class="headerlink" href="#v070-2026-03-26" title="Permanent link">&para;</a></h2>
-<h3 id="added">Added<a class="headerlink" href="#added" title="Permanent link">&para;</a></h3>
+<h3 id="added_1">Added<a class="headerlink" href="#added_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
 <p><strong>Conflict detection</strong> — <code>haven apply --files</code> now detects when you've edited a
@@ -273,85 +296,31 @@ Versioning: <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a
   your live copy have diverged. Run <code>haven status</code> before <code>haven apply</code> to see exactly
   what you've locally modified.</p>
 </li>
-<li>
-<p><strong>SkillKit <code>dir:</code> source support</strong> — skills declared with <code>source = "dir:~/path"</code>
-  now work with the SkillKit backend. Haven expands the path and passes it to
-  <code>skillkit team install</code>, so local-development skills and marketplace skills can live
-  in the same manifest.</p>
-</li>
-<li>
-<p><strong><code>haven ai update</code> with SkillKit</strong> — when the SkillKit backend is configured,
-  <code>haven ai update</code> now delegates to <code>skillkit team install --update</code> instead of the
-  native lock-clear path, letting SkillKit manage version pinning while haven manages
-  state tracking.</p>
-</li>
-<li>
-<p><strong>SkillKit init guidance</strong> — if <code>skillkit team install</code> exits non-zero, haven now
-  surfaces an actionable hint: run <code>npx skillkit@latest init</code> if the error looks like
-  an uninitialized agent, or <code>npx skillkit@latest doctor</code> for other failures.</p>
-</li>
-</ul>
-<h3 id="changed">Changed<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h3>
-<ul>
-<li>
-<p><strong><code>docs/reference/skill-backends.md</code></strong> — the "native → skillkit" setup guide now
-  includes <code>skillkit init</code> as a required one-time-per-machine step. The <code>dir:</code> source
-  restriction note is corrected: <code>dir:</code> sources are now supported; only <code>repo:</code> sources
-  are unsupported with SkillKit.</p>
-</li>
-<li>
-<p><strong><code>docs/guides/ai-skills.md</code></strong> — SkillKit prerequisites now explicitly include
-  <code>npx skillkit@latest init</code> with an explanation of what it does.</p>
-</li>
 </ul>
 <hr />
 <h2 id="v060-2026-03-24">[v0.6.0] — 2026-03-24<a class="headerlink" href="#v060-2026-03-24" title="Permanent link">&para;</a></h2>
-<h3 id="added_1">Added<a class="headerlink" href="#added_1" title="Permanent link">&para;</a></h3>
+<h3 id="added_2">Added<a class="headerlink" href="#added_2" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
 <p><strong>Swappable skill backends</strong> — the AI skills pipeline now delegates to a
   configurable backend. Configure via <code>ai/config.toml</code>:
   <code>toml
   [skills]
-  backend = "skillkit"   # "native" (default) | "skillkit"</code>
-  Existing repos need no changes — the <code>native</code> backend is the default and
-  behaves identically to before.</p>
+  backend = "native"   # default</code>
+  Existing repos need no changes — the <code>native</code> backend is the default.</p>
 </li>
 <li>
 <p><strong><code>haven ai backends</code></strong> — new subcommand that lists all known backends with
-  availability status and the currently active backend marked:
-  <code>Skill backends:
-    ✓ native   (active) — built-in, zero dependencies
-    ✗ skillkit — runner 'npx' not found — install Node.js or set runner = "bunx"
-      akm      — not yet implemented</code></p>
+  availability status and the currently active backend marked.</p>
 </li>
 <li>
-<p><strong>SkillKitBackend</strong> — opt-in backend that delegates to the
-  <a href="https://skillkit.dev">SkillKit</a> CLI. On <code>haven apply --ai</code>, haven generates
-  a <code>.skills</code> manifest from your declared skills and calls
-  <code>skillkit team install</code> once (bulk, not per-skill). Gives access to
-  SkillKit's 400K+ marketplace, cross-agent skill translation, and
-  <code>skillkit recommend</code> for discovery. Runner is configurable:
-  <code>toml
-  [skills]
-  backend = "skillkit"
-  runner  = "npx"   # "npx" (default) | "bunx" | "bun" | /path/to/binary</code>
-  If the configured runner is not on PATH, <code>haven apply</code> exits immediately
-  with an actionable error — never a silent fallback to native.</p>
+<p><strong><code>docs/reference/skill-backends.md</code></strong> — new reference page covering the
+  native backend configuration.</p>
 </li>
-<li>
-<p><strong><code>docs/reference/skill-backends.md</code></strong> — new reference page covering all
-  backends, their configuration, and step-by-step switching instructions.</p>
-</li>
-</ul>
-<h3 id="changed_1">Changed<a class="headerlink" href="#changed_1" title="Permanent link">&para;</a></h3>
-<ul>
-<li><strong><code>docs/guides/ai-skills.md</code></strong> — new "Backend selection" section covering
-  native vs skillkit configuration and a link to the full reference.</li>
 </ul>
 <hr />
 <h2 id="v055-2026-03-24">[v0.5.5] — 2026-03-24<a class="headerlink" href="#v055-2026-03-24" title="Permanent link">&para;</a></h2>
-<h3 id="added_2">Added<a class="headerlink" href="#added_2" title="Permanent link">&para;</a></h3>
+<h3 id="added_3">Added<a class="headerlink" href="#added_3" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Brewfile auto-sort</strong> — set <code>[homebrew] sort = true</code> in any module config to
   keep the Brewfile sorted alphabetically after every <code>haven brew install</code> or
@@ -386,7 +355,7 @@ Versioning: <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a
 </ul>
 <hr />
 <h2 id="v050-2026-03-23">[v0.5.0] — 2026-03-23<a class="headerlink" href="#v050-2026-03-23" title="Permanent link">&para;</a></h2>
-<h3 id="added_3">Added<a class="headerlink" href="#added_3" title="Permanent link">&para;</a></h3>
+<h3 id="added_4">Added<a class="headerlink" href="#added_4" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong><code>haven apply --zap</code></strong> — when removing unreferenced casks, also delete their
   associated app data and support files (<code>brew uninstall --cask --zap</code>). Implies
@@ -479,7 +448,7 @@ Versioning: <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a
 <p>The source encoding (<code>dot_</code>, <code>private_</code>, <code>.tmpl</code>, etc.) and repo layout are
   unchanged — existing repos continue to work by moving <code>dfiles.toml</code> →
   <code>haven.toml</code> and <code>~/.dfiles/</code> → <code>~/.haven/</code>.</p>
-<h3 id="added_4">Added<a class="headerlink" href="#added_4" title="Permanent link">&para;</a></h3>
+<h3 id="added_5">Added<a class="headerlink" href="#added_5" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong><code>config/ignore</code> is now a Tera template</strong> — the ignore file is rendered against
   the current machine context (<code>os</code>, <code>hostname</code>, <code>username</code>, <code>profile</code>, <code>data.*</code>)
@@ -509,7 +478,7 @@ Versioning: <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a
   <code>haven apply</code>. See <code>.gstack/security-reports/2026-03-23.json</code> for the full
   audit record.</li>
 </ul>
-<h3 id="added_5">Added<a class="headerlink" href="#added_5" title="Permanent link">&para;</a></h3>
+<h3 id="added_6">Added<a class="headerlink" href="#added_6" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong><code>haven security-scan</code></strong> — audit all tracked source files for secrets,
   sensitive filenames, and credential paths. Checks filename patterns (<code>.env</code>,
@@ -575,7 +544,7 @@ Versioning: <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a
 </ul>
 <hr />
 <h2 id="v020-2026-03-21">[v0.2.0] — 2026-03-21<a class="headerlink" href="#v020-2026-03-21" title="Permanent link">&para;</a></h2>
-<h3 id="added_6">Added<a class="headerlink" href="#added_6" title="Permanent link">&para;</a></h3>
+<h3 id="added_7">Added<a class="headerlink" href="#added_7" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong><code>haven ai add-local</code></strong> — import a locally developed skill directory into
   the haven repo. Moves the skill into <code>ai/skills/&lt;name&gt;/files/</code>, writes
@@ -634,7 +603,7 @@ Versioning: <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a
 </ul>
 <hr />
 <h2 id="v010-2026-03-20-initial-release">[v0.1.0] — 2026-03-20 (initial release)<a class="headerlink" href="#v010-2026-03-20-initial-release" title="Permanent link">&para;</a></h2>
-<h3 id="added_7">Added<a class="headerlink" href="#added_7" title="Permanent link">&para;</a></h3>
+<h3 id="added_8">Added<a class="headerlink" href="#added_8" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong><code>haven init</code></strong> — create a blank scaffold or clone an existing haven repo.
   Supports <code>gh:owner/repo[@ref]</code> shorthand, <code>--apply</code>, <code>--profile</code>, <code>--branch</code>.</li>

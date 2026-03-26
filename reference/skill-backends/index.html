@@ -209,10 +209,6 @@
               <ul class="nav flex-column">
               </ul>
             </li>
-            <li class="nav-item" data-bs-level="2"><a href="#switching-backends" class="nav-link">Switching backends</a>
-              <ul class="nav flex-column">
-              </ul>
-            </li>
               </ul>
             </li>
         </ul>
@@ -225,16 +221,17 @@
 <h2 id="listing-available-backends">Listing available backends<a class="headerlink" href="#listing-available-backends" title="Permanent link">&para;</a></h2>
 <pre><code class="language-sh">haven ai backends
 </code></pre>
-<p>Output example:</p>
+<p>Output example (with agent-skills-cli installed):</p>
 <pre><code>Skill backends:
-  ✓ native   (active) — built-in, zero dependencies
-  ✗ skillkit — runner 'npx' not found — install Node.js or set runner = &quot;bunx&quot;
-    akm      — not yet implemented
+
+ * ✓ agent-skills — runner 'skills' found on PATH
+   ✓ native       — built-in, zero dependencies
+   ✗ akm          — not yet implemented
 </code></pre>
 <h2 id="configuring-a-backend">Configuring a backend<a class="headerlink" href="#configuring-a-backend" title="Permanent link">&para;</a></h2>
 <p>Create <code>ai/config.toml</code> in your repository root (optional — the native backend is the default):</p>
 <pre><code class="language-toml">[skills]
-backend = &quot;native&quot;   # &quot;native&quot; | &quot;skillkit&quot;
+backend = &quot;native&quot;   # &quot;native&quot; | &quot;agent-skills&quot; | &quot;akm&quot;
 </code></pre>
 <h2 id="backend-reference">Backend reference<a class="headerlink" href="#backend-reference" title="Permanent link">&para;</a></h2>
 <h3 id="native">native<a class="headerlink" href="#native" title="Permanent link">&para;</a></h3>
@@ -248,44 +245,55 @@ backend = &quot;native&quot;   # &quot;native&quot; | &quot;skillkit&quot;
 <p><strong>Configuration:</strong> none required.</p>
 <p><strong>When to use:</strong> default for all users. Fully reproducible and offline-capable after first fetch.</p>
 <hr />
-<h3 id="skillkit">skillkit<a class="headerlink" href="#skillkit" title="Permanent link">&para;</a></h3>
-<p>Delegates to the <a href="https://skillkit.dev">SkillKit</a> CLI. Provides access to the SkillKit marketplace, cross-agent translation, and AI-powered skill recommendations.</p>
-<p><strong>Prerequisites:</strong> Node.js (for <code>npx</code>) or Bun (for <code>bunx</code>), with SkillKit installed and initialized:</p>
-<pre><code class="language-sh">npm install -g skillkit
-# or
-bun add -g skillkit
-
-# One-time per-machine setup: detect installed agents and create their skill directories
-npx skillkit@latest init
+<h3 id="agent-skills">agent-skills<a class="headerlink" href="#agent-skills" title="Permanent link">&para;</a></h3>
+<p>Delegates fetch and deployment to <a href="https://www.agentskills.in/">agent-skills-cli</a>. Gives access to 175K+ marketplace skills with cross-agent deployment. Requires Node.js 18+ and the <code>skills</code> binary on PATH.</p>
+<pre><code class="language-sh">npm install -g agent-skills-cli
 </code></pre>
-<p><code>skillkit init</code> is interactive — it detects which AI agent platforms are installed on your machine (Claude Code, Cursor, etc.) and creates the necessary skill directories for each one. Run it once per machine; re-run it when you install a new agent.</p>
-<p><strong>Configuration:</strong></p>
 <pre><code class="language-toml">[skills]
-backend      = &quot;skillkit&quot;
-runner       = &quot;npx&quot;        # &quot;npx&quot; (default) | &quot;bunx&quot; | &quot;bun&quot; | /path/to/binary
-timeout_secs = 60           # subprocess timeout (default: 60)
+backend      = &quot;agent-skills&quot;
+runner       = &quot;skills&quot;   # default; accepts full path if not on PATH
+timeout_secs = 120        # default; increase on slow connections
 </code></pre>
-<p><strong>How it works:</strong></p>
-<p>On <code>haven apply --ai</code>, haven:
-1. Builds a <code>.skills</code> manifest from your <code>ai/skills/</code> declarations:
-   <code>json
-   [
-     {"name": "pdf-processing", "source": "anthropics/skills/pdf-processing", "version": "latest"},
-     {"name": "find-skills",    "source": "vercel-labs/skills/find-skills",    "version": "latest"}
-   ]</code>
-2. Calls <code>skillkit team install --manifest &lt;tmpfile&gt; --json</code> once (bulk, not per-skill).
-3. Reads the JSON stdout to record deployed paths in <code>state.json</code>.
-4. Regenerates CLAUDE.md from the deployed state.</p>
-<p><strong>Manifest format:</strong> <code>source</code> is the SkillKit marketplace ID — the <code>gh:</code> prefix is stripped and the path is preserved. <code>version</code> defaults to <code>"latest"</code> unless a pinned version is declared in <code>skill.toml</code>.</p>
-<p><strong>Lock file behavior:</strong> <code>haven.lock</code> does NOT record SHAs for SkillKit-managed skills. Version pinning is delegated to SkillKit internally. The <code>fetch()</code> step returns a synthetic <code>sha: "managed-by-skillkit"</code> and is otherwise a no-op — SkillKit handles downloading during deployment.</p>
-<p><strong>Source restrictions:</strong> SkillKit supports <code>gh:</code> and <code>dir:</code> sources. Skills declared with a <code>repo:</code> source cause an immediate error when the SkillKit backend is active — <code>repo:</code> is a haven-internal source type with no SkillKit equivalent.</p>
-<p><strong>Unavailability behavior:</strong> If the configured runner is not on PATH, <code>haven apply</code> exits immediately:</p>
-<pre><code>error: skill backend 'skillkit' requires 'npx' but it was not found on PATH
-hint: install Node.js, or set `runner = &quot;bunx&quot;` in ai/config.toml
-</code></pre>
-<p>Haven never silently falls back to the native backend — the configuration is always honored exactly.</p>
-<p><strong>Runner detection:</strong> If <code>runner</code> is <code>"npx"</code>, <code>"bunx"</code>, or <code>"bun"</code>, haven prepends <code>"skillkit"</code> to the argument list (<code>npx skillkit team install ...</code>). If <code>runner</code> is an absolute or relative path (contains <code>/</code>), haven calls it directly — useful for a standalone <code>skillkit</code> binary.</p>
-<p><strong>When to use:</strong> when you want access to the SkillKit marketplace, cross-agent skill translation, or <code>skillkit recommend</code> for discovery. Note: <code>haven.lock</code> no longer pins skill versions for SkillKit-managed skills when you switch to this backend.</p>
+<ul>
+<li><strong>Fetch:</strong> no-op — agent-skills-cli downloads during deploy.</li>
+<li><strong>Cache:</strong> <code>~/.skills/</code> (managed by agent-skills-cli; haven does not touch it).</li>
+<li><strong>Deploy:</strong> runs <code>skills install &lt;source&gt; -g -a &lt;agent&gt; -y</code>, then verifies the target path exists.</li>
+<li><strong>Lock:</strong> SHA is recorded as <code>"managed-by-agent-skills"</code> in <code>haven.lock</code>; version authority is <code>~/.skills/skills.lock</code>.</li>
+<li><strong>Undeploy:</strong> removes the deployed symlink/directory directly; does not call <code>skills uninstall</code> (preserves the shared <code>~/.skills/</code> cache for other agents).</li>
+</ul>
+<p><strong>Source format:</strong></p>
+<table>
+<thead>
+<tr>
+<th>haven declaration</th>
+<th>agent-skills-cli invocation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>gh:owner/repo/skill</code></td>
+<td><code>skills install owner/repo -s skill -g -a &lt;agent&gt; -y</code></td>
+</tr>
+<tr>
+<td><code>gh:owner/repo</code></td>
+<td><code>skills install owner/repo -g -a &lt;agent&gt; -y</code></td>
+</tr>
+<tr>
+<td><code>gh:owner/repo@ref</code></td>
+<td>same as above (<code>@ref</code> dropped — version managed by agent-skills-cli)</td>
+</tr>
+<tr>
+<td><code>dir:~/path</code></td>
+<td><code>skills install &lt;expanded-path&gt; -g -a &lt;agent&gt; -y</code></td>
+</tr>
+<tr>
+<td><code>repo:</code></td>
+<td>error (not supported by this backend)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Search:</strong> <code>haven ai search</code> routes to the agent-skills marketplace when this backend is active.</p>
+<p><strong>When to use:</strong> when you want access to the agent-skills marketplace or need multi-agent deployment without managing a separate fetch cache.</p>
 <hr />
 <h3 id="akm">akm<a class="headerlink" href="#akm" title="Permanent link">&para;</a></h3>
 <p>Not yet implemented. Reserved for a future <a href="https://github.com/agentikit/akm">akm</a> backend.</p>
@@ -320,78 +328,22 @@ hint: switch to the native backend: echo 'backend = &quot;native&quot;' &gt;&gt;
 </tr>
 <tr>
 <td>Collision detection warnings</td>
-<td>haven (native) / not available (skillkit)</td>
+<td>haven</td>
 </tr>
 <tr>
 <td><code>haven ai discover</code> / <code>search</code> / <code>scan</code></td>
 <td>haven</td>
 </tr>
 <tr>
-<td>SHA lock file</td>
-<td>haven (native only)</td>
+<td>SHA lock file (<code>haven.lock</code>)</td>
+<td>haven</td>
 </tr>
 <tr>
 <td>Fetch + cache</td>
-<td>haven (native) / skillkit (skillkit)</td>
+<td>native backend only; agent-skills backend delegates to <code>~/.skills/</code></td>
 </tr>
 </tbody>
-</table>
-<h2 id="switching-backends">Switching backends<a class="headerlink" href="#switching-backends" title="Permanent link">&para;</a></h2>
-<p>Your skill declarations (<code>ai/skills/</code>), platform config (<code>ai/platforms.toml</code>), and deployed skill names stay exactly the same when switching backends. Only <code>ai/config.toml</code> changes.</p>
-<h3 id="native-skillkit">native → skillkit<a class="headerlink" href="#native-skillkit" title="Permanent link">&para;</a></h3>
-<ol>
-<li>
-<p>Install SkillKit:
-   <code>sh
-   npm install -g skillkit
-   # or: bun add -g skillkit</code></p>
-</li>
-<li>
-<p>Initialize SkillKit for your agent platforms (one-time per machine):
-   <code>sh
-   npx skillkit@latest init</code>
-   This detects which AI agents are installed (Claude Code, Cursor, etc.) and creates their skill directories. Re-run this whenever you install a new agent platform.</p>
-</li>
-<li>
-<p>Create or update <code>ai/config.toml</code>:
-   <code>toml
-   [skills]
-   backend = "skillkit"
-   runner  = "npx"   # or "bunx" if you installed via bun</code></p>
-</li>
-<li>
-<p>Run apply:
-   <code>sh
-   haven apply --ai</code>
-   haven generates a <code>.skills</code> manifest from your existing <code>ai/skills/</code> declarations and calls <code>skillkit team install</code>. Your skills are redeployed to the same <code>skills_dir</code> locations as before.</p>
-</li>
-<li>
-<p>(Optional) Commit the change:
-   <code>sh
-   git add ai/config.toml &amp;&amp; git commit -m "chore: switch to skillkit backend"</code>
-   Note: <code>haven.lock</code> SHA entries for your skills are no longer updated by haven when using SkillKit. They become stale but are harmlessly ignored.</p>
-</li>
-</ol>
-<h3 id="skillkit-native">skillkit → native<a class="headerlink" href="#skillkit-native" title="Permanent link">&para;</a></h3>
-<ol>
-<li>
-<p>Update <code>ai/config.toml</code>:
-   <code>toml
-   [skills]
-   backend = "native"</code>
-   Or remove <code>ai/config.toml</code> entirely — <code>native</code> is the default.</p>
-</li>
-<li>
-<p>Run apply:
-   <code>sh
-   haven apply --ai</code>
-   haven fetches each skill directly from its <code>gh:</code> source, verifies SHA, and redeploys. SHA entries in <code>haven.lock</code> are rebuilt from scratch.</p>
-</li>
-</ol>
-<h3 id="checking-whats-active">Checking what's active<a class="headerlink" href="#checking-whats-active" title="Permanent link">&para;</a></h3>
-<pre><code class="language-sh">haven ai backends
-</code></pre>
-<p>The active backend is marked with <code>(active)</code>. Use this to confirm the switch took effect.</p></div>
+</table></div>
             </div>
         </div>
 

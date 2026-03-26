@@ -235,6 +235,13 @@
                     <div class="col-md-9" role="main">
 
 <h1 id="swappable-skill-backends-for-haven">Swappable Skill Backends for Haven<a class="headerlink" href="#swappable-skill-backends-for-haven" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>Status (2026-03-26):</strong> The SkillKitBackend implemented in Phase 3 has been removed.
+SkillKit is project-focused (it installs skills into a specific project) and is not
+compatible with Haven's dotfiles-style global skill management. The NativeBackend
+remains the only supported backend. The AkmBackend slot is still reserved for a
+future implementation.</p>
+</blockquote>
 <h2 id="problem">Problem<a class="headerlink" href="#problem" title="Permanent link">&para;</a></h2>
 <p>Haven's AI skills layer currently has a single, built-in implementation: it fetches skills from GitHub (with SHA-256 locking), deploys them via symlink or copy, tracks ownership in <code>state.json</code>, and generates <code>CLAUDE.md</code>. This works well, but it means Haven must evolve its own skills ecosystem rather than leveraging the rapidly growing set of external skill managers.</p>
 <p>The AI skill management space has exploded in 2025–2026:

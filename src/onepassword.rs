@@ -9,7 +9,7 @@
 ///   1. The `op` CLI must be installed: https://developer.1password.com/docs/cli/get-started/
 ///   2. The user must be signed in: `op signin`
 ///
-/// dfiles never stores secrets to disk — they are rendered into the destination
+/// haven never stores secrets to disk — they are rendered into the destination
 /// file in memory and written directly. Source template files contain only the
 /// `op://` URI references, not the secret values.
 use std::collections::HashMap;

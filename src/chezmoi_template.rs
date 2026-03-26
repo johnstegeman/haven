@@ -1,14 +1,14 @@
-/// Convert a chezmoi Go template to a dfiles Tera template.
+/// Convert a chezmoi Go template to a haven Tera template.
 ///
 /// # Mapping
 ///
-/// chezmoi uses Go's `text/template` engine. dfiles uses Tera (Jinja2-style).
+/// chezmoi uses Go's `text/template` engine. haven uses Tera (Jinja2-style).
 /// The two share similar delimiters (`{{ }}`), but differ in control-flow syntax
 /// and available variables.
 ///
 /// ## Variable substitutions
 ///
-/// | chezmoi                          | dfiles                               |
+/// | chezmoi                          | haven                               |
 /// |----------------------------------|--------------------------------------|
 /// | `.chezmoi.hostname`              | `hostname`                           |
 /// | `.chezmoi.username`              | `username`                           |
@@ -20,7 +20,7 @@
 ///
 /// ## Control flow
 ///
-/// | chezmoi                             | dfiles                          |
+/// | chezmoi                             | haven                          |
 /// |-------------------------------------|---------------------------------|
 /// | `{{- if eq .chezmoi.os "linux" }}`  | `{% if os == "linux" %}`        |
 /// | `{{- if eq .chezmoi.os "darwin" }}` | `{% if os == "macos" %}`        |
@@ -59,7 +59,7 @@ pub struct ConversionResult {
     pub warnings: Vec<String>,
 }
 
-/// Convert a chezmoi Go template string to a dfiles Tera template string.
+/// Convert a chezmoi Go template string to a haven Tera template string.
 ///
 /// Always returns a `ConversionResult`. If `warnings` is non-empty, some
 /// constructs were left unconverted (preserved as-is in the output so the
@@ -240,12 +240,12 @@ fn convert_condition(cond: &str) -> Option<String> {
     None
 }
 
-/// chezmoi uses "darwin" for macOS; dfiles uses "macos". Normalise for OS comparisons.
+/// chezmoi uses "darwin" for macOS; haven uses "macos". Normalise for OS comparisons.
 ///
 /// Only applies when `lhs` is `.chezmoi.os` — other comparisons pass through unchanged.
 fn normalize_os_value<'a>(lhs: &str, rhs: &'a str) -> &'a str {
     if lhs == ".chezmoi.os" && rhs == "darwin" {
-        // "darwin" is chezmoi's name for macOS; dfiles uses "macos".
+        // "darwin" is chezmoi's name for macOS; haven uses "macos".
         // Both are &'static str so we can return the literal.
         "macos"
     } else {

@@ -1,6 +1,6 @@
 /// Generate `~/.claude/CLAUDE.md` — Claude Code's awareness of installed tools.
 ///
-/// After every `dfiles apply`, dfiles scans the Claude Code directories for
+/// After every `haven apply`, haven scans the Claude Code directories for
 /// installed skills and commands and writes a structured CLAUDE.md so Claude Code
 /// knows what capabilities are available.
 ///

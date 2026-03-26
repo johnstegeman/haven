@@ -213,7 +213,7 @@ pub fn run(opts: &UpgradeOptions) -> Result<()> {
     }
 
     if current == latest && !opts.force {
-        println!("dfiles v{} is up to date.", current);
+        println!("haven v{} is up to date.", current);
         return Ok(());
     }
 

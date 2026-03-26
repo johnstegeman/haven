@@ -9,6 +9,31 @@ Updated by /plan-eng-review on 2026-03-23 (security-scan feature)
 Updated by /plan-ceo-review on 2026-03-24 (swappable skill backends)
 Updated by /plan-eng-review on 2026-03-24 (swappable skill backends)
 Updated 2026-03-26 (skillkit backend removed)
+Updated 2026-03-26 (AgentSkills backend added)
+
+---
+
+## ~~P2: AgentSkillsBackend — implement `update_all()`~~ DONE
+
+Implemented 2026-03-26. `skills update [name...] -g -y` confirmed to accept
+positional skill-name args. Empty slice → `--all -g -y`; non-empty → names as
+positional args. Returns the names passed in on successful exit (no `--json` on
+update to parse output).
+
+---
+
+## P2: Upstream PR — `skills install --json` output
+
+**What:** Open a PR on [agent-skills-cli](https://github.com/Karanjot786/agent-skills-cli)
+adding `--json` output to `skills install`. This would let Haven capture the installed
+SHA without reading `~/.skills/skills.lock`, making the integration more robust.
+
+**Why:** Currently `AgentSkillsBackend` records `sha: "managed-by-agent-skills"` in
+`haven.lock`. With `--json` install output, Haven could record the actual commit SHA
+and detect drift without an extra lock-read step.
+
+**Effort:** S (human: ~2h / CC: ~10min to draft the PR)
+**Priority:** P2
 
 ---
 

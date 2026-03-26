@@ -2,7 +2,9 @@
 ///
 /// ```toml
 /// [skills]
-/// backend = "native"      # "native" | "akm"
+/// backend = "native"      # "native" | "agent-skills" | "akm"
+/// runner  = "skills"      # path to agent-skills-cli binary (agent-skills backend only)
+/// timeout_secs = 120      # subprocess timeout in seconds (agent-skills backend only)
 /// ```
 ///
 /// When `ai/config.toml` is absent, all defaults apply (native backend).
@@ -15,14 +17,16 @@ use std::path::Path;
 pub enum BackendKind {
     #[default]
     Native,
+    AgentSkills,
     Akm,
 }
 
 impl BackendKind {
     pub fn as_str(&self) -> &'static str {
         match self {
-            BackendKind::Native => "native",
-            BackendKind::Akm    => "akm",
+            BackendKind::Native      => "native",
+            BackendKind::AgentSkills => "agent-skills",
+            BackendKind::Akm         => "akm",
         }
     }
 }
@@ -31,12 +35,20 @@ impl BackendKind {
 #[derive(Debug, Clone)]
 pub struct AiConfig {
     pub backend: BackendKind,
+    /// Path or name of the agent-skills-cli runner binary (default: `"skills"`).
+    /// Only used by `AgentSkills` backend (and future `Akm`).
+    pub runner: String,
+    /// Subprocess timeout in seconds (default: 120).
+    /// Only used by `AgentSkills` backend (and future `Akm`).
+    pub timeout_secs: u64,
 }
 
 impl Default for AiConfig {
     fn default() -> Self {
         AiConfig {
             backend: BackendKind::Native,
+            runner: "skills".to_string(),
+            timeout_secs: 120,
         }
     }
 }
@@ -68,21 +80,28 @@ struct RawAiConfig {
 #[derive(Deserialize, Default)]
 struct RawSkillsSection {
     backend: Option<String>,
+    runner: Option<String>,
+    timeout_secs: Option<u64>,
 }
 
 impl RawAiConfig {
     fn resolve(self, path_display: &str) -> Result<AiConfig> {
         let backend = match self.skills.backend.as_deref().unwrap_or("native") {
-            "native" => BackendKind::Native,
-            "akm"    => BackendKind::Akm,
+            "native"       => BackendKind::Native,
+            "agent-skills" => BackendKind::AgentSkills,
+            "akm"          => BackendKind::Akm,
             other => anyhow::bail!(
                 "{}: unknown skill backend '{}'\n\
-                 hint: valid values are 'native', 'akm'",
+                 hint: valid values are 'native', 'agent-skills', 'akm'",
                 path_display, other
             ),
         };
 
-        Ok(AiConfig { backend })
+        Ok(AiConfig {
+            backend,
+            runner: self.skills.runner.unwrap_or_else(|| "skills".to_string()),
+            timeout_secs: self.skills.timeout_secs.unwrap_or(120),
+        })
     }
 }
 
@@ -111,6 +130,28 @@ mod tests {
         write_config(&dir, "[skills]\nbackend = \"native\"\n");
         let cfg = AiConfig::load(dir.path()).unwrap();
         assert_eq!(cfg.backend, BackendKind::Native);
+    }
+
+    #[test]
+    fn ai_config_reads_agent_skills_backend() {
+        let dir = TempDir::new().unwrap();
+        write_config(&dir, "[skills]\nbackend = \"agent-skills\"\n");
+        let cfg = AiConfig::load(dir.path()).unwrap();
+        assert_eq!(cfg.backend, BackendKind::AgentSkills);
+        assert_eq!(cfg.runner, "skills");
+        assert_eq!(cfg.timeout_secs, 120);
+    }
+
+    #[test]
+    fn ai_config_reads_custom_runner_and_timeout() {
+        let dir = TempDir::new().unwrap();
+        write_config(
+            &dir,
+            "[skills]\nbackend = \"agent-skills\"\nrunner = \"/usr/local/bin/skills\"\ntimeout_secs = 60\n",
+        );
+        let cfg = AiConfig::load(dir.path()).unwrap();
+        assert_eq!(cfg.runner, "/usr/local/bin/skills");
+        assert_eq!(cfg.timeout_secs, 60);
     }
 
     #[test]

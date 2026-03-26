@@ -17,6 +17,7 @@ mod mise;
 mod onepassword;
 mod ai_config;
 mod skill_backend;
+mod skill_backend_agentskills;
 mod skill_backend_factory;
 mod skill_backend_native;
 mod skill_cache;

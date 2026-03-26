@@ -27,7 +27,7 @@ use crate::vcs::{self, MigrateOutcome, VcsBackend};
 use crate::config::module::expand_tilde;
 use crate::fs::{apply_permissions, backup_file, copy_to_dest, sha256_of_bytes, sha256_of_str, write_to_dest};
 use crate::ignore::IgnoreList;
-use crate::ai_config::AiConfig;
+use crate::ai_config::{AiConfig, BackendKind};
 use crate::skill_backend::{DeploymentTarget, ResolvedSkill, SkillMetadata};
 use crate::skill_backend_factory::create_backend;
 use crate::skill_cache::SkillCache;
@@ -1174,6 +1174,17 @@ fn apply_ai_skills(
 
         match skill_source {
             SkillSource::Gh(gh) => {
+                // AgentSkills backend: skip SkillCache entirely — agent-skills-cli
+                // fetches and installs during deploy(). cached_path is ignored by deploy().
+                if ai_config.backend == BackendKind::AgentSkills {
+                    plans.push(SkillPlan {
+                        skill, source_str, target_platforms,
+                        path: Some(PathBuf::new()), // sentinel: deploy() ignores this
+                        sha: None, failed: false,
+                    });
+                    continue;
+                }
+
                 let lock_sha = lock.skill_sha(&gh.source_key()).map(str::to_string);
                 let cached = skill_cache.cached_sha(&gh);
 
@@ -1341,11 +1352,24 @@ fn apply_ai_skills(
                 sha: plan.sha.clone(),
                 deploy_method: plan.skill.deploy.as_str().to_string(),
                 platform_id: platform.id.clone(),
-                resolved: ResolvedSkill {
-                    name: plan.skill.name.clone(),
-                    cached_path: skill_path.clone(),
-                    sha: plan.sha.clone().unwrap_or_default(),
-                    metadata: SkillMetadata::default(),
+                resolved: {
+                    // For the AgentSkills backend, inject _haven_source into metadata
+                    // so that AgentSkillsBackend::deploy() can map the source to CLI args.
+                    // This threads the original source declaration through the SkillBackend
+                    // trait boundary without modifying it. See skill_backend_agentskills.rs.
+                    let mut meta = SkillMetadata::default();
+                    if ai_config.backend == BackendKind::AgentSkills {
+                        meta.metadata.insert(
+                            "_haven_source".to_string(),
+                            plan.source_str.to_string(),
+                        );
+                    }
+                    ResolvedSkill {
+                        name: plan.skill.name.clone(),
+                        cached_path: skill_path.clone(),
+                        sha: plan.sha.clone().unwrap_or_default(),
+                        metadata: meta,
+                    }
                 },
                 target: DeploymentTarget {
                     platform_id: platform.id.clone(),

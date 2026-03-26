@@ -9,6 +9,23 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **AgentSkills backend** — new `backend = "agent-skills"` in `ai/config.toml`
+  delegates skill fetch and deployment to [agent-skills-cli](https://www.agentskills.in/).
+  Gives access to 175K+ marketplace skills with cross-agent deployment (`-a` flag).
+  Requires `npm install -g agent-skills-cli` (Node.js 18+). Haven retains full control
+  of CLAUDE.md generation, `state.json` ownership, and collision detection.
+  Configuration:
+  ```toml
+  [skills]
+  backend      = "agent-skills"
+  runner       = "skills"   # default; accepts full path to binary
+  timeout_secs = 120        # default
+  ```
+  Search (`haven ai search`) routes to the agent-skills marketplace when this
+  backend is active.
+
 ### Removed
 
 - **SkillKit backend** — the `skillkit` backend has been removed. The `native`

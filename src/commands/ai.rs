@@ -12,7 +12,7 @@ use anyhow::{Context, Result};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
-use crate::ai_config::AiConfig;
+use crate::ai_config::{AiConfig, BackendKind};
 use crate::ai_platform::{platform_registry, PlatformsConfig};
 use crate::ai_skill::{DeployMethod, SkillSource, SkillsConfig};
 use crate::lock::LockFile;
@@ -672,7 +672,11 @@ pub struct SearchOptions<'a> {
 /// Search for skills using the configured backend and display matching results.
 pub fn search(opts: &SearchOptions<'_>) -> Result<()> {
     let ai_config = AiConfig::load(opts.repo_root)?;
-    print!("Searching skills.sh for '{}' ...", opts.query);
+    let registry_label = match ai_config.backend {
+        BackendKind::AgentSkills => "agent-skills marketplace",
+        _ => "skills.sh",
+    };
+    print!("Searching {} for '{}' ...", registry_label, opts.query);
     io::stdout().flush()?;
 
     let results = dispatch_search(&ai_config, opts.query, opts.limit as usize)?;
@@ -974,8 +978,11 @@ pub struct SearchEntry {
 }
 
 /// Route a search query to the appropriate backend based on `AiConfig`.
-fn dispatch_search(_config: &AiConfig, query: &str, limit: usize) -> Result<Vec<SearchEntry>> {
-    skillssh_search(query, limit)
+fn dispatch_search(config: &AiConfig, query: &str, limit: usize) -> Result<Vec<SearchEntry>> {
+    match config.backend {
+        BackendKind::AgentSkills => agentskills_search(&config.runner, query, limit),
+        _ => skillssh_search(query, limit),
+    }
 }
 
 // ─── skills.sh backend ────────────────────────────────────────────────────────
@@ -1008,6 +1015,42 @@ fn skillssh_search(query: &str, limit: usize) -> Result<Vec<SearchEntry>> {
     Ok(parsed.skills.into_iter().map(|e| SearchEntry {
         source: format!("gh:{}", e.id),
         installs: Some(e.installs),
+    }).collect())
+}
+
+// ─── agent-skills backend ─────────────────────────────────────────────────────
+
+#[derive(serde::Deserialize)]
+struct AgentSkillsSearchResponse {
+    skills: Vec<AgentSkillsSearchEntry>,
+}
+
+#[derive(serde::Deserialize)]
+struct AgentSkillsSearchEntry {
+    /// Full path: "owner/repo/skillName" — maps to gh:owner/repo/skillName.
+    path: String,
+    #[serde(default)]
+    stars: Option<u64>,
+}
+
+fn agentskills_search(runner: &str, query: &str, limit: usize) -> Result<Vec<SearchEntry>> {
+    let output = std::process::Command::new(runner)
+        .args(["search", query, "--json", "--limit", &limit.to_string()])
+        .output()
+        .with_context(|| format!("Failed to run '{}' — is agent-skills-cli installed?", runner))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        anyhow::bail!("'{}' search failed: {}", runner, stderr.trim());
+    }
+
+    let text = String::from_utf8(output.stdout).context("agent-skills-cli output was not UTF-8")?;
+    let parsed: AgentSkillsSearchResponse =
+        serde_json::from_str(&text).context("agent-skills-cli search output could not be parsed")?;
+
+    Ok(parsed.skills.into_iter().map(|e| SearchEntry {
+        source: format!("gh:{}", e.path),
+        installs: e.stars,
     }).collect())
 }
 

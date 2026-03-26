@@ -173,8 +173,8 @@ pub fn check_jj_installed() -> Result<()> {
 ///
 ///   j) jj  (use once)
 ///   g) git (use once)
-///   J) jj  (save vcs.backend = "jj" to dfiles.toml)
-///   G) git (save vcs.backend = "git" to dfiles.toml)
+///   J) jj  (save vcs.backend = "jj" to haven.toml)
+///   G) git (save vcs.backend = "git" to haven.toml)
 ///   q) abort
 fn prompt_vcs_backend() -> Result<VcsPromptResult> {
     println!("jj (Jujutsu) is installed but no VCS backend is configured.");

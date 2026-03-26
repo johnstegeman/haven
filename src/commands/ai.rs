@@ -22,7 +22,7 @@ use crate::state::State;
 
 // ─── discover ─────────────────────────────────────────────────────────────────
 
-/// Options for `dfiles ai discover`.
+/// Options for `haven ai discover`.
 pub struct DiscoverOptions<'a> {
     pub repo_root: &'a Path,
 }
@@ -173,7 +173,7 @@ fn update_platforms_active(repo_root: &Path, ids_to_add: &[String]) -> Result<()
 
 // ─── add ──────────────────────────────────────────────────────────────────────
 
-/// Options for `dfiles ai add`.
+/// Options for `haven ai add`.
 pub struct AddOptions<'a> {
     pub repo_root: &'a Path,
     /// Source string: `gh:owner/repo[/subpath][@ref]` or `dir:~/path`.

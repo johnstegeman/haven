@@ -1,7 +1,7 @@
 /// Managed section injection for AI skill snippets.
 ///
 /// Platform config files (e.g. `~/.claude/CLAUDE.md`) can contain a
-/// dfiles-managed section bounded by HTML comment markers:
+/// haven-managed section bounded by HTML comment markers:
 ///
 /// ```markdown
 /// <!-- dfiles managed start -->
@@ -10,7 +10,7 @@
 /// <!-- dfiles managed end -->
 /// ```
 ///
-/// On `dfiles apply`, dfiles:
+/// On `haven apply`, haven:
 ///   1. Collects snippets from `ai/skills/<name>/all.md` and
 ///      `ai/skills/<name>/<platform-id>.md` for each deployed skill.
 ///   2. Assembles a managed section (skills list + snippets).
@@ -294,7 +294,7 @@ pub fn insert_markers(path: &Path, position: MarkerPosition) -> Result<()> {
 fn prompt_add_markers(config_path: &Path) -> Result<Option<MarkerPosition>> {
     let display = tilde_str(&config_path.to_string_lossy());
     println!(
-        "dfiles: {} has no managed section.",
+        "haven: {} has no managed section.",
         display
     );
     print!(
@@ -369,7 +369,7 @@ pub fn inject_managed_sections(
         let managed_content = assemble_managed_content(repo_root, skills, platform);
         let any_snippets = has_snippets(repo_root, skills, &platform.id);
 
-        // Determine whether the source file exists in the dfiles repo
+        // Determine whether the source file exists in the haven repo
         // (to avoid creating a stub that conflicts with the user's source file).
         let source_exists = source_file_exists_for(repo_root, &config_file);
 
@@ -482,7 +482,7 @@ pub fn inject_managed_sections(
                     } else {
                         println!(
                             "note: {} skill snippet(s) pending for {} (no managed section) \
-                             — run dfiles apply in a terminal to configure",
+                             — run haven apply in a terminal to configure",
                             skills.len(),
                             tilde_str(&config_path.to_string_lossy())
                         );

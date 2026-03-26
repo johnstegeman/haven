@@ -1,6 +1,6 @@
 /// chezmoi source directory detection and entry decoding.
 ///
-/// Decodes chezmoi's naming conventions into dfiles-ready entries:
+/// Decodes chezmoi's naming conventions into haven-ready entries:
 ///
 ///  detect_source_dir()
 ///        │
@@ -34,23 +34,23 @@ use serde::Deserialize;
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
-/// A chezmoi source file that should be imported into dfiles.
+/// A chezmoi source file that should be imported into haven.
 #[derive(Debug, Clone)]
 pub struct ChezmoiEntry {
     /// Relative path inside the chezmoi source directory (e.g. `dot_config/git/config`).
     pub chezmoi_path: PathBuf,
     /// Decoded absolute destination path (e.g. `~/.config/git/config` as a string).
     pub dest_tilde: String,
-    /// dfiles source/ filename (e.g. `"config-git-config"`).
+    /// haven source/ filename (e.g. `"config-git-config"`).
     pub source_name: String,
-    /// Inferred dfiles module name (e.g. `"shell"`, `"git"`, `"editor"`, `"misc"`).
+    /// Inferred haven module name (e.g. `"shell"`, `"git"`, `"editor"`, `"misc"`).
     #[allow(dead_code)]
     pub module: String,
     /// Decoded from `private_` prefix: destination should be chmod 0600 (or 0700).
     pub private: bool,
     /// Decoded from `executable_` prefix: destination should be chmod 0755 (or 0700).
     pub executable: bool,
-    /// When true, the dfiles entry will use `link = true` (symlink instead of copy).
+    /// When true, the haven entry will use `link = true` (symlink instead of copy).
     pub link: bool,
     /// When true, the file is a converted template (`template = true` in TOML).
     /// `converted_content` holds the Tera source to write instead of copying the
@@ -83,7 +83,7 @@ pub enum SkipReason {
     Symlink,
     /// `modify_` prefix — intentionally unsupported. chezmoi `modify_` scripts
     /// transform an existing file via stdin→stdout at apply time; there is no static
-    /// equivalent in dfiles. The script must be run manually or replaced with a
+    /// equivalent in haven. The script must be run manually or replaced with a
     /// static file.
     ModifyScript,
     /// `.tmpl` suffix — Go templates (P1 follow-on).
@@ -104,7 +104,7 @@ impl SkipReason {
         match self {
             SkipReason::Symlink => Some("symlink — target could not be resolved (manual migration required)"),
             SkipReason::ModifyScript => Some(
-                "modify_ scripts are not supported — dfiles has no stdin→stdout transform \
+                "modify_ scripts are not supported — haven has no stdin→stdout transform \
                  equivalent. Run the script manually or replace it with a static file."
             ),
             SkipReason::Template => Some("Go template — could not read file (manual migration required)"),
@@ -117,7 +117,7 @@ impl SkipReason {
 
 /// A detected migration from a chezmoi `run_once_` / `run_` / `once_` script.
 ///
-/// Recognised patterns are converted to dfiles module TOML on import.
+/// Recognised patterns are converted to haven module TOML on import.
 /// Unrecognised scripts are collected separately and skipped with an explanation.
 #[derive(Debug, Clone)]
 pub struct ChezmoiScriptEntry {
@@ -125,7 +125,7 @@ pub struct ChezmoiScriptEntry {
     pub chezmoi_path: PathBuf,
     /// When the script should run.
     pub when: ScriptWhen,
-    /// What dfiles migration was detected in the script body.
+    /// What haven migration was detected in the script body.
     pub migration: ScriptMigration,
 }
 
@@ -165,7 +165,7 @@ pub struct ChezmoiBrewfileEntry {
     pub module_name: String,
 }
 
-/// A chezmoi external that should become a dfiles `[[externals]]` entry.
+/// A chezmoi external that should become a haven `[[externals]]` entry.
 #[derive(Debug, Clone)]
 pub struct ChezmoiExternalEntry {
     /// Destination path with tilde (e.g. `"~/.config/nvim"`).
@@ -176,7 +176,7 @@ pub struct ChezmoiExternalEntry {
     pub url: String,
     /// Branch/tag/SHA from the `ref` field. Optional.
     pub ref_name: Option<String>,
-    /// Inferred dfiles module name.
+    /// Inferred haven module name.
     pub module: String,
 }
 
@@ -244,7 +244,7 @@ fn try_chezmoi_source_path() -> Option<PathBuf> {
 ///
 /// Only flat string values are extracted. Nested objects and non-string values
 /// (booleans, numbers, lists) are silently skipped — they have no direct equivalent
-/// in `dfiles.toml [data]`.
+/// in `haven.toml [data]`.
 ///
 /// Returns an empty map if neither file exists or they cannot be parsed.
 pub fn scan_data_file(source_dir: &Path) -> Result<std::collections::HashMap<String, String>> {
@@ -353,7 +353,7 @@ fn chezmoi_managed_paths(source_dir: &Path) -> Option<std::collections::HashSet<
 /// - `{{ end }}`                            → `{% endif %}`
 ///
 /// Value normalisation: `"darwin"` → `"macos"` only when the LHS is `.chezmoi.os`,
-/// matching the dfiles OS detection convention.
+/// matching the haven OS detection convention.
 ///
 /// Unsupported `{{ if ... }}` expressions are suppressed (along with their entire
 /// block) with a warning. Other unrecognised expressions are skipped with a warning.
@@ -457,7 +457,7 @@ fn try_convert_if_directive(directive: &str) -> Option<String> {
     // Value must be a Go string literal: "VALUE"
     let value = value_quoted.strip_prefix('"')?.strip_suffix('"')?;
 
-    // Normalise OS values: chezmoi uses "darwin", dfiles uses "macos".
+    // Normalise OS values: chezmoi uses "darwin", haven uses "macos".
     let value = if field == "os" && value == "darwin" {
         "macos"
     } else {
@@ -616,7 +616,7 @@ pub fn scan(source_dir: &Path, include_ignored: bool) -> Result<(ScanResultKeeps
             if ignore_file.exists() {
                 if let Ok(content) = std::fs::read_to_string(&ignore_file) {
                     let (tera_content, _warnings) = convert_chezmoiignore_to_tera(&content);
-                    // Build a minimal context for rendering (no dfiles repo yet).
+                    // Build a minimal context for rendering (no haven repo yet).
                     let ctx = crate::template::TemplateContext::from_env(
                         "default",
                         std::path::Path::new("."),
@@ -689,7 +689,7 @@ fn parse_chezmoiexternal(source_dir: &Path) -> Result<Vec<ChezmoiExternalEntry>>
             .try_into()
             .with_context(|| format!("Invalid external entry for '{}'", dest_raw))?;
 
-        // Map chezmoi "git-repo" → dfiles "git"; anything else is passed through.
+        // Map chezmoi "git-repo" → haven "git"; anything else is passed through.
         let kind = if raw.kind == "git-repo" {
             "git".to_string()
         } else {
@@ -861,7 +861,7 @@ fn decode_dest(rel_path: &Path) -> PathBuf {
     path
 }
 
-/// Infer the dfiles module from the decoded destination path.
+/// Infer the haven module from the decoded destination path.
 ///
 /// Rules checked in order; first match wins. All matching is
 /// `starts_with` on the canonical path string after `~/` expansion.
@@ -938,12 +938,12 @@ fn infer_module(dest: &Path) -> &'static str {
     "misc"
 }
 
-/// Derive the dfiles `source/` path from a chezmoi relative path.
+/// Derive the haven `source/` path from a chezmoi relative path.
 ///
-/// The chezmoi path IS the dfiles magic-name encoding — they share the same
+/// The chezmoi path IS the haven magic-name encoding — they share the same
 /// convention (`private_`, `executable_`, `dot_`, `.tmpl`). So the source path
 /// is simply the chezmoi path as-is. The only difference is for templates: the
-/// `.tmpl` suffix is kept (dfiles also uses `.tmpl` to mark Tera templates).
+/// `.tmpl` suffix is kept (haven also uses `.tmpl` to mark Tera templates).
 ///
 /// The caller passes the path already stripped of `.tmpl` for template entries
 /// (see `decode_template_entry`). For regular entries, the path is used verbatim.
@@ -953,7 +953,7 @@ pub fn source_name(rel_path: &Path) -> String {
 
 // ─── Template entry decoder ───────────────────────────────────────────────────
 
-/// Decode a `.tmpl`-suffixed chezmoi file into a dfiles `template = true` entry.
+/// Decode a `.tmpl`-suffixed chezmoi file into a haven `template = true` entry.
 ///
 /// Reads the file from `source_dir` (via the scan context), converts the Go
 /// template syntax to Tera, and returns a `Keep` entry with `template = true`
@@ -972,13 +972,13 @@ fn decode_template_entry(
     is_executable: bool,
 ) -> ImportEntry {
     // Strip `.tmpl` from the last component of rel_path to decode the destination.
-    // The source_name keeps `.tmpl` so dfiles recognises it as a template in source/.
+    // The source_name keeps `.tmpl` so haven recognises it as a template in source/.
     let stripped_path = strip_tmpl_suffix(rel_path);
     let stripped_path = stripped_path.as_deref().unwrap_or(rel_path);
 
     let dest_abs = decode_dest(stripped_path);
     let dest_tilde = crate::fs::tilde_path(&dest_abs);
-    // source_name uses the original path (WITH .tmpl) — dfiles uses the suffix too.
+    // source_name uses the original path (WITH .tmpl) — haven uses the suffix too.
     let sname = source_name(rel_path);
     let module = infer_module(&dest_abs).to_string();
 
@@ -1017,7 +1017,7 @@ fn skip(rel_path: &Path, reason: SkipReason) -> ImportEntry {
     })
 }
 
-/// Attempt to resolve a chezmoi `symlink_` file into a dfiles linked entry.
+/// Attempt to resolve a chezmoi `symlink_` file into a haven linked entry.
 ///
 /// The chezmoi `symlink_` file's content is the symlink target path. If that
 /// target exists as a regular file on disk, we import it with `link = true` and
@@ -1073,7 +1073,7 @@ fn try_resolve_symlink(
 /// Convert a `symlink_*.tmpl` entry: the file content is a Go template that renders
 /// to the symlink target path at apply time.
 ///
-/// Creates a `link: true, template: true` entry. At apply time, dfiles will render the
+/// Creates a `link: true, template: true` entry. At apply time, haven will render the
 /// template to obtain the target path, then create the symlink.
 fn try_resolve_symlink_template(rel_path: &Path, template_content: &str) -> Option<ChezmoiEntry> {
     // Convert Go template syntax to Tera.
@@ -1430,7 +1430,7 @@ mod tests {
         // the scan() loop populates it. We just verify the structural decoding.
         let e = keep("dot_zshrc.tmpl");
         assert!(e.dest_tilde.ends_with("/.zshrc"), "expected dest ~/.zshrc, got {}", e.dest_tilde);
-        // source_name keeps the .tmpl suffix — dfiles source/ uses it too.
+        // source_name keeps the .tmpl suffix — haven source/ uses it too.
         assert_eq!(e.source_name, "dot_zshrc.tmpl", "expected source_name with .tmpl suffix");
         assert!(e.template, "expected template=true");
     }

@@ -1,4 +1,4 @@
-/// Scan and decode the dfiles `source/` directory.
+/// Scan and decode the haven `source/` directory.
 ///
 /// Files are stored with chezmoi-compatible magic-name encoding. The path
 /// under `source/` encodes both the destination and all file metadata — no
@@ -228,7 +228,7 @@ pub fn decode_component(s: &str, is_file: bool) -> (String, FileFlags) {
 
 /// Encode a destination filename into its magic-name form for storage in `source/`.
 ///
-/// This is used by `dfiles add` to build the encoded filename before copying.
+/// This is used by `haven add` to build the encoded filename before copying.
 ///
 /// A leading `.` in `dest_name` is converted to the `dot_` prefix automatically.
 ///
@@ -269,7 +269,7 @@ pub fn encode_filename(
 pub enum ScriptExecWhen {
     /// `run_once_` / `once_` — execute only once per machine (tracked in state.json).
     Once,
-    /// `run_` — execute on every `dfiles apply`.
+    /// `run_` — execute on every `haven apply`.
     Always,
 }
 

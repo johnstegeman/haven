@@ -30,7 +30,7 @@ impl GhSource {
     /// Parse a `gh:owner/repo[/subpath][@ref]` string.
     ///
     /// ```
-    /// # use dfiles::github::GhSource;
+    /// # use haven::github::GhSource;
     /// let s = GhSource::parse("gh:anthropics/skills/pdf-processing").unwrap();
     /// assert_eq!(s.owner, "anthropics");
     /// assert_eq!(s.repo, "skills");

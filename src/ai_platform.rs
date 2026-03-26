@@ -4,14 +4,14 @@
 ///
 /// 1. **Embedded registry** (`src/data/platforms.toml`, compiled in) — shipped defaults.
 ///
-/// 2. **Local registry** (`~/.dfiles/platforms.toml`, not committed) — machine-local
+/// 2. **Local registry** (`~/.haven/platforms.toml`, not committed) — machine-local
 ///    additions and full-platform overrides. Use this when a shipped definition becomes
 ///    stale (e.g. a platform changes its skills directory) or when a new platform exists
-///    that hasn't been added to dfiles yet. Same `[[platform]]` array format as the
+///    that hasn't been added to haven yet. Same `[[platform]]` array format as the
 ///    embedded file. Entries with a matching `id` replace the embedded definition entirely;
 ///    new IDs are added to the registry.
 ///
-/// 3. **Repo config** (`ai/platforms.toml` in the dfiles repo, committed) — declares
+/// 3. **Repo config** (`ai/platforms.toml` in the haven repo, committed) — declares
 ///    which platforms are `active` on this machine and applies field-level overrides on
 ///    top of the resolved registry.
 ///
@@ -47,7 +47,7 @@ pub struct PlatformPlugin {
     /// Where skills are deployed for this platform.
     pub skills_dir: PathBuf,
     pub config_file: Option<PathBuf>,
-    /// Binary name used by `dfiles ai discover` to detect the platform.
+    /// Binary name used by `haven ai discover` to detect the platform.
     pub binary: Option<String>,
     /// Whether this platform follows the agentskills.io standard
     /// (skills deployed to `~/.agents/skills/`).
@@ -146,7 +146,7 @@ impl PlatformsConfig {
 /// Build the resolved platform registry by merging two sources:
 ///
 /// 1. The embedded `src/data/platforms.toml` (shipped defaults).
-/// 2. `{home}/.dfiles/platforms.toml` (machine-local overrides/additions, if present).
+/// 2. `{home}/.haven/platforms.toml` (machine-local overrides/additions, if present).
 ///
 /// When both sources define a platform with the same `id`, the local file wins
 /// (full replacement — not field-level merge). New IDs in the local file are
@@ -154,11 +154,11 @@ impl PlatformsConfig {
 ///
 /// Panics at runtime if the embedded TOML is malformed (compile-time defect).
 /// Silently ignores a malformed local file (prints a warning) so that one bad
-/// entry does not prevent dfiles from running.
+/// entry does not prevent haven from running.
 /// Return the full platform registry (embedded defaults merged with the
-/// machine-local `~/.dfiles/platforms.toml` overrides).
+/// machine-local `~/.haven/platforms.toml` overrides).
 ///
-/// Used by `dfiles ai discover` to enumerate all known platforms.
+/// Used by `haven ai discover` to enumerate all known platforms.
 pub fn platform_registry() -> Vec<PlatformPlugin> {
     builtin_platforms()
 }
@@ -172,11 +172,11 @@ fn builtin_platforms() -> Vec<PlatformPlugin> {
 fn builtin_platforms_with_home(home: &Path) -> Vec<PlatformPlugin> {
     // Layer 1: embedded shipped registry.
     let embedded: BuiltinPlatformsFile = toml::from_str(BUILTIN_PLATFORMS_TOML)
-        .expect("src/data/platforms.toml is malformed — this is a dfiles bug");
+        .expect("src/data/platforms.toml is malformed — this is a haven bug");
 
     let mut defs: Vec<BuiltinPlatformDef> = embedded.platform;
 
-    // Layer 2: machine-local registry (~/.dfiles/platforms.toml).
+    // Layer 2: machine-local registry (~/.haven/platforms.toml).
     let local_path = home.join(".dfiles").join("platforms.toml");
     if local_path.exists() {
         match std::fs::read_to_string(&local_path)
@@ -478,7 +478,7 @@ agentskills_compliant = true
         assert!(cross.agentskills_compliant);
     }
 
-    // ── Local registry (~/.dfiles/platforms.toml) ────────────────────────────
+    // ── Local registry (~/.haven/platforms.toml) ────────────────────────────
 
     fn write_local_registry(home: &TempDir, content: &str) {
         let dfiles_dir = home.path().join(".dfiles");

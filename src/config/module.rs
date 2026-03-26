@@ -41,7 +41,7 @@ pub struct ModuleConfig {
 #[derive(Debug, Deserialize, Serialize, Default, Clone)]
 
 pub struct HomebrewConfig {
-    /// Path to this module's Brewfile, relative to the dfiles repo root.
+    /// Path to this module's Brewfile, relative to the haven repo root.
     /// Convention: `brew/Brewfile.<module>`.
     pub brewfile: String,
 
@@ -62,7 +62,7 @@ pub struct HomebrewConfig {
 #[derive(Debug, Deserialize, Serialize, Clone)]
 
 pub struct MiseConfig {
-    /// Path to the mise config file, relative to the dfiles repo root.
+    /// Path to the mise config file, relative to the haven repo root.
     pub config: Option<String>,
 }
 

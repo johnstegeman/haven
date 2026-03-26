@@ -797,6 +797,13 @@ $EDITOR $(haven source-path)/haven.toml
 </tr>
 </tbody>
 </table>
+<p>If haven is installed in a system directory (e.g. <code>/usr/local/bin</code>), the write
+will fail with a permission error. The command detects this and prompts:</p>
+<pre><code>error: Permission denied writing to /usr/local/bin/haven.
+Retry with sudo? [y/N]
+</code></pre>
+<p>Answering <code>y</code> runs <code>sudo mv</code> + <code>sudo chmod 755</code> to complete the install without
+repeating the download.</p>
 <hr />
 <h2 id="haven-unmanaged"><code>haven unmanaged</code><a class="headerlink" href="#haven-unmanaged" title="Permanent link">&para;</a></h2>
 <p>Find files in <code>~</code> not tracked by haven.</p>

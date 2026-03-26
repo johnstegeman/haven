@@ -205,6 +205,10 @@
               <ul class="nav flex-column">
               </ul>
             </li>
+            <li class="nav-item" data-bs-level="2"><a href="#aiconfigtoml" class="nav-link">ai/config.toml</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
             <li class="nav-item" data-bs-level="2"><a href="#aiskillsnameskilltoml" class="nav-link">ai/skills/&lt;name&gt;/skill.toml</a>
               <ul class="nav flex-column">
               </ul>
@@ -394,6 +398,61 @@ skills_dir = &quot;~/.claude/skills&quot;
 </tbody>
 </table>
 <p>Run <code>haven ai discover</code> to auto-generate this file by scanning installed platforms.</p>
+<hr />
+<h2 id="aiconfigtoml"><code>ai/config.toml</code><a class="headerlink" href="#aiconfigtoml" title="Permanent link">&para;</a></h2>
+<p>Optional file that configures the AI skill backend. All fields have defaults;
+the file can be omitted entirely.</p>
+<pre><code class="language-toml"># ai/config.toml
+
+[skills]
+backend      = &quot;native&quot;   # &quot;native&quot; | &quot;agent-skills&quot; | &quot;akm&quot;
+runner       = &quot;skills&quot;   # binary name, path, or array (agent-skills backend only)
+timeout_secs = 120        # subprocess timeout in seconds (agent-skills backend only)
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>backend</code></td>
+<td>string</td>
+<td><code>"native"</code></td>
+<td>Skill backend to use.</td>
+</tr>
+<tr>
+<td><code>runner</code></td>
+<td>string or array</td>
+<td><code>"skills"</code></td>
+<td>Binary (or program + args array) used to invoke agent-skills-cli.</td>
+</tr>
+<tr>
+<td><code>timeout_secs</code></td>
+<td>integer</td>
+<td><code>120</code></td>
+<td>Timeout for agent-skills-cli subprocesses.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="runner-examples">Runner examples<a class="headerlink" href="#runner-examples" title="Permanent link">&para;</a></h3>
+<pre><code class="language-toml"># Global install (default)
+runner = &quot;skills&quot;
+
+# Custom path
+runner = &quot;/usr/local/bin/skills&quot;
+
+# Via bunx — no global install required
+runner = [&quot;bunx&quot;, &quot;agent-skills-cli&quot;]
+
+# Via npx
+runner = [&quot;npx&quot;, &quot;agent-skills-cli&quot;]
+</code></pre>
+<p>Run <code>haven ai backends</code> to see which backends are available and which is active.</p>
 <hr />
 <h2 id="aiskillsnameskilltoml"><code>ai/skills/&lt;name&gt;/skill.toml</code><a class="headerlink" href="#aiskillsnameskilltoml" title="Permanent link">&para;</a></h2>
 <p>Declares a single AI skill.</p>

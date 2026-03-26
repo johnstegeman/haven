@@ -173,7 +173,6 @@ impl SkillBackend for NativeBackend {
 
 #[allow(dead_code)]
 /// Public helper: parse a SKILL.md at `skill_path` and return its metadata.
-/// Used by SkillKitBackend to delegate SKILL.md validation.
 pub fn validate_skill_md(skill_path: &Path) -> Result<SkillMetadata> {
     let skill_md = skill_path.join("SKILL.md");
     if !skill_md.exists() {

@@ -6,7 +6,6 @@
 ///
 /// Backend availability:
 ///   NativeBackend  — always available (built-in, zero deps)
-///   SkillKitBackend — requires runner (e.g. "npx") on PATH
 ///   AkmBackend      — not yet implemented; always errors
 use anyhow::Result;
 use std::path::Path;
@@ -14,8 +13,6 @@ use std::path::Path;
 use crate::ai_config::{AiConfig, BackendKind};
 use crate::skill_backend::SkillBackend;
 use crate::skill_backend_native::NativeBackend;
-use crate::skill_backend_skillkit::SkillKitBackend;
-use crate::util::is_on_path;
 
 /// Instantiate the backend specified in `config`.
 ///
@@ -24,17 +21,6 @@ use crate::util::is_on_path;
 pub fn create_backend(config: &AiConfig, state_dir: &Path) -> Result<Box<dyn SkillBackend>> {
     match config.backend {
         BackendKind::Native => Ok(Box::new(NativeBackend::new(state_dir))),
-
-        BackendKind::SkillKit => {
-            if !is_on_path(&config.runner) {
-                anyhow::bail!(
-                    "skill backend 'skillkit' requires '{}' but it was not found on PATH\n\
-                     hint: install Node.js, or set `runner = \"bunx\"` in ai/config.toml",
-                    config.runner
-                );
-            }
-            Ok(Box::new(SkillKitBackend::new(config)))
-        }
 
         BackendKind::Akm => {
             anyhow::bail!(
@@ -53,27 +39,12 @@ pub struct BackendInfo {
     pub note: String,
 }
 
-pub fn list_backends(config: &AiConfig) -> Vec<BackendInfo> {
-    let skillkit_runner = config.runner.as_str();
-    let skillkit_available = is_on_path(skillkit_runner);
-
+pub fn list_backends() -> Vec<BackendInfo> {
     vec![
         BackendInfo {
             name: "native",
             available: true,
             note: "built-in, zero dependencies".to_string(),
-        },
-        BackendInfo {
-            name: "skillkit",
-            available: skillkit_available,
-            note: if skillkit_available {
-                format!("runner '{}' found on PATH", skillkit_runner)
-            } else {
-                format!(
-                    "runner '{}' not found — install Node.js or set runner = \"bunx\"",
-                    skillkit_runner
-                )
-            },
         },
         BackendInfo {
             name: "akm",
@@ -92,8 +63,6 @@ mod tests {
     fn native_config() -> AiConfig {
         AiConfig {
             backend: BackendKind::Native,
-            runner: "npx".to_string(),
-            timeout_secs: 60,
         }
     }
 
@@ -118,25 +87,9 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let cfg = AiConfig {
             backend: BackendKind::Akm,
-            runner: "bun".to_string(),
-            timeout_secs: 60,
         };
         let err = create_backend(&cfg, dir.path()).err().expect("should have failed");
         let msg = format!("{err:#}");
         assert!(msg.contains("not yet implemented"), "should say not yet implemented: {msg}");
-    }
-
-    #[test]
-    fn factory_errors_loudly_for_unavailable_skillkit_runner() {
-        let dir = TempDir::new().unwrap();
-        let cfg = AiConfig {
-            backend: BackendKind::SkillKit,
-            runner: "no-such-binary-xyz".to_string(),
-            timeout_secs: 60,
-        };
-        let err = create_backend(&cfg, dir.path()).err().expect("should have failed");
-        let msg = format!("{err:#}");
-        assert!(msg.contains("no-such-binary-xyz"), "should name the runner: {msg}");
-        assert!(msg.contains("hint:"), "should include a hint: {msg}");
     }
 }

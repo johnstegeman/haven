@@ -203,22 +203,7 @@ haven ai scan ~/.claude/skills  # import existing unmanaged skills
 haven ai backends          # list available skill backends
 ```
 
-The default backend (`native`) fetches skills directly from GitHub with SHA-256
-verification. To use the [SkillKit](https://skillkit.dev) marketplace instead:
-
-```sh
-npm install -g skillkit
-npx skillkit@latest init   # one-time: initialize agent directories
-```
-
-```toml
-# ai/config.toml
-[skills]
-backend = "skillkit"   # delegates to `skillkit team install`
-```
-
-SkillKit supports both `gh:` marketplace skills and `dir:~/path` local skills.
-Run `npx skillkit@latest init` once per machine (and again when you install a new agent).
+The `native` backend fetches skills directly from GitHub with SHA-256 verification and is the only supported backend. No external tools required.
 
 ---
 

@@ -1,27 +1,18 @@
 /// Pluggable backend trait for AI skill management.
 ///
 /// The default backend (`NativeBackend`) implements fetch + deploy entirely in
-/// Haven.  External backends (e.g. `SkillKitBackend`) shell out to third-party
-/// CLIs.  The interface is intentionally rich so Haven retains full observability
+/// Haven.  The interface is intentionally rich so Haven retains full observability
 /// — state.json and CLAUDE.md are always driven by Haven regardless of backend.
 ///
 /// # Implementor contract
 ///
-/// * `fetch()` — For NativeBackend this downloads from GitHub (or returns a
-///   cache hit).  For external backends (SkillKit, akm) this is a **no-op**:
-///   return `FetchResult { sha: "managed-by-<backend>", was_cached: true, .. }`.
-///   The `expected_sha` parameter is the SHA currently stored in `haven.lock`;
-///   NativeBackend uses it for supply-chain verification.  External backends
-///   **must ignore** it.
+/// * `fetch()` — Downloads from GitHub (or returns a cache hit). The
+///   `expected_sha` parameter is the SHA currently stored in `haven.lock`;
+///   NativeBackend uses it for supply-chain verification.
 ///
-/// * `deploy()` — Deploy a single skill.  External backends that require
-///   bulk-only operations (SkillKit) **must** return
-///   `Err("use deploy_all() — this backend requires bulk deployment")` here
-///   and override `deploy_all()` instead.
+/// * `deploy()` — Deploy a single skill.
 ///
 /// * `deploy_all()` — Default implementation loops over `deploy()`.
-///   SkillKitBackend overrides this to generate a `.skills` manifest and invoke
-///   `skillkit team install` once.
 use anyhow::Result;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -50,8 +41,7 @@ pub trait SkillBackend: Send + Sync {
 
     /// Deploy all skills in a single operation.
     ///
-    /// Default implementation loops over `deploy()`.  SkillKitBackend overrides
-    /// this to call `skillkit team install` once with a generated manifest.
+    /// Default implementation loops over `deploy()`.
     fn deploy_all(
         &self,
         skills: &[(&ResolvedSkill, &DeploymentTarget)],
@@ -66,8 +56,7 @@ pub trait SkillBackend: Send + Sync {
     ///
     /// Default implementation returns `Ok(vec![])` — callers that need update
     /// semantics for the NativeBackend bypass this method and use the lock-clear
-    /// + `SkillCache::ensure` path instead.  External backends (e.g. SkillKit)
-    /// override this to invoke their own update command.
+    /// + `SkillCache::ensure` path instead.
     fn update_all(&self, _skills: &[(&str, &str)]) -> Result<Vec<String>> {
         Ok(vec![])
     }

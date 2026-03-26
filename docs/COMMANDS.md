@@ -489,9 +489,9 @@ Output example:
 
 ```
 Skill backends:
-  ✓ native   (active) — built-in, zero dependencies
-  ✗ skillkit — runner 'npx' not found — install Node.js or set runner = "bunx"
-    akm      — not yet implemented
+
+ * ✓ native — built-in, zero dependencies
+   ✗ akm    — not yet implemented
 ```
 
 See [Skill Backends](skill-backends.md) in the reference for configuration

@@ -12,9 +12,9 @@ Output example:
 
 ```
 Skill backends:
-  ✓ native   (active) — built-in, zero dependencies
-  ✗ skillkit — runner 'npx' not found — install Node.js or set runner = "bunx"
-    akm      — not yet implemented
+
+ * ✓ native — built-in, zero dependencies
+   ✗ akm    — not yet implemented
 ```
 
 ## Configuring a backend
@@ -23,7 +23,7 @@ Create `ai/config.toml` in your repository root (optional — the native backend
 
 ```toml
 [skills]
-backend = "native"   # "native" | "skillkit"
+backend = "native"   # "native" | "akm"
 ```
 
 ## Backend reference
@@ -40,67 +40,6 @@ backend = "native"   # "native" | "skillkit"
 **Configuration:** none required.
 
 **When to use:** default for all users. Fully reproducible and offline-capable after first fetch.
-
----
-
-### skillkit
-
-Delegates to the [SkillKit](https://skillkit.dev) CLI. Provides access to the SkillKit marketplace, cross-agent translation, and AI-powered skill recommendations.
-
-**Prerequisites:** Node.js (for `npx`) or Bun (for `bunx`), with SkillKit installed and initialized:
-
-```sh
-npm install -g skillkit
-# or
-bun add -g skillkit
-
-# One-time per-machine setup: detect installed agents and create their skill directories
-npx skillkit@latest init
-```
-
-`skillkit init` is interactive — it detects which AI agent platforms are installed on your machine (Claude Code, Cursor, etc.) and creates the necessary skill directories for each one. Run it once per machine; re-run it when you install a new agent.
-
-**Configuration:**
-
-```toml
-[skills]
-backend      = "skillkit"
-runner       = "npx"        # "npx" (default) | "bunx" | "bun" | /path/to/binary
-timeout_secs = 60           # subprocess timeout (default: 60)
-```
-
-**How it works:**
-
-On `haven apply --ai`, haven:
-1. Builds a `.skills` manifest from your `ai/skills/` declarations:
-   ```json
-   [
-     {"name": "pdf-processing", "source": "anthropics/skills/pdf-processing", "version": "latest"},
-     {"name": "find-skills",    "source": "vercel-labs/skills/find-skills",    "version": "latest"}
-   ]
-   ```
-2. Calls `skillkit team install --manifest <tmpfile> --json` once (bulk, not per-skill).
-3. Reads the JSON stdout to record deployed paths in `state.json`.
-4. Regenerates CLAUDE.md from the deployed state.
-
-**Manifest format:** `source` is the SkillKit marketplace ID — the `gh:` prefix is stripped and the path is preserved. `version` defaults to `"latest"` unless a pinned version is declared in `skill.toml`.
-
-**Lock file behavior:** `haven.lock` does NOT record SHAs for SkillKit-managed skills. Version pinning is delegated to SkillKit internally. The `fetch()` step returns a synthetic `sha: "managed-by-skillkit"` and is otherwise a no-op — SkillKit handles downloading during deployment.
-
-**Source restrictions:** SkillKit supports `gh:` and `dir:` sources. Skills declared with a `repo:` source cause an immediate error when the SkillKit backend is active — `repo:` is a haven-internal source type with no SkillKit equivalent.
-
-**Unavailability behavior:** If the configured runner is not on PATH, `haven apply` exits immediately:
-
-```
-error: skill backend 'skillkit' requires 'npx' but it was not found on PATH
-hint: install Node.js, or set `runner = "bunx"` in ai/config.toml
-```
-
-Haven never silently falls back to the native backend — the configuration is always honored exactly.
-
-**Runner detection:** If `runner` is `"npx"`, `"bunx"`, or `"bun"`, haven prepends `"skillkit"` to the argument list (`npx skillkit team install ...`). If `runner` is an absolute or relative path (contains `/`), haven calls it directly — useful for a standalone `skillkit` binary.
-
-**When to use:** when you want access to the SkillKit marketplace, cross-agent skill translation, or `skillkit recommend` for discovery. Note: `haven.lock` no longer pins skill versions for SkillKit-managed skills when you switch to this backend.
 
 ---
 
@@ -123,67 +62,7 @@ Regardless of backend:
 | Platform targeting (`ai/platforms.toml`) | haven |
 | Ownership tracking (`state.json`) | haven |
 | CLAUDE.md generation | haven |
-| Collision detection warnings | haven (native) / not available (skillkit) |
+| Collision detection warnings | haven |
 | `haven ai discover` / `search` / `scan` | haven |
-| SHA lock file | haven (native only) |
-| Fetch + cache | haven (native) / skillkit (skillkit) |
-
-## Switching backends
-
-Your skill declarations (`ai/skills/`), platform config (`ai/platforms.toml`), and deployed skill names stay exactly the same when switching backends. Only `ai/config.toml` changes.
-
-### native → skillkit
-
-1. Install SkillKit:
-   ```sh
-   npm install -g skillkit
-   # or: bun add -g skillkit
-   ```
-
-2. Initialize SkillKit for your agent platforms (one-time per machine):
-   ```sh
-   npx skillkit@latest init
-   ```
-   This detects which AI agents are installed (Claude Code, Cursor, etc.) and creates their skill directories. Re-run this whenever you install a new agent platform.
-
-3. Create or update `ai/config.toml`:
-   ```toml
-   [skills]
-   backend = "skillkit"
-   runner  = "npx"   # or "bunx" if you installed via bun
-   ```
-
-4. Run apply:
-   ```sh
-   haven apply --ai
-   ```
-   haven generates a `.skills` manifest from your existing `ai/skills/` declarations and calls `skillkit team install`. Your skills are redeployed to the same `skills_dir` locations as before.
-
-5. (Optional) Commit the change:
-   ```sh
-   git add ai/config.toml && git commit -m "chore: switch to skillkit backend"
-   ```
-   Note: `haven.lock` SHA entries for your skills are no longer updated by haven when using SkillKit. They become stale but are harmlessly ignored.
-
-### skillkit → native
-
-1. Update `ai/config.toml`:
-   ```toml
-   [skills]
-   backend = "native"
-   ```
-   Or remove `ai/config.toml` entirely — `native` is the default.
-
-2. Run apply:
-   ```sh
-   haven apply --ai
-   ```
-   haven fetches each skill directly from its `gh:` source, verifies SHA, and redeploys. SHA entries in `haven.lock` are rebuilt from scratch.
-
-### Checking what's active
-
-```sh
-haven ai backends
-```
-
-The active backend is marked with `(active)`. Use this to confirm the switch took effect.
+| SHA lock file | haven |
+| Fetch + cache | haven |

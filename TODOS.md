@@ -8,60 +8,7 @@ Updated by /plan-eng-review on 2026-03-23 (jj VCS backend)
 Updated by /plan-eng-review on 2026-03-23 (security-scan feature)
 Updated by /plan-ceo-review on 2026-03-24 (swappable skill backends)
 Updated by /plan-eng-review on 2026-03-24 (swappable skill backends)
-
----
-
-## P3: SkillKit collision protection (pre-scan)
-
-**What:** Before calling `skillkit team install`, scan the target `skills_dir` for unmanaged paths (not in state.json's `owned_targets`) and warn the user about paths that SkillKit might clobber.
-
-**Why:** `DeployResult.was_collision` is always `false` for SkillKitBackend — SkillKit's stdout doesn't expose whether it overwrote unmanaged content. NativeBackend warns and skips; SkillKit silently clobbers. This is a regression in safety for users switching from native to SkillKit.
-
-**Pros:** Restores the collision warning that NativeBackend provides. Prevents data loss for users who have manually-placed skills in the same directory.
-
-**Cons:** ~30 lines of pre-scan logic in SkillKitBackend. Minor complexity addition to Phase 3.
-
-**Context:** Identified during eng review of `docs/designs/swappable-skill-backends.md`. Pre-scan loads `state.json` owned_targets, lists `skills_dir` contents, and warns about any entry not in owned_targets before invoking skillkit. The scan is cheap (directory listing).
-
-**Effort:** XS (human: ~1h / CC: ~5min)
-**Priority:** P3
-**Depends on / blocked by:** Phase 3 of swappable-skill-backends (SkillKitBackend)
-
----
-
-## P2: SkillKit integration test in CI
-
-**What:** GitHub Actions workflow job that installs Node.js + skillkit and runs the `#[ignore]`-tagged integration tests for SkillKitBackend on a schedule or PR label.
-
-**Why:** Without a CI gate, the SkillKit integration tests only run locally. SkillKit's API or manifest format could change and the tests would silently bitrot between releases.
-
-**Pros:** Catches SkillKit API changes early. Gives confidence that `backend = "skillkit"` actually works before each Haven release.
-
-**Cons:** CI complexity. Requires Node.js in CI runner. SkillKit network calls in tests (use `--offline` flag if available, or cache).
-
-**Context:** Integration tests are gated behind `HAVEN_TEST_SKILLKIT=1` and `#[ignore]`. A scheduled nightly job (or a `ci:skillkit` PR label) would trigger them. Use a separate workflow matrix job to keep the main CI fast.
-
-**Effort:** S (human: ~2h / CC: ~10min)
-**Priority:** P2
-**Depends on / blocked by:** Phase 3 of swappable-skill-backends (SkillKitBackend ships first)
-
----
-
-## P3: Per-skill backend override
-
-**What:** Optional `backend` field in `ai/skills/<name>/skill.toml` to override the global backend for individual skills.
-
-**Why:** Lets users mix native (SHA-locked, cryptographically verified) for sensitive skills alongside SkillKit (marketplace, cross-agent) for community skills. Today the global backend applies to all skills.
-
-**Pros:** Fine-grained control; security-conscious users can keep critical skills native-only while still getting marketplace benefits for others.
-
-**Cons:** Adds configuration complexity before there's proven demand. Global backend is sufficient for all known use cases today.
-
-**Context:** Deferred during CEO review of `docs/designs/swappable-skill-backends.md`. Add `backend: Option<String>` to `SkillDeclaration` struct, parsed from `skill.toml`. Factory resolves per-skill backend by falling back to global if unset.
-
-**Effort:** S (human: ~3h / CC: ~10min)
-**Priority:** P3
-**Depends on / blocked by:** Phase 2 of swappable-skill-backends (backend selection infrastructure)
+Updated 2026-03-26 (skillkit backend removed)
 
 ---
 
@@ -75,11 +22,11 @@ Updated by /plan-eng-review on 2026-03-24 (swappable skill backends)
 
 **Cons:** akm is currently early (low stars, low activity). Building against an immature tool is risky.
 
-**Context:** The `SkillBackend` trait will be in place after swappable-skill-backends ships. Implementing AkmBackend is a `src/skill_backend_akm.rs` file + registration in factory — no architectural changes needed.
+**Context:** The `SkillBackend` trait is in place. Implementing AkmBackend is a `src/skill_backend_akm.rs` file + registration in factory — no architectural changes needed.
 
 **Effort:** M (human: ~1 day / CC: ~20min)
 **Priority:** P3
-**Depends on / blocked by:** akm reaching sufficient maturity + Phase 3 of swappable-skill-backends (SkillKitBackend as reference impl)
+**Depends on / blocked by:** akm reaching sufficient maturity
 
 ---
 

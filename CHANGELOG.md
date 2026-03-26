@@ -9,6 +9,13 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Removed
+
+- **SkillKit backend** — the `skillkit` backend has been removed. The `native`
+  backend remains the only supported backend. Any `ai/config.toml` with
+  `backend = "skillkit"` will error with an "unknown skill backend" message;
+  remove that line or set `backend = "native"` to continue.
+
 ---
 
 ## [v0.7.1] — 2026-03-26
@@ -38,30 +45,6 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   your live copy have diverged. Run `haven status` before `haven apply` to see exactly
   what you've locally modified.
 
-- **SkillKit `dir:` source support** — skills declared with `source = "dir:~/path"`
-  now work with the SkillKit backend. Haven expands the path and passes it to
-  `skillkit team install`, so local-development skills and marketplace skills can live
-  in the same manifest.
-
-- **`haven ai update` with SkillKit** — when the SkillKit backend is configured,
-  `haven ai update` now delegates to `skillkit team install --update` instead of the
-  native lock-clear path, letting SkillKit manage version pinning while haven manages
-  state tracking.
-
-- **SkillKit init guidance** — if `skillkit team install` exits non-zero, haven now
-  surfaces an actionable hint: run `npx skillkit@latest init` if the error looks like
-  an uninitialized agent, or `npx skillkit@latest doctor` for other failures.
-
-### Changed
-
-- **`docs/reference/skill-backends.md`** — the "native → skillkit" setup guide now
-  includes `skillkit init` as a required one-time-per-machine step. The `dir:` source
-  restriction note is corrected: `dir:` sources are now supported; only `repo:` sources
-  are unsupported with SkillKit.
-
-- **`docs/guides/ai-skills.md`** — SkillKit prerequisites now explicitly include
-  `npx skillkit@latest init` with an explanation of what it does.
-
 ---
 
 ## [v0.6.0] — 2026-03-24
@@ -72,41 +55,15 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   configurable backend. Configure via `ai/config.toml`:
   ```toml
   [skills]
-  backend = "skillkit"   # "native" (default) | "skillkit"
+  backend = "native"   # default
   ```
-  Existing repos need no changes — the `native` backend is the default and
-  behaves identically to before.
+  Existing repos need no changes — the `native` backend is the default.
 
 - **`haven ai backends`** — new subcommand that lists all known backends with
-  availability status and the currently active backend marked:
-  ```
-  Skill backends:
-    ✓ native   (active) — built-in, zero dependencies
-    ✗ skillkit — runner 'npx' not found — install Node.js or set runner = "bunx"
-      akm      — not yet implemented
-  ```
+  availability status and the currently active backend marked.
 
-- **SkillKitBackend** — opt-in backend that delegates to the
-  [SkillKit](https://skillkit.dev) CLI. On `haven apply --ai`, haven generates
-  a `.skills` manifest from your declared skills and calls
-  `skillkit team install` once (bulk, not per-skill). Gives access to
-  SkillKit's 400K+ marketplace, cross-agent skill translation, and
-  `skillkit recommend` for discovery. Runner is configurable:
-  ```toml
-  [skills]
-  backend = "skillkit"
-  runner  = "npx"   # "npx" (default) | "bunx" | "bun" | /path/to/binary
-  ```
-  If the configured runner is not on PATH, `haven apply` exits immediately
-  with an actionable error — never a silent fallback to native.
-
-- **`docs/reference/skill-backends.md`** — new reference page covering all
-  backends, their configuration, and step-by-step switching instructions.
-
-### Changed
-
-- **`docs/guides/ai-skills.md`** — new "Backend selection" section covering
-  native vs skillkit configuration and a link to the full reference.
+- **`docs/reference/skill-backends.md`** — new reference page covering the
+  native backend configuration.
 
 ---
 

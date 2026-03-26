@@ -146,7 +146,7 @@ haven ai scan ~/.claude/skills --dry-run    # preview only
 
 ## Backend selection
 
-haven ships with a built-in skill backend (`native`) and supports external backends as opt-in alternatives. The backend controls how skills are fetched, cached, and deployed.
+haven ships with a built-in skill backend (`native`). The backend controls how skills are fetched, cached, and deployed.
 
 ```sh
 haven ai backends          # list all backends and their availability
@@ -156,7 +156,7 @@ Configure via `ai/config.toml` (optional — defaults to `native`):
 
 ```toml
 [skills]
-backend = "native"         # "native" (default) | "skillkit"
+backend = "native"         # currently only "native" is supported
 ```
 
 ### native (default)
@@ -165,32 +165,7 @@ Built-in, zero dependencies. Haven fetches skills directly from GitHub with SHA-
 
 No configuration required. This is what you get without any `ai/config.toml`.
 
-### skillkit
-
-Delegates to the [SkillKit](https://skillkit.dev) CLI for access to its 400K+ skill marketplace, cross-agent skill translation, and AI-powered recommendations.
-
-**Prerequisites:**
-
-```sh
-npm install -g skillkit      # or: bun add -g skillkit
-npx skillkit@latest init     # one-time per machine: initialize agent platforms
-```
-
-`skillkit init` detects which AI agent platforms you have installed (Claude Code, Cursor, etc.) and sets up their skill directories. Re-run it whenever you install a new agent.
-
-```toml
-[skills]
-backend = "skillkit"
-runner  = "npx"       # "npx" (default) | "bunx" | "bun" | path to binary
-```
-
-With SkillKit as backend, `haven apply --ai` generates a `.skills` manifest from your declared skills and calls `skillkit team install` once — a single bulk operation rather than per-skill deploys. State tracking and CLAUDE.md generation still happen in haven.
-
-**Note:** `haven.lock` does not record SHAs for SkillKit-managed skills. Version pinning is delegated to SkillKit.
-
-If SkillKit is configured but unavailable, `haven apply` exits immediately with an actionable error — haven never silently falls back to the native backend.
-
-See [Skill Backends](../reference/skill-backends.md) for full configuration reference, per-backend behavior, and step-by-step switching instructions.
+See [Skill Backends](../reference/skill-backends.md) for full configuration reference.
 
 ## Supply chain protection
 

@@ -1093,8 +1093,7 @@ fn apply_scripts(scripts: &[crate::source::ScriptEntry], state: &mut State) -> R
 ///   2. Fetch all cache-miss skills in parallel (one thread per skill).
 ///      On failure: mark skill as failed, continue with others.
 ///   3. Deploy all non-failed skills via backend.deploy_all() and write AiState
-///      once (atomic). NativeBackend deploys per-skill; SkillKitBackend calls
-///      `skillkit team install` once with a generated manifest.
+///      once (atomic).
 fn apply_ai_skills(
     opts: &ApplyOptions<'_>,
     state: &mut State,
@@ -1120,10 +1119,6 @@ fn apply_ai_skills(
     // Validate backend config and availability before starting any work.
     let ai_config = AiConfig::load(opts.repo_root)?;
     let backend = create_backend(&ai_config, opts.state_dir)?;
-    // SkillCache drives the native parallel-fetch phase.
-    // deploy_all() handles the deploy phase for all backends:
-    //   NativeBackend  — default loops over deploy() per skill.
-    //   SkillKitBackend — overrides to call `skillkit team install` once.
     let skill_cache = SkillCache::new(opts.state_dir);
 
     // Collect existing deployed state so we can check ownership.
@@ -1312,9 +1307,6 @@ fn apply_ai_skills(
     // so github-copilot and cross-client platforms sharing ~/.agents/skills/ only
     // result in a single deploy call — then hand the entire batch to deploy_all().
     //
-    // NativeBackend: default deploy_all() loops per-skill.
-    // SkillKitBackend: override calls `skillkit team install` once.
-
     struct DeployEntry {
         skill_name: String,
         source_str: String,

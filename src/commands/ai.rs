@@ -12,11 +12,10 @@ use anyhow::{Context, Result};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
-use crate::ai_config::{AiConfig, BackendKind};
+use crate::ai_config::AiConfig;
 use crate::ai_platform::{platform_registry, PlatformsConfig};
 use crate::ai_skill::{DeployMethod, SkillSource, SkillsConfig};
 use crate::lock::LockFile;
-use crate::skill_backend_factory::create_backend;
 use crate::skill_cache::SkillCache;
 use crate::state::State;
 
@@ -477,18 +476,10 @@ pub struct UpdateOptions<'a> {
 /// Fetch the latest version of skills, ignoring the current lock SHA.
 ///
 /// Unlike `fetch`, this clears the lock entry before fetching so that
-/// `SkillCache::ensure()` always downloads from source.  When the configured
-/// backend is SkillKit the update is delegated to `skillkit team install
-/// --update` via `SkillBackend::update_all()`.
+/// `SkillCache::ensure()` always downloads from source.
 pub fn update(opts: &UpdateOptions<'_>) -> Result<()> {
     let skills = load_skills_required(opts.repo_root)?;
-    let ai_config = AiConfig::load(opts.repo_root).unwrap_or_default();
 
-    if matches!(ai_config.backend, BackendKind::SkillKit) {
-        return update_skillkit(opts, &skills, &ai_config);
-    }
-
-    // ── Native backend path ──────────────────────────────────────────────────
     let mut lock = LockFile::load(opts.repo_root)?;
     let cache = SkillCache::new(opts.state_dir);
 
@@ -533,48 +524,6 @@ pub fn update(opts: &UpdateOptions<'_>) -> Result<()> {
 
     if errors > 0 {
         anyhow::bail!("{} skill(s) failed to update — see errors above.", errors);
-    }
-    Ok(())
-}
-
-/// SkillKit-specific update path: delegates to `skillkit team install --update`.
-fn update_skillkit(
-    opts: &UpdateOptions<'_>,
-    skills: &SkillsConfig,
-    ai_config: &AiConfig,
-) -> Result<()> {
-    let backend = create_backend(ai_config, opts.state_dir)?;
-    let to_update = filter_skills(&skills.skills, opts.name);
-
-    // Collect (name, source) pairs for updatable sources.
-    // repo: skills live inside the haven repo itself — SkillKit has no concept of them.
-    let mut pairs: Vec<(&str, &str)> = Vec::new();
-    for decl in &to_update {
-        match SkillSource::parse(&decl.source)? {
-            SkillSource::Repo => {
-                if opts.name.is_some() {
-                    println!(
-                        "Skill '{}' uses a repo: source — nothing to update via SkillKit.",
-                        decl.name
-                    );
-                }
-            }
-            _ => pairs.push((&decl.name, &decl.source)),
-        }
-    }
-
-    if pairs.is_empty() {
-        println!("No updatable skills found. Nothing to update.");
-        return Ok(());
-    }
-
-    let updated = backend.update_all(&pairs)?;
-    if updated.is_empty() {
-        println!("Skills are already up to date.");
-    } else {
-        for name in &updated {
-            println!("Updated '{}'.", name);
-        }
     }
     Ok(())
 }
@@ -723,11 +672,7 @@ pub struct SearchOptions<'a> {
 /// Search for skills using the configured backend and display matching results.
 pub fn search(opts: &SearchOptions<'_>) -> Result<()> {
     let ai_config = AiConfig::load(opts.repo_root)?;
-    let backend_label = match ai_config.backend {
-        BackendKind::SkillKit => "skillkit",
-        _ => "skills.sh",
-    };
-    print!("Searching {} for '{}' ...", backend_label, opts.query);
+    print!("Searching skills.sh for '{}' ...", opts.query);
     io::stdout().flush()?;
 
     let results = dispatch_search(&ai_config, opts.query, opts.limit as usize)?;
@@ -873,17 +818,13 @@ pub fn scan(opts: &ScanOptions<'_>) -> Result<()> {
                 src.clone()
             }
             None => {
-                let backend_label = match ai_config.backend {
-                    BackendKind::SkillKit => "skillkit",
-                    _ => "skills.sh",
-                };
-                print!("  No git remote — searching {} for '{}' ...", backend_label, name);
+                print!("  No git remote — searching skills.sh for '{}' ...", name);
                 io::stdout().flush()?;
                 scan_search_results = dispatch_search(&ai_config, name, 10).unwrap_or_default();
                 println!();
 
                 if scan_search_results.is_empty() {
-                    println!("  No matches found on {}.", backend_label);
+                    println!("  No matches found on skills.sh.");
                     println!("  Skip with 'n' or enter a source manually with 'e'.");
                     String::new()
                 } else {
@@ -1033,11 +974,8 @@ pub struct SearchEntry {
 }
 
 /// Route a search query to the appropriate backend based on `AiConfig`.
-fn dispatch_search(config: &AiConfig, query: &str, limit: usize) -> Result<Vec<SearchEntry>> {
-    match config.backend {
-        BackendKind::SkillKit => skillkit_search(&config.runner, query, limit, config.timeout_secs),
-        _ => skillssh_search(query, limit),
-    }
+fn dispatch_search(_config: &AiConfig, query: &str, limit: usize) -> Result<Vec<SearchEntry>> {
+    skillssh_search(query, limit)
 }
 
 // ─── skills.sh backend ────────────────────────────────────────────────────────
@@ -1070,87 +1008,6 @@ fn skillssh_search(query: &str, limit: usize) -> Result<Vec<SearchEntry>> {
     Ok(parsed.skills.into_iter().map(|e| SearchEntry {
         source: format!("gh:{}", e.id),
         installs: Some(e.installs),
-    }).collect())
-}
-
-// ─── skillkit search backend ──────────────────────────────────────────────────
-
-/// Search via `<runner> skillkit marketplace search <query> --json --limit <n>`.
-///
-/// SkillKit's marketplace command outputs terminal escape codes (spinner) mixed
-/// into stdout, followed by a JSON object on the same line as the cursor-show
-/// escape. We locate the JSON by finding the first `{` in the output.
-///
-/// Output shape (after stripping escapes):
-/// ```json
-/// {"skills":[{"id":"owner/repo/path","name":"...","description":"..."}],"total":N,"query":"..."}
-/// ```
-/// `id` is `owner/repo/path` — we prepend `gh:` to form the Haven source key.
-fn skillkit_search(runner: &str, query: &str, limit: usize, timeout_secs: u64) -> Result<Vec<SearchEntry>> {
-    use std::process::{Command, Stdio};
-    use std::time::Duration;
-
-    let mut cmd = Command::new(runner);
-    if matches!(runner, "npx" | "bunx" | "bun") {
-        cmd.arg("skillkit");
-    }
-    let mut child = cmd
-        .args(["marketplace", "search", query, "--json", "--limit", &limit.to_string()])
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .with_context(|| format!("failed to spawn '{}' skillkit marketplace search", runner))?;
-
-    let timeout = Duration::from_secs(timeout_secs);
-    let start = std::time::Instant::now();
-    loop {
-        match child.try_wait()? {
-            Some(status) => {
-                let output = child.wait_with_output()?;
-                if !status.success() {
-                    let stderr = String::from_utf8_lossy(&output.stderr);
-                    anyhow::bail!("skillkit marketplace search failed ({}): {}", status.code().unwrap_or(-1), stderr.trim());
-                }
-                let stdout = String::from_utf8(output.stdout)
-                    .context("skillkit marketplace search produced invalid UTF-8")?;
-                return parse_skillkit_search_results(&stdout);
-            }
-            None => {
-                if start.elapsed() >= timeout {
-                    let _ = child.kill();
-                    let _ = child.wait();
-                    anyhow::bail!("skillkit marketplace search timed out after {} seconds", timeout_secs);
-                }
-                std::thread::sleep(Duration::from_millis(100));
-            }
-        }
-    }
-}
-
-#[derive(serde::Deserialize)]
-struct SkillKitMarketplaceResponse {
-    skills: Vec<SkillKitMarketplaceEntry>,
-}
-
-#[derive(serde::Deserialize)]
-struct SkillKitMarketplaceEntry {
-    /// "owner/repo/path" — Haven prepends "gh:" to form the source key.
-    id: String,
-}
-
-fn parse_skillkit_search_results(stdout: &str) -> Result<Vec<SearchEntry>> {
-    // SkillKit emits terminal escape codes (spinner) into stdout before the JSON.
-    // The JSON object always starts at the first '{'.
-    let json_start = match stdout.find('{') {
-        Some(i) => i,
-        None => return Ok(vec![]),
-    };
-    let json = &stdout[json_start..];
-    let response: SkillKitMarketplaceResponse = serde_json::from_str(json)
-        .with_context(|| format!("failed to parse skillkit marketplace search output: {json}"))?;
-    Ok(response.skills.into_iter().map(|e| SearchEntry {
-        source: format!("gh:{}", e.id),
-        installs: None,
     }).collect())
 }
 
@@ -1264,7 +1121,7 @@ pub fn backends(opts: &BackendsOptions<'_>) -> Result<()> {
     let config = crate::ai_config::AiConfig::load(opts.repo_root)
         .unwrap_or_default();
     let active = config.backend.as_str();
-    let infos = crate::skill_backend_factory::list_backends(&config);
+    let infos = crate::skill_backend_factory::list_backends();
 
     println!("Skill backends:");
     println!();

@@ -166,13 +166,11 @@ impl Drop for ApplyLock {
 
 /// Returns true if a process with the given PID is currently running.
 fn is_process_alive(pid: u32) -> bool {
-    // On Linux, check /proc. On macOS, use kill(pid, 0).
-    std::path::Path::new(&format!("/proc/{}/status", pid)).exists()
-        || std::process::Command::new("kill")
-            .args(["-0", &pid.to_string()])
-            .output()
-            .map(|o| o.status.success())
-            .unwrap_or(false)
+    use nix::sys::signal::kill;
+    use nix::unistd::Pid;
+    // kill(pid, None) sends signal 0: succeeds if the process exists and is
+    // accessible, fails with ESRCH if the process is gone.
+    kill(Pid::from_raw(pid as i32), None).is_ok()
 }
 
 pub fn run(opts: &ApplyOptions<'_>) -> Result<ApplyOutcome> {

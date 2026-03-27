@@ -7,6 +7,38 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [v0.9.0] — 2026-03-27
+
+### Added
+
+- **`haven telemetry` subcommand** — telemetry management is now a proper subcommand (`haven telemetry status`, `haven telemetry on/off`). Top-level shortcuts `haven note`, `haven bug`, and `haven question` are also added for quick feedback capture.
+
+- **`haven status --verbose`** — shows internal state detail (lock files, paths, raw state) useful for debugging.
+
+- **`--filter` and `--count` flags on `haven list`** — filter listed files by pattern and/or print only a count.
+
+- **`haven update <file>`** — top-level alias for `haven add --update`.
+
+- **`--cmd-name` flag on `haven completions`** — allows generating completions for an alias (e.g. `h`) instead of the default binary name.
+
+### Fixed
+
+- **`haven ai remove` accepts source URL** — `haven ai remove` now matches by source URL (or suffix) in addition to skill name, and shows available skill names when no match is found.
+
+- **Local platforms registry path** — `haven` now reads the local platforms registry from `~/.haven` instead of the old `~/.dfiles` path.
+
+- **Atomic writes for state files** — `state.json` and `haven.lock` are now written via temp+rename to prevent partial writes on crash.
+
+- **`apply.lock` race condition** — lock file creation now uses `O_EXCL` (create-new) to eliminate a TOCTOU race.
+
+- **Process liveness check** — replaced the `kill(0)` subprocess approach with the `nix` crate for cleaner cross-platform signal handling.
+
+- **Dry-run output memory leak** — removed `.leak()` call in dry-run output path.
+
+- **Stale `dfiles` references** — remaining internal comments and test names referencing `dfiles` have been updated to `haven`.
+
+---
+
 ## [v0.8.0] — 2026-03-27
 
 ### Added

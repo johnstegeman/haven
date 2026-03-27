@@ -263,9 +263,22 @@ enum Commands {
     ///
     /// Bash (add to ~/.bashrc):
     ///   source <(haven completions bash)
+    ///
+    /// If you use a shell alias (e.g. `alias hv=haven`), pass --cmd-name so
+    /// completions fire on the alias rather than the binary name:
+    ///
+    ///   haven completions fish --cmd-name hv | source
+    ///   haven completions fish --cmd-name hv > ~/.config/fish/completions/hv.fish
     Completions {
         /// Shell to generate completions for: fish, zsh, or bash.
         shell: Shell,
+
+        /// Override the command name used in the completion script.
+        ///
+        /// Useful when you invoke haven via an alias (e.g. `hv`). The generated
+        /// completions will trigger on the alias name instead of `haven`.
+        #[arg(long, value_name = "NAME")]
+        cmd_name: Option<String>,
     },
 
     /// Print the path to the haven repo directory and exit.
@@ -921,8 +934,9 @@ fn run() -> Result<()> {
     let cli = Cli::parse();
 
     // Completions don't need a repo — handle before repo_root() resolution.
-    if let Commands::Completions { shell } = &cli.command {
-        generate(*shell, &mut Cli::command(), "haven", &mut std::io::stdout());
+    if let Commands::Completions { shell, cmd_name } = &cli.command {
+        let name = cmd_name.as_deref().unwrap_or("haven");
+        generate(*shell, &mut Cli::command(), name, &mut std::io::stdout());
         return Ok(());
     }
 
@@ -1282,8 +1296,7 @@ fn run() -> Result<()> {
             })?;
         }
 
-        // Already handled above before repo resolution — unreachable here.
-        Commands::Completions { .. } => unreachable!(),
+        Commands::Completions { .. } => unreachable!(), // handled before repo resolution
         // Annotations and --list* are handled above; --enable/--disable and bare status fall through.
         Commands::Telemetry { note: Some(_), .. }
         | Commands::Telemetry { action: Some(_), .. }

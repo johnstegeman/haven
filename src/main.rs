@@ -337,13 +337,16 @@ enum Commands {
     /// List all tracked items: files, Homebrew packages, and AI skills.
     ///
     /// Without flags, shows all sections. Use --files, --brews, or --ai to
-    /// show only that section.
+    /// show only that section. Use --filter to search by substring, and
+    /// --count to print just the total count instead of individual entries.
     ///
     /// Examples:
     ///   haven list
     ///   haven list --files
     ///   haven list --brews
     ///   haven list --ai
+    ///   haven list --files --filter settings
+    ///   haven list --files --count
     List {
         /// Show only tracked dotfiles.
         #[arg(long, conflicts_with_all = ["brews", "ai"])]
@@ -361,6 +364,14 @@ enum Commands {
         /// Defaults to the last-used profile (same as `haven apply`).
         #[arg(long)]
         profile: Option<String>,
+
+        /// Show only entries whose path or name contains this substring (case-insensitive).
+        #[arg(long, value_name = "PATTERN")]
+        filter: Option<String>,
+
+        /// Print only the total count of matching entries instead of listing them.
+        #[arg(long)]
+        count: bool,
     },
 
     /// Start tracking a dotfile by copying it into the repo's source/ directory.
@@ -1055,7 +1066,7 @@ fn run() -> Result<()> {
             })?;
         }
 
-        Commands::List { files, brews, ai, profile } => {
+        Commands::List { files, brews, ai, profile, filter, count } => {
             let resolved = resolve_profile(profile.as_deref(), &state_dir);
             commands::list::run(&commands::list::ListOptions {
                 repo_root: &repo,
@@ -1063,6 +1074,8 @@ fn run() -> Result<()> {
                 show_files: *files,
                 show_brews: *brews,
                 show_ai: *ai,
+                filter: filter.as_deref(),
+                count: *count,
             })?;
         }
 

@@ -177,7 +177,7 @@ fn builtin_platforms_with_home(home: &Path) -> Vec<PlatformPlugin> {
     let mut defs: Vec<BuiltinPlatformDef> = embedded.platform;
 
     // Layer 2: machine-local registry (~/.haven/platforms.toml).
-    let local_path = home.join(".dfiles").join("platforms.toml");
+    let local_path = home.join(".haven").join("platforms.toml");
     if local_path.exists() {
         match std::fs::read_to_string(&local_path)
             .map_err(|e| e.to_string())
@@ -481,9 +481,9 @@ agentskills_compliant = true
     // ── Local registry (~/.haven/platforms.toml) ────────────────────────────
 
     fn write_local_registry(home: &TempDir, content: &str) {
-        let dfiles_dir = home.path().join(".dfiles");
-        std::fs::create_dir_all(&dfiles_dir).unwrap();
-        std::fs::write(dfiles_dir.join("platforms.toml"), content).unwrap();
+        let haven_dir = home.path().join(".haven");
+        std::fs::create_dir_all(&haven_dir).unwrap();
+        std::fs::write(haven_dir.join("platforms.toml"), content).unwrap();
     }
 
     #[test]

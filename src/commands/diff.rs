@@ -33,7 +33,7 @@ use crate::ai_skill::{SkillSource, SkillsConfig};
 use crate::config::{sort_modules, HavenConfig, ModuleConfig};
 use crate::config::module::expand_tilde;
 use crate::diff_util::{colorize_diff, stat_line, unified_diff};
-use crate::drift::{check_drift, check_drift_link, check_drift_link_template, check_drift_template, DriftKind};
+use crate::drift::{check_drift_haven_aware, check_drift_link, check_drift_link_template, check_drift_template, DriftKind};
 use crate::ignore::IgnoreList;
 use crate::lock::LockFile;
 use crate::skill_cache::SkillCache;
@@ -235,7 +235,7 @@ pub fn run(opts: &DiffOptions<'_>) -> Result<bool> {
             }
 
             // Plain file.
-            let kind = check_drift(&entry.src, &dest);
+            let kind = check_drift_haven_aware(&entry.src, &dest);
             match kind {
                 DriftKind::Clean => {}
                 DriftKind::Missing => {
@@ -254,7 +254,9 @@ pub fn run(opts: &DiffOptions<'_>) -> Result<bool> {
                         section_lines.push(format!("  M {}  (binary files differ)", label));
                     } else {
                         let src_text = String::from_utf8_lossy(&src_bytes).into_owned();
-                        let dest_text = String::from_utf8_lossy(&dest_bytes).into_owned();
+                        let dest_text = crate::claude_md::strip_haven_section(
+                            &String::from_utf8_lossy(&dest_bytes),
+                        );
                         push_diff_output(
                             &dest_text,                        // a = current on disk
                             &src_text,                         // b = what apply would write

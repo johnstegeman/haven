@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 use crate::config::{sort_modules, HavenConfig, ModuleConfig};
 use crate::config::module::expand_tilde;
-use crate::drift::{check_drift, check_drift_link, check_drift_link_template, check_drift_template, drift_marker, DriftKind};
+use crate::drift::{check_drift_haven_aware, check_drift_link, check_drift_link_template, check_drift_template, drift_marker, DriftKind};
 use crate::fs::sha256_of_bytes;
 use crate::ignore::IgnoreList;
 use crate::source;
@@ -73,7 +73,7 @@ pub fn run(opts: &StatusOptions<'_>) -> Result<()> {
             } else if entry.flags.template {
                 check_drift_template(&entry.src, &template_ctx, &dest)?
             } else {
-                check_drift(&entry.src, &dest)
+                check_drift_haven_aware(&entry.src, &dest)
             };
 
             // C marker: check whether dest was edited since last apply.
@@ -85,9 +85,16 @@ pub fn run(opts: &StatusOptions<'_>) -> Result<()> {
                 && !entry.flags.create_only
             {
                 if let Some(prior) = state.applied_files.get(&entry.dest_tilde) {
-                    match std::fs::read(&dest) {
-                        Ok(bytes) => sha256_of_bytes(&bytes) != prior.sha256,
-                        Err(_) => false, // unreadable dest — no C marker
+                    match std::fs::read_to_string(&dest) {
+                        Ok(text) => {
+                            let stripped = crate::claude_md::strip_haven_section(&text);
+                            sha256_of_bytes(stripped.as_bytes()) != prior.sha256
+                        }
+                        // Binary or unreadable — fall back to raw bytes.
+                        Err(_) => match std::fs::read(&dest) {
+                            Ok(bytes) => sha256_of_bytes(&bytes) != prior.sha256,
+                            Err(_) => false,
+                        },
                     }
                 } else {
                     false // no prior hash — no C marker
@@ -205,20 +212,27 @@ pub fn run(opts: &StatusOptions<'_>) -> Result<()> {
 
     // ── AI skill drift (ai/skills.toml) ──────────────────────────────────────
     if show_ai {
+        let mut ai_lines: Vec<String> = Vec::new();
+
         if let Some(skills_config) = crate::ai_skill::SkillsConfig::load(opts.repo_root)? {
-            let mut ai_drift: Vec<(String, DriftKind)> = Vec::new();
             for skill in &skills_config.skills {
                 let skill_dir = opts.claude_dir.join("skills").join(&skill.name);
                 if !skill_dir.exists() {
-                    ai_drift.push((skill.source.clone(), DriftKind::Missing));
+                    ai_lines.push(format!("  {} {}", drift_marker(DriftKind::Missing), skill.source));
                 }
             }
-            if !ai_drift.is_empty() {
-                any_drift = true;
-                println!("[ai]");
-                for (label, kind) in ai_drift {
-                    println!("  {} {}", drift_marker(kind), label);
-                }
+        }
+
+        // Check whether CLAUDE.md's haven section is out of date.
+        if crate::claude_md::is_claude_md_stale(opts.claude_dir, Some(opts.repo_root), opts.profile) {
+            ai_lines.push("  ~ ~/.claude/CLAUDE.md  (haven section out of date — run haven apply)".to_string());
+        }
+
+        if !ai_lines.is_empty() {
+            any_drift = true;
+            println!("[ai]");
+            for line in ai_lines {
+                println!("{}", line);
             }
         }
     }

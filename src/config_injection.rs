@@ -31,10 +31,10 @@ use crate::template::TemplateContext;
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-pub const MARKER_START: &str = "<!-- dfiles managed start -->";
-pub const MARKER_END: &str = "<!-- dfiles managed end -->";
+pub use crate::claude_md::MARKER_START;
+pub use crate::claude_md::MARKER_END;
 const MANAGED_HEADER: &str =
-    "<!-- managed by dfiles (dfiles apply to regenerate) -->";
+    "<!-- managed by haven (haven apply to regenerate) -->";
 
 // ─── Marker utilities ─────────────────────────────────────────────────────────
 
@@ -80,26 +80,6 @@ pub fn find_markers(content: &str) -> Result<Option<(usize, usize)>> {
             MARKER_END,
             MARKER_START
         ),
-    }
-}
-
-/// Strip the content between managed markers, leaving the markers themselves.
-///
-/// If no markers are present, returns the input unchanged.
-/// If markers are mismatched, returns the input unchanged (with a warning printed).
-pub fn strip_managed_content(content: &str) -> String {
-    match find_markers(content) {
-        Ok(Some((inner_start, inner_end))) => {
-            // Replace the inner content with nothing (empty line between markers).
-            let before = &content[..inner_start];
-            let after = &content[inner_end..];
-            format!("{}{}", before, after)
-        }
-        Ok(None) => content.to_string(),
-        Err(e) => {
-            eprintln!("warning: cannot strip managed section: {}", e);
-            content.to_string()
-        }
     }
 }
 
@@ -246,8 +226,8 @@ fn has_snippets(repo_root: &Path, skills: &[SkillDeclaration], platform_id: &str
 /// ```markdown
 /// # <Platform Name>
 ///
-/// <!-- dfiles managed start -->
-/// <!-- dfiles managed end -->
+/// <!-- haven managed start -->
+/// <!-- haven managed end -->
 /// ```
 fn create_stub(dest: &Path, platform_name: &str) -> Result<()> {
     let content = format!(
@@ -641,28 +621,6 @@ mod tests {
     fn find_markers_errors_when_out_of_order() {
         let content = format!("{}\nbefore\n{}\n", MARKER_END, MARKER_START);
         assert!(find_markers(&content).is_err());
-    }
-
-    // ── strip_managed_content ─────────────────────────────────────────────────
-
-    #[test]
-    fn strip_removes_content_between_markers() {
-        let content = format!(
-            "before\n{}\ngenerated stuff\n{}\nafter\n",
-            MARKER_START, MARKER_END
-        );
-        let stripped = strip_managed_content(&content);
-        assert!(stripped.contains(MARKER_START));
-        assert!(stripped.contains(MARKER_END));
-        assert!(!stripped.contains("generated stuff"));
-        assert!(stripped.contains("before"));
-        assert!(stripped.contains("after"));
-    }
-
-    #[test]
-    fn strip_no_markers_returns_unchanged() {
-        let content = "no markers here\n";
-        assert_eq!(strip_managed_content(content), content);
     }
 
     // ── insert_markers ────────────────────────────────────────────────────────

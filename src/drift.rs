@@ -54,6 +54,35 @@ pub fn drift_marker(kind: DriftKind) -> &'static str {
     }
 }
 
+/// Like [`check_drift`] but strips haven-managed sections from the destination
+/// text before comparing.
+///
+/// Use this for all plain files so that files augmented by haven after writing
+/// (e.g. `~/.claude/CLAUDE.md`) are not falsely reported as modified.
+/// For binary files (invalid UTF-8) it falls back to [`check_drift`].
+pub fn check_drift_haven_aware(src: &Path, dest: &Path) -> DriftKind {
+    if !src.exists() {
+        return DriftKind::SourceMissing;
+    }
+    if !dest.exists() {
+        return DriftKind::Missing;
+    }
+    let src_text = match std::fs::read_to_string(src) {
+        Ok(t) => t,
+        Err(_) => return check_drift(src, dest),
+    };
+    let dest_text = match std::fs::read_to_string(dest) {
+        Ok(t) => t,
+        Err(_) => return check_drift(src, dest),
+    };
+    let dest_stripped = crate::claude_md::strip_haven_section(&dest_text);
+    if src_text == dest_stripped {
+        DriftKind::Clean
+    } else {
+        DriftKind::Modified
+    }
+}
+
 /// Check drift for a plain (non-template, non-symlink) file.
 pub fn check_drift(src: &Path, dest: &Path) -> DriftKind {
     if !src.exists() {

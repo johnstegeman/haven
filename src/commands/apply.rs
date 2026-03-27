@@ -358,17 +358,22 @@ pub fn run(opts: &ApplyOptions<'_>) -> Result<ApplyOutcome> {
                 eprintln!("warning: Could not write haven.lock: {}", e);
             }
         }
-        // Inject skill snippets into platform config files (e.g. CLAUDE.md).
+        // Inject skill snippets into non-claude-code platform config files.
+        // Claude Code's CLAUDE.md is handled by claude_md::generate below,
+        // which merges the skills listing and snippets into one haven section.
         let inj_skills = SkillsConfig::load(opts.repo_root)
             .ok()
             .flatten()
             .map(|c| c.skills)
             .unwrap_or_default();
-        let inj_platforms = PlatformsConfig::load(opts.repo_root)
+        let inj_platforms: Vec<_> = PlatformsConfig::load(opts.repo_root)
             .ok()
             .flatten()
             .and_then(|c| c.resolve_active_platforms().ok())
-            .unwrap_or_default();
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|p| p.id != "claude-code")
+            .collect();
         if let Err(e) = crate::config_injection::inject_managed_sections(
             opts.repo_root,
             &inj_skills,
@@ -379,8 +384,8 @@ pub fn run(opts: &ApplyOptions<'_>) -> Result<ApplyOutcome> {
         ) {
             eprintln!("warning: config injection failed: {}", e);
         }
-        // Regenerate CLAUDE.md with updated skills/commands listing.
-        if let Err(e) = crate::claude_md::generate(opts.claude_dir, opts.profile) {
+        // Regenerate CLAUDE.md with updated skills, commands, and snippets.
+        if let Err(e) = crate::claude_md::generate(opts.claude_dir, Some(opts.repo_root), opts.profile) {
             eprintln!("warning: CLAUDE.md generation failed: {}", e);
         }
         state.version = "1".into();

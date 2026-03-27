@@ -8,8 +8,10 @@
 #   name                  - human-readable display name
 #   config_dir            - platform's main config directory (optional)
 #   skills_dir            - where skill directories are deployed (required)
-#   config_file           - platform's main config file, e.g. CLAUDE.md (optional)
-#   binary                - executable name used by `dfiles ai discover` (optional)
+#   config_file           - platform's config file for snippet injection (optional)
+#                           NOTE: claude-code omits this — CLAUDE.md is managed by
+#                           claude_md::generate which merges listing + snippets
+#   binary                - executable name used by `haven ai discover` (optional)
 #   agentskills_compliant - true if this platform follows the agentskills.io standard
 #                           (skills deployed to ~/.agents/skills/)
 
@@ -18,7 +20,6 @@ id = "claude-code"
 name = "Claude Code"
 config_dir = "~/.claude"
 skills_dir = "~/.claude/skills"
-config_file = "~/.claude/CLAUDE.md"
 binary = "claude"
 agentskills_compliant = false
 

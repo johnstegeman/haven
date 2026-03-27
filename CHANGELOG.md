@@ -7,6 +7,38 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [v0.8.0] — 2026-03-27
+
+### Added
+
+- **CLAUDE.md staleness detection** — `haven status` now shows a `~` marker in the
+  `[ai]` section when the haven-managed section in `~/.claude/CLAUDE.md` is out of
+  date. This fires when a skill snippet file (`all.md` / `claude-code.md`) has been
+  edited since the last `haven apply`, or when a new skill has been added but not
+  yet deployed. Run `haven apply --ai` to bring CLAUDE.md up to date.
+
+- **Snippets at the top of the managed section** — skill snippets from `ai/skills/<name>/all.md`
+  and `ai/skills/<name>/claude-code.md` now appear *before* the skills/commands listing
+  inside the haven-managed block. Claude Code reads snippets earlier in the file,
+  ensuring they take effect before the index.
+
+### Fixed
+
+- **False drift on `CLAUDE.md`** — `haven status` and `haven diff` no longer report
+  `M` or `MC` drift on `~/.claude/CLAUDE.md` caused by the haven-generated section
+  that `haven apply --ai` appends. Only user content outside the haven markers is
+  compared. Previously, every `haven status` after an `--ai` apply would show the file
+  as modified.
+
+- **Legacy `<!-- dfiles managed -->` markers removed** — the old pre-rename marker
+  strings (`<!-- dfiles managed start/end -->`) that appeared in platform config
+  injection have been replaced with `<!-- haven managed start/end -->` throughout.
+  If your CLAUDE.md contains the old `dfiles` markers, run `haven apply --ai` to
+  migrate to the new format. (CLAUDE.md is now fully managed by `haven apply --ai`
+  via a single unified section; the old dual-section approach is gone.)
+
+---
+
 ## [v0.7.6] — 2026-03-26
 
 ### Added

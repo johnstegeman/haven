@@ -36,7 +36,6 @@ ureq = "2"
 similar = "2"
 is-terminal = "0.4"
 regex = "1"
-nix = { version = "0.29", features = ["signal"] }
 flate2 = "1"
 tar = "0.4"
 serde_yaml = "0.9"

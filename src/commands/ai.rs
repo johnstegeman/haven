@@ -542,19 +542,39 @@ pub struct RemoveOptions<'a> {
 
 /// Remove a skill from `ai/skills.toml`, the lock file, and optionally
 /// deployed skill directories.
+///
+/// `opts.name` is matched first by exact skill name, then by source string
+/// (useful when passing the full `gh:owner/repo/...` URL). If neither matches,
+/// the error lists the available skill names.
 pub fn remove(opts: &RemoveOptions<'_>) -> Result<()> {
     let skills = load_skills_required(opts.repo_root)?;
 
-    // Verify the skill exists.
+    // Match by name first, then fall back to source URL.
     let decl = skills
         .skills
         .iter()
         .find(|s| s.name == opts.name)
+        .or_else(|| {
+            // Normalise: strip a leading "gh:" prefix the user may have omitted,
+            // then try a suffix match so both "jujutsu" and
+            // "gh:owner/repo/skills/jujutsu" resolve to the same skill.
+            let needle = opts.name.trim_start_matches("gh:");
+            skills.skills.iter().find(|s| {
+                let src = s.source.trim_start_matches("gh:");
+                src == needle || src.ends_with(&format!("/{}", needle))
+            })
+        })
         .with_context(|| {
-            format!(
-                "No skill named '{}' found in ai/skills.toml.",
-                opts.name
-            )
+            let names: Vec<&str> = skills.skills.iter().map(|s| s.name.as_str()).collect();
+            if names.is_empty() {
+                format!("No skill named '{}' found — no skills are declared yet.", opts.name)
+            } else {
+                format!(
+                    "No skill named '{}' found in ai/skills/.\nAvailable skills: {}",
+                    opts.name,
+                    names.join(", ")
+                )
+            }
         })?;
 
     let source_str = decl.source.clone();

@@ -24,6 +24,8 @@ pub struct StatusOptions<'a> {
     pub show_brews: bool,
     /// Show AI skill drift.
     pub show_ai: bool,
+    /// Print internal state details (paths, last apply, skill targets, lock status).
+    pub verbose: bool,
 }
 
 pub fn run(opts: &StatusOptions<'_>) -> Result<()> {
@@ -239,6 +241,44 @@ pub fn run(opts: &StatusOptions<'_>) -> Result<()> {
 
     if !any_drift {
         println!("✓ Everything up to date");
+    }
+
+    // ── Verbose: internal state ───────────────────────────────────────────────
+    if opts.verbose {
+        println!();
+        println!("[internal]");
+
+        // Paths
+        println!("  repo:       {}", opts.repo_root.display());
+        println!("  state dir:  {}", opts.state_dir.display());
+        let state_file = opts.state_dir.join("state.json");
+        let lock_file  = opts.repo_root.join("haven.lock");
+        println!("  state.json: {}", if state_file.exists() { state_file.display().to_string() } else { format!("{} (missing)", state_file.display()) });
+        println!("  haven.lock: {}", if lock_file.exists()  { lock_file.display().to_string()  } else { format!("{} (missing)", lock_file.display()) });
+
+        // Last apply + applied file count
+        if state_file.exists() {
+            println!("  last apply: {}", state.last_apply.map_or_else(|| "never".to_string(), |t| t.to_rfc3339()));
+            println!("  tracked files with prior hash: {}", state.applied_files.len());
+        }
+
+        // Deployed skills from state.json
+        if let Some(ai_state) = &state.ai {
+            if !ai_state.deployed_skills.is_empty() {
+                println!("  deployed skills:");
+                let mut platforms: Vec<&String> = ai_state.deployed_skills.keys().collect();
+                platforms.sort();
+                for platform_id in platforms {
+                    let skills = &ai_state.deployed_skills[platform_id];
+                    let mut names: Vec<&String> = skills.keys().collect();
+                    names.sort();
+                    for name in names {
+                        let entry = &skills[name];
+                        println!("    {}/{} → {}", platform_id, name, entry.target.display());
+                    }
+                }
+            }
+        }
     }
 
     Ok(())

@@ -568,7 +568,13 @@ enum Commands {
     /// Drift markers: ✓ clean  M modified  ? missing  ! source missing
     ///
     /// By default all sections are shown. Use --files, --brews, and/or --ai
-    /// to inspect only specific sections.
+    /// to inspect only specific sections. Use --verbose to also print internal
+    /// state (paths, last apply time, skill deployment targets, lock status).
+    ///
+    /// Examples:
+    ///   haven status
+    ///   haven status --files
+    ///   haven status --verbose
     Status {
         /// Profile to check. Defaults to the last-used profile saved in state,
         /// or "default" if no prior apply has been recorded.
@@ -586,6 +592,12 @@ enum Commands {
         /// Show AI skill drift only.
         #[arg(long)]
         ai: bool,
+
+        /// Also print internal state: paths, last apply time, skill deployment
+        /// targets, and haven.lock status. Useful for debugging without having
+        /// to inspect `~/.haven/state.json` directly.
+        #[arg(long)]
+        verbose: bool,
     },
 
     /// Run `brew install`/`uninstall` and keep your haven Brewfiles in sync.
@@ -1180,7 +1192,7 @@ fn run() -> Result<()> {
             }
         }
 
-        Commands::Status { profile, files, brews, ai } => {
+        Commands::Status { profile, files, brews, ai, verbose } => {
             let resolved = resolve_profile(profile.as_deref(), &state_dir);
             commands::status::run(&commands::status::StatusOptions {
                 repo_root: &repo,
@@ -1191,6 +1203,7 @@ fn run() -> Result<()> {
                 show_files: *files,
                 show_brews: *brews,
                 show_ai: *ai,
+                verbose: *verbose,
             })?;
         }
 

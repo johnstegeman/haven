@@ -122,35 +122,39 @@ struct ApplyLock {
 
 impl ApplyLock {
     fn acquire(state_dir: &Path) -> Result<Self> {
+        use std::io::Write;
         let path = state_dir.join("apply.lock");
-        if let Ok(contents) = std::fs::read_to_string(&path) {
-            // Check whether the PID recorded in the lock file is still alive.
-            if let Ok(pid) = contents.trim().parse::<u32>() {
-                let alive = std::path::Path::new(&format!("/proc/{}/status", pid)).exists()
-                    || {
-                        // On macOS /proc doesn't exist; use kill(pid, 0) via ps.
-                        std::process::Command::new("kill")
-                            .args(["-0", &pid.to_string()])
-                            .output()
-                            .map(|o| o.status.success())
-                            .unwrap_or(false)
-                    };
-                if alive {
-                    bail!(
-                        "haven apply is already running (PID {}). \
-                         If this is wrong, delete {}",
-                        pid,
-                        path.display()
-                    );
+        std::fs::create_dir_all(state_dir).context("Cannot create state directory")?;
+        loop {
+            match std::fs::OpenOptions::new().write(true).create_new(true).open(&path) {
+                Ok(mut f) => {
+                    write!(f, "{}", std::process::id())
+                        .with_context(|| format!("Cannot write lock file {}", path.display()))?;
+                    return Ok(Self { path });
                 }
-                // Stale lock — remove it and continue.
-                let _ = std::fs::remove_file(&path);
+                Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
+                    // Lock file exists — check if the recorded PID is still alive.
+                    if let Ok(contents) = std::fs::read_to_string(&path) {
+                        if let Ok(pid) = contents.trim().parse::<u32>() {
+                            if is_process_alive(pid) {
+                                bail!(
+                                    "haven apply is already running (PID {}). \
+                                     If this is wrong, delete {}",
+                                    pid,
+                                    path.display()
+                                );
+                            }
+                        }
+                    }
+                    // Stale lock (process dead or file unreadable) — remove and retry.
+                    let _ = std::fs::remove_file(&path);
+                }
+                Err(e) => {
+                    return Err(e)
+                        .with_context(|| format!("Cannot create lock file {}", path.display()));
+                }
             }
         }
-        std::fs::create_dir_all(state_dir).context("Cannot create state directory")?;
-        std::fs::write(&path, std::process::id().to_string())
-            .with_context(|| format!("Cannot write lock file {}", path.display()))?;
-        Ok(Self { path })
     }
 }
 
@@ -158,6 +162,17 @@ impl Drop for ApplyLock {
     fn drop(&mut self) {
         let _ = std::fs::remove_file(&self.path);
     }
+}
+
+/// Returns true if a process with the given PID is currently running.
+fn is_process_alive(pid: u32) -> bool {
+    // On Linux, check /proc. On macOS, use kill(pid, 0).
+    std::path::Path::new(&format!("/proc/{}/status", pid)).exists()
+        || std::process::Command::new("kill")
+            .args(["-0", &pid.to_string()])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
 }
 
 pub fn run(opts: &ApplyOptions<'_>) -> Result<ApplyOutcome> {

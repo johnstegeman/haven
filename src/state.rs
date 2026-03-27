@@ -94,9 +94,12 @@ impl State {
     pub fn save(&self, state_dir: &Path) -> Result<()> {
         std::fs::create_dir_all(state_dir)?;
         let path = state_dir.join("state.json");
+        let tmp_path = state_dir.join("state.json.tmp");
         let text = serde_json::to_string_pretty(self)?;
-        std::fs::write(&path, text)
-            .with_context(|| format!("Cannot write {}", path.display()))?;
+        std::fs::write(&tmp_path, &text)
+            .with_context(|| format!("Cannot write {}", tmp_path.display()))?;
+        std::fs::rename(&tmp_path, &path)
+            .with_context(|| format!("Cannot rename {} → {}", tmp_path.display(), path.display()))?;
         Ok(())
     }
 }

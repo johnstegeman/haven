@@ -77,9 +77,12 @@ impl LockFile {
     /// Write the lock file to `repo_root/haven.lock`.
     pub fn save(&self, repo_root: &Path) -> Result<()> {
         let path = lock_path(repo_root);
+        let tmp_path = repo_root.join("haven.lock.tmp");
         let text = toml::to_string_pretty(self)?;
-        std::fs::write(&path, text)
-            .with_context(|| format!("Cannot write {}", path.display()))
+        std::fs::write(&tmp_path, &text)
+            .with_context(|| format!("Cannot write {}", tmp_path.display()))?;
+        std::fs::rename(&tmp_path, &path)
+            .with_context(|| format!("Cannot rename {} → {}", tmp_path.display(), path.display()))
     }
 
     /// Return the pinned SHA for a dotfile/command source key, if present.

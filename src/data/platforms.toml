@@ -1,7 +1,7 @@
-# Built-in platform definitions shipped with dfiles.
+# Built-in platform definitions shipped with haven.
 #
 # These are the default platform definitions. Users can override any field
-# (or add custom platforms) via `ai/platforms.toml` in their dfiles repo.
+# (or add custom platforms) via `ai/platforms.toml` in their haven repo.
 #
 # Fields:
 #   id                    - unique identifier used in skills.toml and active lists

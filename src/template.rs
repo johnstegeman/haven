@@ -225,9 +225,9 @@ mod tests {
 
     #[test]
     fn renders_env_variable_with_default() {
-        std::env::remove_var("DFILES_MISSING_VAR");
+        std::env::remove_var("HAVEN_MISSING_VAR");
         let out = render(
-            r#"{{ get_env(name="DFILES_MISSING_VAR", default="fallback") }}"#,
+            r#"{{ get_env(name="HAVEN_MISSING_VAR", default="fallback") }}"#,
             &ctx("default"),
         )
         .unwrap();

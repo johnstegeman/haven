@@ -275,7 +275,7 @@ enum Commands {
     ///   alias haven-cd='cd $(haven source-path)'
     ///
     /// Resolution order:
-    ///   1. $DFILES_DIR env var
+    ///   1. $HAVEN_DIR env var
     ///   2. ~/haven if it contains a haven repo (migration)
     ///   3. $XDG_DATA_HOME/haven
     ///   4. ~/.local/share/haven  (default for new installs)

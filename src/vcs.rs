@@ -2,7 +2,7 @@
 ///
 /// Resolution order (first match wins):
 ///   1. `--vcs` CLI flag
-///   2. `DFILES_VCS` env var
+///   2. `HAVEN_VCS` env var
 ///   3. `vcs.backend` in `haven.toml`
 ///   4. Interactive detection prompt (jj on PATH, nothing set)
 ///   5. Default: git
@@ -27,7 +27,7 @@ pub enum VcsBackend {
 pub enum VcsResolutionSource {
     /// `--vcs` CLI flag
     CliFlag,
-    /// `DFILES_VCS` environment variable
+    /// `HAVEN_VCS` environment variable
     EnvVar,
     /// `vcs.backend` in `haven.toml`
     Config,
@@ -133,7 +133,7 @@ pub fn resolve(
     Ok(resolved)
 }
 
-/// Parse the `DFILES_VCS` environment variable.
+/// Parse the `HAVEN_VCS` environment variable.
 fn parse_vcs_env() -> Result<Option<VcsBackend>> {
     match std::env::var("HAVEN_VCS") {
         Ok(v) => match v.to_lowercase().as_str() {

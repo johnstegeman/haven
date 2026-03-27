@@ -4,10 +4,10 @@
 /// haven-managed section bounded by HTML comment markers:
 ///
 /// ```markdown
-/// <!-- dfiles managed start -->
-/// <!-- managed by dfiles (dfiles apply to regenerate) -->
+/// <!-- haven managed start -->
+/// <!-- managed by haven (haven apply to regenerate) -->
 /// ...generated content...
-/// <!-- dfiles managed end -->
+/// <!-- haven managed end -->
 /// ```
 ///
 /// On `haven apply`, haven:

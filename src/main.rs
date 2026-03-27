@@ -384,6 +384,20 @@ enum Commands {
         update: bool,
     },
 
+    /// Re-copy an already-tracked file into the repo's source/ directory.
+    ///
+    /// Alias for `haven add --update <file>`. Use this when you have edited a
+    /// tracked file directly on disk and want to push those changes back into
+    /// your haven repo.
+    ///
+    /// Examples:
+    ///   haven update ~/.zshrc
+    ///   haven update ~/.config/git/config
+    Update {
+        /// Absolute or relative path to the tracked file to re-copy.
+        file: PathBuf,
+    },
+
     /// Stop tracking a dotfile by removing it from the source/ directory.
     ///
     /// The live file on disk is left unchanged — only the source/ copy is removed.
@@ -1054,6 +1068,10 @@ fn run() -> Result<()> {
 
         Commands::Add { file, link, apply, update } => {
             commands::add::run(&repo, file, *link, *apply, *update)?;
+        }
+
+        Commands::Update { file } => {
+            commands::add::run(&repo, file, false, false, true)?;
         }
 
         Commands::Remove { file, dry_run } => {

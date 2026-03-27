@@ -190,7 +190,8 @@ pub fn run(opts: &ApplyOptions<'_>) -> Result<ApplyOutcome> {
         if opts.apply_ai     { sections.push("ai"); }
         println!("Dry run — no files will be written.\n");
         println!("Profile:  {}", opts.profile);
-        println!("Applying: {}", if sections.is_empty() { "nothing" } else { sections.join(", ").leak() });
+        let applying = if sections.is_empty() { "nothing".to_string() } else { sections.join(", ") };
+        println!("Applying: {}", applying);
         if let Some(m) = opts.module_filter {
             println!("Module:   {} (brew/AI only)", m);
         }

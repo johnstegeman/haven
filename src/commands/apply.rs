@@ -116,6 +116,16 @@ pub struct ApplyOptions<'a> {
 }
 
 /// RAII guard that holds `~/.haven/apply.lock` for the duration of apply.
+///
+/// This is a process-coordination lock only — it lives in the state directory
+/// (`~/.haven/`) alongside `state.json`, not in the repo.  Corruption or a
+/// stale lock only affects conflict-detection on the next run; the user can
+/// recover by deleting the file.  Contrast with `haven.lock` (in the repo
+/// root, tracked by VCS): corruption there breaks SHA verification and
+/// requires `haven update` or manual repair.
+///
+/// The file is created with `O_EXCL` (via `create_new`) so that two
+/// concurrent `haven apply` invocations cannot both proceed past the lock.
 struct ApplyLock {
     path: PathBuf,
 }

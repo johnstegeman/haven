@@ -384,7 +384,7 @@ pub fn run(opts: &ApplyOptions<'_>) -> Result<ApplyOutcome> {
         }
         // Inject skill snippets into non-claude-code platform config files.
         // Claude Code's CLAUDE.md is handled by claude_md::generate below,
-        // which merges the skills listing and snippets into one haven section.
+        // which merges skill snippets into one haven section.
         let inj_skills = SkillsConfig::load(opts.repo_root)
             .ok()
             .flatten()
@@ -408,7 +408,7 @@ pub fn run(opts: &ApplyOptions<'_>) -> Result<ApplyOutcome> {
         ) {
             eprintln!("warning: config injection failed: {}", e);
         }
-        // Regenerate CLAUDE.md with updated skills, commands, and snippets.
+        // Regenerate CLAUDE.md with updated skill snippets.
         if let Err(e) = crate::claude_md::generate(opts.claude_dir, Some(opts.repo_root), opts.profile) {
             eprintln!("warning: CLAUDE.md generation failed: {}", e);
         }

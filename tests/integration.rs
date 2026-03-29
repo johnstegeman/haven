@@ -1629,11 +1629,12 @@ fn ai_dry_run_prints_both_skills_and_commands() {
 
 #[test]
 fn apply_generates_claude_md_from_installed_skills() {
-    // apply should generate CLAUDE.md listing installed skills.
+    // apply should generate CLAUDE.md. Skills are auto-discovered by Claude Code
+    // so they are not listed — only snippets are included.
     let (repo, home) = setup_apply();
 
     let claude = TempDir::new().unwrap();
-    // Pre-install a skill so CLAUDE.md has content to list.
+    // Pre-install a skill so CLAUDE.md has content.
     let skill_dir = claude.path().join("skills").join("my-skill");
     fs::create_dir_all(&skill_dir).unwrap();
     fs::write(
@@ -1651,7 +1652,8 @@ fn apply_generates_claude_md_from_installed_skills() {
     let claude_md = claude.path().join("CLAUDE.md");
     assert!(claude_md.exists(), "CLAUDE.md was not generated");
     let content = fs::read_to_string(&claude_md).unwrap();
-    assert!(content.contains("/my-skill: Test skill"));
+    // Skills are auto-discovered — no listing in CLAUDE.md.
+    assert!(!content.contains("/my-skill: Test skill"), "skills should not be listed");
     assert!(content.contains("profile: default"));
 }
 

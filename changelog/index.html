@@ -193,6 +193,10 @@
             
             <li class="nav-item" data-bs-level="1"><a href="#changelog" class="nav-link">Changelog</a>
               <ul class="nav flex-column">
+            <li class="nav-item" data-bs-level="2"><a href="#v100-2026-03-29" class="nav-link">[v1.0.0] — 2026-03-29</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
             <li class="nav-item" data-bs-level="2"><a href="#v090-2026-03-27" class="nav-link">[v0.9.0] — 2026-03-27</a>
               <ul class="nav flex-column">
               </ul>
@@ -257,6 +261,30 @@
 <p>Format: <a href="https://keepachangelog.com/en/1.1.0/">Keep a Changelog</a>.
 Versioning: <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <hr />
+<h2 id="v100-2026-03-29">[v1.0.0] — 2026-03-29<a class="headerlink" href="#v100-2026-03-29" title="Permanent link">&para;</a></h2>
+<h3 id="changed">Changed<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h3>
+<ul>
+<li>
+<p><strong>CLAUDE.md no longer lists skills and commands</strong> — the haven-managed section in
+  <code>~/.claude/CLAUDE.md</code> now contains only per-skill snippet content (<code>all.md</code> /
+  <code>claude-code.md</code>). Claude Code discovers skills at runtime from <code>~/.claude/skills/</code>
+  automatically; the redundant index has been removed. Run <code>haven apply --ai</code> to
+  regenerate a cleaner file.</p>
+</li>
+<li>
+<p><strong>State and cache directories moved to XDG paths</strong> — runtime directories now follow
+  the <a href="https://specifications.freedesktop.org/basedir-spec/latest/">XDG Base Directory Specification</a>:</p>
+</li>
+<li>State (applied hashes, process lock, telemetry, backups):
+    <code>~/.haven/</code> → <code>~/.local/state/haven/</code></li>
+<li>Skill cache: <code>~/.haven/skills/</code> → <code>~/.cache/haven/skills/</code></li>
+<li>Local platform registry: <code>~/.haven/platforms.toml</code> →
+    <code>~/.local/state/haven/platforms.toml</code></li>
+</ul>
+<p>Both paths respect <code>XDG_STATE_HOME</code> and <code>XDG_CACHE_HOME</code>. See the
+  <a href="../releases/v1.0.0/">v1.0.0 release notes</a> for migration instructions.</p>
+<p><code>haven.lock</code> (in the repo root, tracked by VCS) is unaffected.</p>
+<hr />
 <h2 id="v090-2026-03-27">[v0.9.0] — 2026-03-27<a class="headerlink" href="#v090-2026-03-27" title="Permanent link">&para;</a></h2>
 <h3 id="added">Added<a class="headerlink" href="#added" title="Permanent link">&para;</a></h3>
 <ul>
@@ -282,7 +310,7 @@ Versioning: <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a
 <p><strong><code>haven ai remove</code> accepts source URL</strong> — <code>haven ai remove</code> now matches by source URL (or suffix) in addition to skill name, and shows available skill names when no match is found.</p>
 </li>
 <li>
-<p><strong>Local platforms registry path</strong> — <code>haven</code> now reads the local platforms registry from <code>~/.haven</code> instead of the old <code>~/.dfiles</code> path.</p>
+<p><strong>Local platforms registry path</strong> — <code>haven</code> now reads the local platforms registry from <code>~/.haven/platforms.toml</code> instead of the old <code>~/.dfiles</code> path. (Moved to <code>~/.local/state/haven/platforms.toml</code> in v1.0.0.)</p>
 </li>
 <li>
 <p><strong>Atomic writes for state files</strong> — <code>state.json</code> and <code>haven.lock</code> are now written via temp+rename to prevent partial writes on crash.</p>

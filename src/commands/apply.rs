@@ -790,7 +790,16 @@ fn apply_entry(
                 // Path B: prior hash exists. Read dest bytes to detect user edit.
                 let dest_bytes = std::fs::read(&dest)
                     .with_context(|| format!("Cannot read {}", dest.display()))?;
-                let dest_hash = sha256_of_bytes(&dest_bytes);
+                // Strip the haven-managed section (if any) before hashing, so that
+                // haven appending its own section to a file (e.g. CLAUDE.md) is not
+                // mistaken for a user edit.  This mirrors what status.rs does.
+                let dest_hash = match std::str::from_utf8(&dest_bytes) {
+                    Ok(text) => {
+                        let stripped = crate::claude_md::strip_haven_section(text);
+                        sha256_of_bytes(stripped.as_bytes())
+                    }
+                    Err(_) => sha256_of_bytes(&dest_bytes),
+                };
 
                 if dest_hash != prior_entry.sha256 {
                     // User edited dest since last apply — resolve conflict.
@@ -808,13 +817,24 @@ fn apply_entry(
                 } else {
                     // dest unchanged since last apply. Check if source changed.
                     let source_matches = match &new_content {
-                        Some(rendered) => std::str::from_utf8(&dest_bytes)
-                            .map(|s| s == rendered.as_str())
-                            .unwrap_or(false),
+                        Some(rendered) => match std::str::from_utf8(&dest_bytes) {
+                            Ok(text) => {
+                                crate::claude_md::strip_haven_section(text) == *rendered
+                            }
+                            Err(_) => false,
+                        },
                         None => {
                             let src_bytes = std::fs::read(&entry.src)
                                 .with_context(|| format!("Cannot read {}", entry.src.display()))?;
-                            dest_bytes == src_bytes
+                            // Strip the haven section from dest before comparing so that
+                            // haven-appended content doesn't make a plain file look changed.
+                            match std::str::from_utf8(&dest_bytes) {
+                                Ok(text) => {
+                                    crate::claude_md::strip_haven_section(text).as_bytes()
+                                        == src_bytes.as_slice()
+                                }
+                                Err(_) => dest_bytes == src_bytes,
+                            }
                         }
                     };
                     if source_matches {

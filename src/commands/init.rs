@@ -20,6 +20,7 @@ pub struct InitOptions<'a> {
     pub dest_root: &'a Path,
     pub backup_dir: &'a Path,
     pub state_dir: &'a Path,
+    pub cache_dir: &'a Path,
     pub claude_dir: &'a Path,
     /// VCS backend to use for the initial clone.
     pub vcs_backend: VcsBackend,
@@ -128,6 +129,7 @@ fn run_from_source(opts: &InitOptions<'_>, source_str: &str) -> Result<()> {
             dest_root: opts.dest_root,
             backup_dir: opts.backup_dir,
             state_dir: opts.state_dir,
+            cache_dir: opts.cache_dir,
             claude_dir: opts.claude_dir,
             profile,
             module_filter: None,

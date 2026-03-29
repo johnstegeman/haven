@@ -24,9 +24,9 @@ pub struct NativeBackend {
 }
 
 impl NativeBackend {
-    pub fn new(state_dir: &Path) -> Self {
+    pub fn new(cache_dir: &Path) -> Self {
         Self {
-            cache: SkillCache::new(state_dir),
+            cache: SkillCache::new(cache_dir),
         }
     }
 

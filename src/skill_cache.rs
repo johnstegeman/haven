@@ -1,10 +1,10 @@
 /// Skill cache management for AI skills.
 ///
-/// Skills are fetched from their sources and stored in `~/.haven/skills/`
+/// Skills are fetched from their sources and stored in `~/.cache/haven/skills/`
 /// using a path-safe cache key (`{owner}--{repo}[--{subpath}]`).
 ///
 /// ```
-/// ~/.haven/skills/
+/// ~/.cache/haven/skills/
 ///   anthropics--skills--pdf-processing/   # gh:anthropics/skills/pdf-processing
 ///     SKILL.md
 ///     main.sh
@@ -31,17 +31,17 @@ use std::path::{Path, PathBuf};
 use crate::github::GhSource;
 use crate::lock::LockFile;
 
-/// Manages the skill cache at `~/.haven/skills/`.
+/// Manages the skill cache at `~/.cache/haven/skills/`.
 pub struct SkillCache {
-    /// Root of the cache: `{state_dir}/skills/`.
+    /// Root of the cache: `{cache_dir}/skills/`.
     cache_dir: PathBuf,
 }
 
 impl SkillCache {
-    /// Create a `SkillCache` rooted at `{state_dir}/skills/`.
-    pub fn new(state_dir: &Path) -> Self {
+    /// Create a `SkillCache` rooted at `{cache_dir}/skills/`.
+    pub fn new(cache_dir: &Path) -> Self {
         Self {
-            cache_dir: state_dir.join("skills"),
+            cache_dir: cache_dir.join("skills"),
         }
     }
 

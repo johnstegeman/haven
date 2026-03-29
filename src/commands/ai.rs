@@ -406,7 +406,7 @@ fn write_skill_dir(
 /// Options for `haven ai fetch`.
 pub struct FetchOptions<'a> {
     pub repo_root: &'a Path,
-    pub state_dir: &'a Path,
+    pub cache_dir: &'a Path,
     /// If Some, only fetch this named skill. If None, fetch all.
     pub name: Option<&'a str>,
 }
@@ -418,7 +418,7 @@ pub struct FetchOptions<'a> {
 pub fn fetch(opts: &FetchOptions<'_>) -> Result<()> {
     let skills = load_skills_required(opts.repo_root)?;
     let mut lock = LockFile::load(opts.repo_root)?;
-    let cache = SkillCache::new(opts.state_dir);
+    let cache = SkillCache::new(opts.cache_dir);
 
     let to_fetch = filter_skills(&skills.skills, opts.name);
     let mut any = false;
@@ -468,7 +468,7 @@ pub fn fetch(opts: &FetchOptions<'_>) -> Result<()> {
 /// Options for `haven ai update`.
 pub struct UpdateOptions<'a> {
     pub repo_root: &'a Path,
-    pub state_dir: &'a Path,
+    pub cache_dir: &'a Path,
     /// If Some, only update this named skill. If None, update all.
     pub name: Option<&'a str>,
 }
@@ -481,7 +481,7 @@ pub fn update(opts: &UpdateOptions<'_>) -> Result<()> {
     let skills = load_skills_required(opts.repo_root)?;
 
     let mut lock = LockFile::load(opts.repo_root)?;
-    let cache = SkillCache::new(opts.state_dir);
+    let cache = SkillCache::new(opts.cache_dir);
 
     let to_update = filter_skills(&skills.skills, opts.name);
     let mut any = false;
@@ -725,7 +725,7 @@ pub fn search(opts: &SearchOptions<'_>) -> Result<()> {
 /// Options for `haven ai scan`.
 pub struct ScanOptions<'a> {
     pub repo_root: &'a Path,
-    pub state_dir: &'a Path,
+    pub cache_dir: &'a Path,
     /// Directory to scan for skill subdirectories.
     pub dir: &'a str,
     pub dry_run: bool,
@@ -735,7 +735,7 @@ pub struct ScanOptions<'a> {
 /// skills to `ai/skills.toml`.
 pub fn scan(opts: &ScanOptions<'_>) -> Result<()> {
     let scan_dir = expand_dir(opts.dir)?;
-    let skill_cache_dir = opts.state_dir.join("skills");
+    let skill_cache_dir = opts.cache_dir.join("skills");
     let ai_config = AiConfig::load(opts.repo_root)?;
 
     // Load existing skills to skip already-managed ones.

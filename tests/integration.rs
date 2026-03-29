@@ -38,10 +38,9 @@ fn cmd_home(repo: &TempDir, home: &TempDir) -> Command {
 #[allow(dead_code)]
 fn cmd_home_with_state(repo: &TempDir, home: &TempDir, state_dir: &std::path::Path) -> Command {
     let c = cmd_home(repo, home);
-    // haven reads state from <home>/.haven by default. Override HOME so it lands
-    // in the provided state_dir's parent, but we just set HOME to ensure it's consistent.
-    // The state dir is HOME/.haven, so as long as HOME is stable between calls, it works.
-    let _ = state_dir; // state_dir is HOME/.haven which cmd_home already pins via HOME
+    // haven reads state from $XDG_STATE_HOME/haven (defaults to HOME/.local/state/haven).
+    // Pinning HOME via cmd_home is sufficient — dirs::state_dir() follows HOME.
+    let _ = state_dir; // state_dir is HOME/.local/state/haven which cmd_home already pins via HOME
     c
 }
 
@@ -615,7 +614,7 @@ fn apply_uses_saved_profile_when_no_flag_given() {
     // pick up "work" and apply that profile's modules.
     let repo = TempDir::new().unwrap();
     let home = TempDir::new().unwrap();
-    let state_dir = home.path().join(".haven");
+    let state_dir = home.path().join(".local/state/haven");
 
     cmd(&repo).arg("init").assert().success();
 
@@ -659,7 +658,7 @@ fn apply_uses_saved_profile_when_no_flag_given() {
 fn apply_explicit_profile_overrides_saved_profile() {
     let repo = TempDir::new().unwrap();
     let home = TempDir::new().unwrap();
-    let state_dir = home.path().join(".haven");
+    let state_dir = home.path().join(".local/state/haven");
 
     cmd(&repo).arg("init").assert().success();
 
@@ -3822,7 +3821,7 @@ fn setup_conflict_repo() -> (TempDir, TempDir, std::path::PathBuf, std::path::Pa
 
 /// Helper: read the applied_files hash for a tilde key from state.json.
 fn read_applied_hash(home: &TempDir, tilde_key: &str) -> Option<String> {
-    let state_path = home.path().join(".haven").join("state.json");
+    let state_path = home.path().join(".local/state/haven").join("state.json");
     let text = fs::read_to_string(&state_path).ok()?;
     let v: serde_json::Value = serde_json::from_str(&text).ok()?;
     v["applied_files"][tilde_key]["sha256"].as_str().map(|s| s.to_string())

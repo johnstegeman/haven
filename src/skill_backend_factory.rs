@@ -20,11 +20,11 @@ use crate::util::is_on_path;
 
 /// Instantiate the backend specified in `config`.
 ///
-/// `state_dir` is passed to `NativeBackend` as its cache root.
+/// `cache_dir` is passed to `NativeBackend` as its cache root (`~/.cache/haven`).
 /// Returns an error if the backend is unavailable or not yet implemented.
-pub fn create_backend(config: &AiConfig, state_dir: &Path) -> Result<Box<dyn SkillBackend>> {
+pub fn create_backend(config: &AiConfig, cache_dir: &Path) -> Result<Box<dyn SkillBackend>> {
     match config.backend {
-        BackendKind::Native => Ok(Box::new(NativeBackend::new(state_dir))),
+        BackendKind::Native => Ok(Box::new(NativeBackend::new(cache_dir))),
 
         BackendKind::AgentSkills => {
             let runner = config.runner.clone();

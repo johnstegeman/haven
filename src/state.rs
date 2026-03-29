@@ -12,7 +12,7 @@ pub struct AppliedFileEntry {
     pub sha256: String,
 }
 
-/// Written to `~/.haven/state.json` after every successful apply.
+/// Written to `~/.local/state/haven/state.json` after every successful apply.
 /// Used by `haven status`, `haven diff`, and the future web dashboard.
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct State {

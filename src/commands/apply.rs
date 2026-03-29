@@ -81,6 +81,7 @@ pub struct ApplyOptions<'a> {
     pub dest_root: &'a Path,
     pub backup_dir: &'a Path,
     pub state_dir: &'a Path,
+    pub cache_dir: &'a Path,
     pub claude_dir: &'a Path,
     pub profile: &'a str,
     /// When set, only apply this module's brew/AI config (files always apply in full).
@@ -115,10 +116,10 @@ pub struct ApplyOptions<'a> {
     pub on_conflict: OnConflict,
 }
 
-/// RAII guard that holds `~/.haven/apply.lock` for the duration of apply.
+/// RAII guard that holds `~/.local/state/haven/apply.lock` for the duration of apply.
 ///
 /// This is a process-coordination lock only — it lives in the state directory
-/// (`~/.haven/`) alongside `state.json`, not in the repo.  Corruption or a
+/// (`~/.local/state/haven/`) alongside `state.json`, not in the repo.  Corruption or a
 /// stale lock only affects conflict-detection on the next run; the user can
 /// recover by deleting the file.  Contrast with `haven.lock` (in the repo
 /// root, tracked by VCS): corruption there breaks SHA verification and
@@ -1167,8 +1168,8 @@ fn apply_ai_skills(
     let active_platforms = platforms_config.resolve_active_platforms()?;
     // Validate backend config and availability before starting any work.
     let ai_config = AiConfig::load(opts.repo_root)?;
-    let backend = create_backend(&ai_config, opts.state_dir)?;
-    let skill_cache = SkillCache::new(opts.state_dir);
+    let backend = create_backend(&ai_config, opts.cache_dir)?;
+    let skill_cache = SkillCache::new(opts.cache_dir);
 
     // Collect existing deployed state so we can check ownership.
     let mut ai_state = state.ai.clone().unwrap_or_default();

@@ -1,4 +1,4 @@
-/// Local telemetry: append-only JSONL event log at `~/.haven/telemetry.jsonl`.
+/// Local telemetry: append-only JSONL event log at `~/.local/state/haven/telemetry.jsonl`.
 ///
 /// # Design
 ///
@@ -272,9 +272,13 @@ fn is_enabled_inner(config_enabled: bool, env_val: Option<&str>) -> bool {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 fn default_telemetry_path() -> PathBuf {
-    dirs::home_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join(".haven")
+    dirs::state_dir()
+        .unwrap_or_else(|| {
+            dirs::home_dir()
+                .unwrap_or_else(|| PathBuf::from("."))
+                .join(".local/state")
+        })
+        .join("haven")
         .join("telemetry.jsonl")
 }
 

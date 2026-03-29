@@ -146,7 +146,7 @@ impl PlatformsConfig {
 /// Build the resolved platform registry by merging two sources:
 ///
 /// 1. The embedded `src/data/platforms.toml` (shipped defaults).
-/// 2. `{home}/.haven/platforms.toml` (machine-local overrides/additions, if present).
+/// 2. `~/.local/state/haven/platforms.toml` (machine-local overrides/additions, if present).
 ///
 /// When both sources define a platform with the same `id`, the local file wins
 /// (full replacement — not field-level merge). New IDs in the local file are
@@ -156,7 +156,7 @@ impl PlatformsConfig {
 /// Silently ignores a malformed local file (prints a warning) so that one bad
 /// entry does not prevent haven from running.
 /// Return the full platform registry (embedded defaults merged with the
-/// machine-local `~/.haven/platforms.toml` overrides).
+/// machine-local `~/.local/state/haven/platforms.toml` overrides).
 ///
 /// Used by `haven ai discover` to enumerate all known platforms.
 pub fn platform_registry() -> Vec<PlatformPlugin> {
@@ -164,20 +164,28 @@ pub fn platform_registry() -> Vec<PlatformPlugin> {
 }
 
 fn builtin_platforms() -> Vec<PlatformPlugin> {
-    let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("~"));
-    builtin_platforms_with_home(&home)
+    let state_dir = dirs::state_dir()
+        .unwrap_or_else(|| {
+            dirs::home_dir()
+                .unwrap_or_else(|| PathBuf::from("~"))
+                .join(".local/state")
+        })
+        .join("haven");
+    builtin_platforms_with_state_dir(&state_dir)
 }
 
-/// Testable core of `builtin_platforms()` — accepts an explicit home directory.
-fn builtin_platforms_with_home(home: &Path) -> Vec<PlatformPlugin> {
+/// Testable core of `builtin_platforms()` — accepts an explicit state directory.
+fn builtin_platforms_with_state_dir(state_dir: &Path) -> Vec<PlatformPlugin> {
+    let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("~"));
+
     // Layer 1: embedded shipped registry.
     let embedded: BuiltinPlatformsFile = toml::from_str(BUILTIN_PLATFORMS_TOML)
         .expect("src/data/platforms.toml is malformed — this is a haven bug");
 
     let mut defs: Vec<BuiltinPlatformDef> = embedded.platform;
 
-    // Layer 2: machine-local registry (~/.haven/platforms.toml).
-    let local_path = home.join(".haven").join("platforms.toml");
+    // Layer 2: machine-local registry (~/.local/state/haven/platforms.toml).
+    let local_path = state_dir.join("platforms.toml");
     if local_path.exists() {
         match std::fs::read_to_string(&local_path)
             .map_err(|e| e.to_string())
@@ -207,9 +215,9 @@ fn builtin_platforms_with_home(home: &Path) -> Vec<PlatformPlugin> {
         .map(|def| PlatformPlugin {
             id: def.id,
             name: def.name,
-            config_dir: def.config_dir.map(|d| expand_home(home, &d)),
-            skills_dir: expand_home(home, &def.skills_dir),
-            config_file: def.config_file.map(|f| expand_home(home, &f)),
+            config_dir: def.config_dir.map(|d| expand_home(&home, &d)),
+            skills_dir: expand_home(&home, &def.skills_dir),
+            config_file: def.config_file.map(|f| expand_home(&home, &f)),
             binary: def.binary,
             agentskills_compliant: def.agentskills_compliant,
         })
@@ -478,18 +486,17 @@ agentskills_compliant = true
         assert!(cross.agentskills_compliant);
     }
 
-    // ── Local registry (~/.haven/platforms.toml) ────────────────────────────
+    // ── Local registry (~/.local/state/haven/platforms.toml) ────────────────
 
-    fn write_local_registry(home: &TempDir, content: &str) {
-        let haven_dir = home.path().join(".haven");
-        std::fs::create_dir_all(&haven_dir).unwrap();
-        std::fs::write(haven_dir.join("platforms.toml"), content).unwrap();
+    fn write_local_registry(state_dir: &TempDir, content: &str) {
+        std::fs::create_dir_all(state_dir.path()).unwrap();
+        std::fs::write(state_dir.path().join("platforms.toml"), content).unwrap();
     }
 
     #[test]
     fn local_registry_absent_returns_only_embedded() {
-        let home = TempDir::new().unwrap();
-        let platforms = builtin_platforms_with_home(home.path());
+        let state_dir = TempDir::new().unwrap();
+        let platforms = builtin_platforms_with_state_dir(state_dir.path());
         let ids: Vec<&str> = platforms.iter().map(|p| p.id.as_str()).collect();
         assert!(ids.contains(&"claude-code"));
         assert!(ids.contains(&"codex"));
@@ -497,9 +504,9 @@ agentskills_compliant = true
 
     #[test]
     fn local_registry_adds_new_platform() {
-        let home = TempDir::new().unwrap();
+        let state_dir = TempDir::new().unwrap();
         write_local_registry(
-            &home,
+            &state_dir,
             r#"
 [[platform]]
 id = "new-agent"
@@ -509,7 +516,7 @@ agentskills_compliant = false
 "#,
         );
 
-        let platforms = builtin_platforms_with_home(home.path());
+        let platforms = builtin_platforms_with_state_dir(state_dir.path());
         let ids: Vec<&str> = platforms.iter().map(|p| p.id.as_str()).collect();
         assert!(ids.contains(&"new-agent"), "expected new-agent in {:?}", ids);
         // Embedded platforms still present.
@@ -522,9 +529,9 @@ agentskills_compliant = false
 
     #[test]
     fn local_registry_overrides_embedded_platform() {
-        let home = TempDir::new().unwrap();
+        let state_dir = TempDir::new().unwrap();
         write_local_registry(
-            &home,
+            &state_dir,
             r#"
 [[platform]]
 id = "claude-code"
@@ -534,7 +541,7 @@ agentskills_compliant = true
 "#,
         );
 
-        let platforms = builtin_platforms_with_home(home.path());
+        let platforms = builtin_platforms_with_state_dir(state_dir.path());
         let claude = platforms.iter().find(|p| p.id == "claude-code").unwrap();
         assert_eq!(claude.name, "Claude Code (local override)");
         assert!(claude.skills_dir.ends_with(".agents/skills"));
@@ -546,20 +553,20 @@ agentskills_compliant = true
 
     #[test]
     fn local_registry_malformed_is_ignored_with_warning() {
-        let home = TempDir::new().unwrap();
-        write_local_registry(&home, "this is not valid toml [[[");
+        let state_dir = TempDir::new().unwrap();
+        write_local_registry(&state_dir, "this is not valid toml [[[");
 
         // Should not panic — falls back to embedded platforms only.
-        let platforms = builtin_platforms_with_home(home.path());
+        let platforms = builtin_platforms_with_state_dir(state_dir.path());
         let ids: Vec<&str> = platforms.iter().map(|p| p.id.as_str()).collect();
         assert!(ids.contains(&"claude-code"), "embedded platforms should still load");
     }
 
     #[test]
     fn local_registry_platform_usable_in_active_list() {
-        let home = TempDir::new().unwrap();
+        let state_dir = TempDir::new().unwrap();
         write_local_registry(
-            &home,
+            &state_dir,
             r#"
 [[platform]]
 id = "future-agent"
@@ -571,7 +578,7 @@ agentskills_compliant = false
         );
 
         // Simulate what resolve_active_platforms does: use local registry as builtins.
-        let builtins = builtin_platforms_with_home(home.path());
+        let builtins = builtin_platforms_with_state_dir(state_dir.path());
         let overrides = HashMap::new();
         let plugin = resolve_platform("future-agent", &builtins, &overrides);
         assert!(plugin.is_some());

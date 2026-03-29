@@ -49,8 +49,8 @@ pub struct SkillLockEntry {
 /// The full contents of `haven.lock`.
 ///
 /// `haven.lock` lives in the **repo root** and is tracked by VCS, unlike
-/// `~/.haven/apply.lock` (process coordination) and `~/.haven/state.json`
-/// (local machine state).  Corruption here breaks SHA verification for all
+/// `~/.local/state/haven/apply.lock` (process coordination) and
+/// `~/.local/state/haven/state.json` (local machine state).  Corruption here breaks SHA verification for all
 /// sources and skills on every machine that pulls the repo; recovery requires
 /// running `haven update` to re-fetch and re-pin, or restoring the file from
 /// VCS history.  Writes go through a temp+rename to minimise the crash window.

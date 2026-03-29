@@ -55,8 +55,8 @@ pub struct DiffOptions<'a> {
     pub repo_root: &'a Path,
     /// Where live files reside. `/` in production; temp dir in tests.
     pub dest_root: &'a Path,
-    /// `~/.haven` — used to find the skill cache for AI version drift checks.
-    pub state_dir: &'a Path,
+    /// `~/.cache/haven` — used to find the skill cache for AI version drift checks.
+    pub cache_dir: &'a Path,
     pub profile: &'a str,
     /// When set, scope brew/AI diff to this module only.
     pub module_filter: Option<&'a str>,
@@ -334,7 +334,7 @@ pub fn run(opts: &DiffOptions<'_>) -> Result<bool> {
     if opts.diff_ai {
         if let Ok(Some(skills_cfg)) = SkillsConfig::load(opts.repo_root) {
             let lock = LockFile::load(opts.repo_root).unwrap_or_default();
-            let cache = SkillCache::new(opts.state_dir);
+            let cache = SkillCache::new(opts.cache_dir);
             let mut section_lines: Vec<String> = Vec::new();
 
             for skill in &skills_cfg.skills {

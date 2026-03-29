@@ -54,9 +54,13 @@ impl TemplateContext {
     /// empty data on any read error.
     pub fn from_env_for_repo(repo_root: &Path) -> Self {
         let config = crate::config::haven::HavenConfig::load(repo_root).unwrap_or_default();
-        let state_dir = dirs::home_dir()
-            .unwrap_or_else(|| std::path::PathBuf::from("/tmp"))
-            .join(".haven");
+        let state_dir = dirs::state_dir()
+            .unwrap_or_else(|| {
+                dirs::home_dir()
+                    .unwrap_or_else(|| std::path::PathBuf::from("/tmp"))
+                    .join(".local/state")
+            })
+            .join("haven");
         let profile = crate::state::State::load(&state_dir)
             .ok()
             .and_then(|s| s.profile)

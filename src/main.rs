@@ -237,7 +237,8 @@ use config::haven::{HavenConfig, repo_root};
     long_about = "haven tracks dotfiles, packages, and AI tools across machines.\n\
                   \n\
                   Repo directory: ~/.local/share/haven  (override: --dir or HAVEN_DIR)\n\
-                  State directory: ~/.haven (backups, lock file, applied state)\n\
+                  State directory: ~/.local/state/haven (backups, applied state)\n\
+                  Cache directory: ~/.cache/haven (skill downloads)\n\
                   Claude directory: ~/.claude (skills, commands, CLAUDE.md)",
 )]
 struct Cli {
@@ -645,7 +646,7 @@ enum Commands {
 
         /// Also print internal state: paths, last apply time, skill deployment
         /// targets, and haven.lock status. Useful for debugging without having
-        /// to inspect `~/.haven/state.json` directly.
+        /// to inspect `~/.local/state/haven/state.json` directly.
         #[arg(long)]
         verbose: bool,
     },
@@ -749,7 +750,7 @@ enum Commands {
     /// Manage local telemetry: enable, disable, or annotate the telemetry log.
     ///
     /// Enable / disable writes `[telemetry] enabled = true/false` to `haven.toml`.
-    /// Annotation subcommands write a structured entry to `~/.haven/telemetry.jsonl`
+    /// Annotation subcommands write a structured entry to `~/.local/state/haven/telemetry.jsonl`
     /// regardless of whether telemetry is currently enabled.
     ///
     /// Without a subcommand, prints the current telemetry status.
@@ -778,7 +779,7 @@ enum Commands {
 
     /// Shortcut for `haven telemetry note "text"`.
     ///
-    /// Appends a note to `~/.haven/telemetry.jsonl` and prints the auto-generated ID.
+    /// Appends a note to `~/.local/state/haven/telemetry.jsonl` and prints the auto-generated ID.
     Note {
         /// The note text to record.
         text: String,
@@ -786,7 +787,7 @@ enum Commands {
 
     /// Shortcut for `haven telemetry action "text"`.
     ///
-    /// Records an action annotation in `~/.haven/telemetry.jsonl`.
+    /// Records an action annotation in `~/.local/state/haven/telemetry.jsonl`.
     Action {
         /// Description of the action.
         text: String,
@@ -794,7 +795,7 @@ enum Commands {
 
     /// Shortcut for `haven telemetry bug "text"`.
     ///
-    /// Records a bug annotation in `~/.haven/telemetry.jsonl`.
+    /// Records a bug annotation in `~/.local/state/haven/telemetry.jsonl`.
     Bug {
         /// Description of the bug.
         text: String,
@@ -802,7 +803,7 @@ enum Commands {
 
     /// Shortcut for `haven telemetry question "text"`.
     ///
-    /// Records a question annotation in `~/.haven/telemetry.jsonl`.
+    /// Records a question annotation in `~/.local/state/haven/telemetry.jsonl`.
     Question {
         /// The question text.
         text: String,
@@ -1023,41 +1024,41 @@ fn run() -> Result<()> {
     match &cli.command {
         Commands::Note { text } => {
             let id = telemetry::append_note(text)?;
-            println!("Note {} recorded in ~/.haven/telemetry.jsonl", id);
+            println!("Note {} recorded in ~/.local/state/haven/telemetry.jsonl", id);
             return Ok(());
         }
         Commands::Action { text } => {
             let id = telemetry::append_typed("action", 'A', text)?;
-            println!("Action {} recorded in ~/.haven/telemetry.jsonl", id);
+            println!("Action {} recorded in ~/.local/state/haven/telemetry.jsonl", id);
             return Ok(());
         }
         Commands::Bug { text } => {
             let id = telemetry::append_typed("bug", 'B', text)?;
-            println!("Bug {} recorded in ~/.haven/telemetry.jsonl", id);
+            println!("Bug {} recorded in ~/.local/state/haven/telemetry.jsonl", id);
             return Ok(());
         }
         Commands::Question { text } => {
             let id = telemetry::append_typed("question", 'Q', text)?;
-            println!("Question {} recorded in ~/.haven/telemetry.jsonl", id);
+            println!("Question {} recorded in ~/.local/state/haven/telemetry.jsonl", id);
             return Ok(());
         }
         Commands::Telemetry { action: Some(tel_action) } => {
             match tel_action {
                 TelemetryAction::Note { text } => {
                     let id = telemetry::append_note(text)?;
-                    println!("Note {} recorded in ~/.haven/telemetry.jsonl", id);
+                    println!("Note {} recorded in ~/.local/state/haven/telemetry.jsonl", id);
                 }
                 TelemetryAction::Action { text } => {
                     let id = telemetry::append_typed("action", 'A', text)?;
-                    println!("Action {} recorded in ~/.haven/telemetry.jsonl", id);
+                    println!("Action {} recorded in ~/.local/state/haven/telemetry.jsonl", id);
                 }
                 TelemetryAction::Bug { text } => {
                     let id = telemetry::append_typed("bug", 'B', text)?;
-                    println!("Bug {} recorded in ~/.haven/telemetry.jsonl", id);
+                    println!("Bug {} recorded in ~/.local/state/haven/telemetry.jsonl", id);
                 }
                 TelemetryAction::Question { text } => {
                     let id = telemetry::append_typed("question", 'Q', text)?;
-                    println!("Question {} recorded in ~/.haven/telemetry.jsonl", id);
+                    println!("Question {} recorded in ~/.local/state/haven/telemetry.jsonl", id);
                 }
                 TelemetryAction::List { notes, actions, bugs, questions } => {
                     let kind = match (notes, actions, bugs, questions) {
@@ -1102,10 +1103,22 @@ fn run() -> Result<()> {
     };
 
     // State and backup directories live outside the repo (not committed).
-    let state_dir = dirs::home_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join(".haven");
+    // Follow XDG Base Directory Specification:
+    //   state (state.json, apply.lock, telemetry, backups) → XDG_STATE_HOME/haven
+    //   cache (skill downloads)                            → XDG_CACHE_HOME/haven
+    let xdg_state_home = dirs::state_dir().unwrap_or_else(|| {
+        dirs::home_dir()
+            .unwrap_or_else(|| PathBuf::from("."))
+            .join(".local/state")
+    });
+    let state_dir = xdg_state_home.join("haven");
     let backup_dir = state_dir.join("backups");
+    let cache_dir = dirs::cache_dir().unwrap_or_else(|| {
+        dirs::home_dir()
+            .unwrap_or_else(|| PathBuf::from("."))
+            .join(".cache")
+    })
+    .join("haven");
     let claude_dir = std::env::var("HAVEN_CLAUDE_DIR")
         .map(PathBuf::from)
         .unwrap_or_else(|_| {
@@ -1147,6 +1160,7 @@ fn run() -> Result<()> {
                 dest_root: std::path::Path::new("/"),
                 backup_dir: &backup_dir,
                 state_dir: &state_dir,
+                cache_dir: &cache_dir,
                 claude_dir: &claude_dir,
                 vcs_backend,
             })?;
@@ -1213,6 +1227,7 @@ fn run() -> Result<()> {
                 dest_root: &dest_root_buf,
                 backup_dir: &backup_dir,
                 state_dir: &state_dir,
+                cache_dir: &cache_dir,
                 claude_dir: &claude_dir,
                 profile: &resolved,
                 module_filter: module.as_deref(),
@@ -1252,7 +1267,7 @@ fn run() -> Result<()> {
             let has_drift = commands::diff::run(&commands::diff::DiffOptions {
                 repo_root: &repo,
                 dest_root: &dest_root_buf,
-                state_dir: &state_dir,
+                cache_dir: &cache_dir,
                 profile: &resolved,
                 module_filter: module.as_deref(),
                 diff_files: *files || none_specified,
@@ -1321,14 +1336,14 @@ fn run() -> Result<()> {
             AiAction::Fetch { name } => {
                 commands::ai::fetch(&commands::ai::FetchOptions {
                     repo_root: &repo,
-                    state_dir: &state_dir,
+                    cache_dir: &cache_dir,
                     name: name.as_deref(),
                 })?;
             }
             AiAction::Update { name } => {
                 commands::ai::update(&commands::ai::UpdateOptions {
                     repo_root: &repo,
-                    state_dir: &state_dir,
+                    cache_dir: &cache_dir,
                     name: name.as_deref(),
                 })?;
             }
@@ -1350,7 +1365,7 @@ fn run() -> Result<()> {
             AiAction::Scan { path, dry_run } => {
                 commands::ai::scan(&commands::ai::ScanOptions {
                     repo_root: &repo,
-                    state_dir: &state_dir,
+                    cache_dir: &cache_dir,
                     dir: path,
                     dry_run: *dry_run,
                 })?;

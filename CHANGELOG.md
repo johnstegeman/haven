@@ -7,6 +7,34 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [v1.0.0] — 2026-03-29
+
+### Changed
+
+- **CLAUDE.md no longer lists skills and commands** — the haven-managed section in
+  `~/.claude/CLAUDE.md` now contains only per-skill snippet content (`all.md` /
+  `claude-code.md`). Claude Code discovers skills at runtime from `~/.claude/skills/`
+  automatically; the redundant index has been removed. Run `haven apply --ai` to
+  regenerate a cleaner file.
+
+- **State and cache directories moved to XDG paths** — runtime directories now follow
+  the [XDG Base Directory Specification]:
+  - State (applied hashes, process lock, telemetry, backups):
+    `~/.haven/` → `~/.local/state/haven/`
+  - Skill cache: `~/.haven/skills/` → `~/.cache/haven/skills/`
+  - Local platform registry: `~/.haven/platforms.toml` →
+    `~/.local/state/haven/platforms.toml`
+
+  Both paths respect `XDG_STATE_HOME` and `XDG_CACHE_HOME`. See the
+  [v1.0.0 release notes] for migration instructions.
+
+  `haven.lock` (in the repo root, tracked by VCS) is unaffected.
+
+[XDG Base Directory Specification]: https://specifications.freedesktop.org/basedir-spec/latest/
+[v1.0.0 release notes]: docs/releases/v1.0.0.md
+
+---
+
 ## [v0.9.0] — 2026-03-27
 
 ### Added
@@ -25,7 +53,7 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **`haven ai remove` accepts source URL** — `haven ai remove` now matches by source URL (or suffix) in addition to skill name, and shows available skill names when no match is found.
 
-- **Local platforms registry path** — `haven` now reads the local platforms registry from `~/.haven` instead of the old `~/.dfiles` path.
+- **Local platforms registry path** — `haven` now reads the local platforms registry from `~/.haven/platforms.toml` instead of the old `~/.dfiles` path. (Moved to `~/.local/state/haven/platforms.toml` in v1.0.0.)
 
 - **Atomic writes for state files** — `state.json` and `haven.lock` are now written via temp+rename to prevent partial writes on crash.
 

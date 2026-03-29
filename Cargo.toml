@@ -1,6 +1,6 @@
 [package]
 name = "haven"
-version = "0.9.0"
+version = "1.0.0"
 edition = "2021"
 description = "AI-first dotfiles & environment manager"
 license = "MIT"

@@ -39,6 +39,7 @@ regex = "1"
 flate2 = "1"
 tar = "0.4"
 serde_yaml = "0.9"
+nix = { version = "0.29", features = ["signal", "process"] }
 
 [dependencies.tempfile]
 version = "3"

@@ -98,6 +98,11 @@ pub fn check_drift(src: &Path, dest: &Path) -> DriftKind {
 }
 
 /// Compare a template source against the live dest by rendering first.
+///
+/// Strips haven-managed sections from the destination before comparing so that
+/// files augmented by haven after writing (e.g. via config injection) are not
+/// falsely reported as modified — consistent with `check_drift_haven_aware` and
+/// the idempotency check in `apply.rs`.
 pub fn check_drift_template(
     src: &Path,
     ctx: &TemplateContext,
@@ -112,10 +117,22 @@ pub fn check_drift_template(
     let source_text = std::fs::read_to_string(src)?;
     let rendered = crate::template::render(&source_text, ctx)?;
     let dest_bytes = std::fs::read(dest)?;
-    if rendered.as_bytes() == dest_bytes.as_slice() {
-        Ok(DriftKind::Clean)
-    } else {
-        Ok(DriftKind::Modified)
+    match std::str::from_utf8(&dest_bytes) {
+        Ok(dest_text) => {
+            let stripped = crate::claude_md::strip_haven_section(dest_text);
+            if rendered == stripped {
+                Ok(DriftKind::Clean)
+            } else {
+                Ok(DriftKind::Modified)
+            }
+        }
+        Err(_) => {
+            if rendered.as_bytes() == dest_bytes.as_slice() {
+                Ok(DriftKind::Clean)
+            } else {
+                Ok(DriftKind::Modified)
+            }
+        }
     }
 }
 

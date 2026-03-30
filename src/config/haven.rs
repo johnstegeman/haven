@@ -96,8 +96,21 @@ impl HavenConfig {
         }
         let text = std::fs::read_to_string(&path)
             .with_context(|| format!("Cannot read {}", path.display()))?;
-        let config: Self =
+        let mut config: Self =
             toml::from_str(&text).with_context(|| format!("Invalid TOML in {}", path.display()))?;
+
+        // Merge haven.local.toml if present — local overrides win over the shared config.
+        // This file should be gitignored and never committed, allowing per-machine customization.
+        let local_path = repo_root.join("haven.local.toml");
+        if local_path.exists() {
+            let local_text = std::fs::read_to_string(&local_path)
+                .with_context(|| format!("Cannot read {}", local_path.display()))?;
+            let local: Self = toml::from_str(&local_text)
+                .with_context(|| format!("Invalid TOML in {}", local_path.display()))?;
+            // Local [data] keys override shared ones; keys not in local are kept.
+            config.data.extend(local.data);
+        }
+
         Ok(config)
     }
 

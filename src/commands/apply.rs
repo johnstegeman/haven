@@ -199,6 +199,7 @@ pub fn run(opts: &ApplyOptions<'_>) -> Result<ApplyOutcome> {
     // ── 1. Scan and apply all source files ───────────────────────────────────
     let ignore = IgnoreList::load(opts.repo_root, &template_ctx);
     let entries = scan(&source_dir, &ignore)?;
+    crate::source::warn_duplicate_destinations(&entries);
 
     // Load state early so conflict detection has access to prior hashes.
     let mut state = if opts.dry_run {

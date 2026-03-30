@@ -138,6 +138,33 @@ pub fn scan(source_dir: &Path, ignore: &IgnoreList) -> Result<Vec<SourceEntry>> 
     Ok(entries)
 }
 
+/// Emit a stderr warning for any destination that multiple source entries decode to.
+///
+/// Two source files mapping to the same dest (e.g. `variables.sh` and
+/// `executable_variables.sh`) is almost always a mistake: the last entry applied
+/// silently wins, and `haven status` will permanently show the losing entry as
+/// modified.
+pub fn warn_duplicate_destinations(entries: &[SourceEntry]) {
+    use std::collections::HashMap;
+
+    let mut by_dest: HashMap<&str, Vec<&std::path::Path>> = HashMap::new();
+    for entry in entries {
+        by_dest.entry(entry.dest_tilde.as_str()).or_default().push(&entry.src);
+    }
+
+    let mut dests: Vec<&str> = by_dest.keys().copied().filter(|d| by_dest[d].len() > 1).collect();
+    dests.sort();
+
+    for dest in dests {
+        let srcs = &by_dest[dest];
+        eprintln!("warning: multiple source files map to {dest}:");
+        for src in srcs.iter() {
+            eprintln!("  {}", src.display());
+        }
+        eprintln!("  Remove duplicates — the last one applied wins and others will always show as modified.");
+    }
+}
+
 // ─── Decoder ──────────────────────────────────────────────────────────────────
 
 /// Decode a relative path under `source/` into a `SourceEntry`.

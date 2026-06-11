@@ -1,0 +1,7 @@
+{
+  "setup": [
+    "mise trust"
+  ],
+  "teardown": [],
+  "run": []
+}

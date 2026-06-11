@@ -320,9 +320,13 @@ haven pkg install <name> [--cask] [--module <m>] [--brew] [--mise]
 |-----------------|-------------|
 | `name` | Formula or cask name (e.g. `ripgrep`, `iterm2`). |
 | `--cask` | Install as a cask (GUI apps, fonts, etc.). Implies brew backend. |
-| `--module <m>` | Record in this module's `brew/Brewfile.<m>`. Default: master `brew/Brewfile`. |
+| `--module <m>` | Record in this module's `brew/Brewfile.<m>` or `mise/mise.<m>.toml`. Default: master `brew/Brewfile` or `mise/mise.toml`. |
 | `--brew` | Force brew backend. |
-| `--mise` | Force mise backend (not yet available). |
+| `--mise` | Force mise backend. Writes `mise/mise[.<module>].toml`; supports `name@version` syntax. |
+
+**Mise tool-spec syntax:** `name@version` pins a specific version (e.g. `node@22`); a bare
+`name` defaults to `"latest"`. Mise configs are written to `mise/mise.toml` (master) or
+`mise/mise.<module>.toml` when `--module` is given.
 
 ### `haven pkg uninstall`
 
@@ -332,12 +336,14 @@ haven pkg uninstall <name> [--cask] [--brew] [--mise]
 
 | Argument/Option | Description |
 |-----------------|-------------|
-| `name` | Formula or cask name. |
+| `name` | Formula, cask, or mise tool name. |
 | `--cask` | Uninstall as a cask. Implies brew backend. |
 | `--brew` | Force brew backend. |
-| `--mise` | Force mise backend (not yet available). |
+| `--mise` | Force mise backend. Removes the tool only from mise configs. |
 
 Removes the formula from **all** Brewfiles in the repo, then runs `brew uninstall`.
+When both `brew` and `mise` are listed in `[packages] backends` and no explicit backend
+flag is passed, uninstall removes the tool from both backends.
 
 ---
 

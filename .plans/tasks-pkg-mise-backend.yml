@@ -94,7 +94,7 @@ tasks:
       uninstall path removes from both Brewfile and mise config. Update the existing
       `pkg_mise_not_yet_available` test to assert success instead of failure now that the
       backend is wired.
-    status: pending
+    status: in_progress
     dependencies:
       - task-003
     acceptance_criteria:
@@ -115,7 +115,7 @@ tasks:
       the "not yet available" qualifiers from the `--mise` flag descriptions in the
       `haven pkg install` and `haven pkg uninstall` sections and add a note about the
       `mise/` directory convention and the `name@version` tool-spec syntax.
-    status: pending
+    status: completed
     dependencies:
       - task-003
     acceptance_criteria:
@@ -123,4 +123,4 @@ tasks:
       - "`docs/COMMANDS.md` `--mise` flag descriptions no longer say \"not yet available\""
       - "`docs/COMMANDS.md` documents the `mise/mise.<module>.toml` file convention"
       - "`docs/COMMANDS.md` documents `name@version` tool-spec syntax (e.g. `node@22`)"
-    completed_at: null
+    completed_at: "2026-06-11T00:00:00Z"

@@ -15,6 +15,7 @@ haven.lock              # Auto-generated SHA pins for all fetched external sourc
 modules/<name>.toml     # Per-module: Brewfile path, mise config path
 source/                 # Dotfiles, encoded via magic-name prefixes
 brew/                   # Brewfiles referenced by module configs
+mise/                   # Mise config files referenced by module configs (mise/mise.<module>.toml)
 ai/
   platforms.toml        # Active platforms + per-platform overrides
   skills/<name>/
@@ -203,7 +204,7 @@ haven pkg uninstall <name> [--cask] [--brew] [--mise]
 
 Backend resolution order: explicit `--brew`/`--mise` flag → `[packages] backends[0]` in haven.toml → `"brew"` (hard default).
 
-`--cask` always implies the brew backend. Forcing a backend not listed in `allowed_backends()` is an error. The mise backend is wired but not yet functional (returns a clean "not yet available" error).
+`--cask` always implies the brew backend. Forcing a backend not listed in `allowed_backends()` is an error. The mise backend writes to `mise/mise[.<module>].toml`; supports `name@version` tool-spec syntax (bare name defaults to `"latest"`). When both backends are configured and no flag is passed, `uninstall` removes from both.
 
 ## Key Data Structures
 

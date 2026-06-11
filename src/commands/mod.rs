@@ -6,6 +6,7 @@ pub mod brew;
 pub mod diff;
 pub mod import;
 pub mod init;
+pub mod pkg;
 pub mod remove;
 pub mod security_scan;
 pub mod status;

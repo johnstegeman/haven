@@ -33,7 +33,7 @@ tasks:
       dispatch to `commands::brew::install` and `commands::brew::uninstall` for the brew
       backend, and return a clean "mise backend not yet available" error for the mise backend
       without mutating any state.
-    status: pending
+    status: completed
     dependencies:
       - task-001
     acceptance_criteria:
@@ -43,7 +43,7 @@ tasks:
       - "`pkg::install` with brew backend calls `commands::brew::install` with identical args"
       - "`pkg::uninstall` with brew backend calls `commands::brew::uninstall` with identical args"
       - "Forcing a backend not in `allowed_backends()` returns a clear error"
-    completed_at: null
+    completed_at: "2026-06-11T00:00:00Z"
 
   - id: task-003
     title: "Add Pkg/PkgAction CLI variants to main.rs and remove Brew/BrewAction"

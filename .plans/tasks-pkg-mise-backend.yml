@@ -69,7 +69,7 @@ tasks:
       from both backends idempotently (each backend's removal runs best-effort; errors from
       one do not prevent the other). Explicit `--brew` or `--mise` flags on uninstall still
       target only that backend.
-    status: pending
+    status: completed
     dependencies:
       - task-002
     acceptance_criteria:
@@ -79,7 +79,7 @@ tasks:
       - "`haven pkg uninstall node --brew` only removes from Brewfiles, does not touch mise configs"
       - "`haven pkg uninstall node --mise` only removes from mise configs, does not touch Brewfiles"
       - "`cargo clippy --all-targets` passes with no new warnings"
-    completed_at: null
+    completed_at: "2026-06-11T00:00:00Z"
 
   - id: task-004
     title: "Integration tests for haven pkg --mise CLI paths"

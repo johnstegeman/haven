@@ -2,9 +2,15 @@ use anyhow::{bail, Result};
 use std::path::Path;
 
 use crate::commands::brew;
+use crate::commands::mise;
 use crate::config::haven::HavenConfig;
 
-pub fn resolve_backend(brew_flag: bool, mise_flag: bool, cask: bool, cfg: &HavenConfig) -> Result<String> {
+pub fn resolve_backend(
+    brew_flag: bool,
+    mise_flag: bool,
+    cask: bool,
+    cfg: &HavenConfig,
+) -> Result<String> {
     let backend = if cask || brew_flag {
         "brew".to_string()
     } else if mise_flag {
@@ -37,8 +43,16 @@ pub fn install(
     let backend = resolve_backend(brew_flag, mise_flag, cask, cfg)?;
     match backend.as_str() {
         "brew" => brew::install(repo_root, name, cask, module),
-        "mise" => bail!("mise backend not yet available"),
-        other => unreachable!("backend '{}' passed resolve_backend but has no handler", other),
+        "mise" => {
+            if cask {
+                bail!("--cask is not supported with the mise backend (mise has no casks)");
+            }
+            mise::install(repo_root, name, module)
+        }
+        other => unreachable!(
+            "backend '{}' passed resolve_backend but has no handler",
+            other
+        ),
     }
 }
 
@@ -50,10 +64,28 @@ pub fn uninstall(
     cask: bool,
     cfg: &HavenConfig,
 ) -> Result<()> {
+    if !brew_flag && !mise_flag && !cask {
+        let allowed = cfg.packages.allowed_backends()?;
+        let has_brew = allowed.contains(&"brew".to_string());
+        let has_mise = allowed.contains(&"mise".to_string());
+        if has_brew && has_mise {
+            if let Err(e) = brew::uninstall(repo_root, name, false) {
+                eprintln!("warning: brew uninstall failed: {}", e);
+            }
+            if let Err(e) = mise::uninstall(repo_root, name) {
+                eprintln!("warning: mise uninstall failed: {}", e);
+            }
+            return Ok(());
+        }
+    }
+
     let backend = resolve_backend(brew_flag, mise_flag, cask, cfg)?;
     match backend.as_str() {
         "brew" => brew::uninstall(repo_root, name, cask),
-        "mise" => bail!("mise backend not yet available"),
-        other => unreachable!("backend '{}' passed resolve_backend but has no handler", other),
+        "mise" => mise::uninstall(repo_root, name),
+        other => unreachable!(
+            "backend '{}' passed resolve_backend but has no handler",
+            other
+        ),
     }
 }

@@ -40,7 +40,7 @@ use crate::drift::{
 use crate::ignore::IgnoreList;
 use crate::lock::LockFile;
 use crate::skill_cache::SkillCache;
-use crate::source::scan;
+use crate::source::{scan, EntryKind};
 use crate::template::TemplateContext;
 
 /// Whether to emit ANSI color codes in diff output.
@@ -101,52 +101,56 @@ pub fn run(opts: &DiffOptions<'_>) -> Result<bool> {
             let dest = resolve_dest(dest_expanded, opts.dest_root);
             let label = &entry.dest_tilde;
 
-            if entry.flags.extdir {
-                if !dest.exists() {
-                    section_lines.push(format!("  ? {}  (extdir: not cloned)", label));
-                } else if let Ok(marker) = parse_extdir_marker(&entry.src) {
-                    // Check ref drift: if a ref is pinned, compare against installed HEAD.
-                    if let Some(ref pinned_ref) = marker.ref_name {
-                        if let Some(head) = extdir_head_sha(&dest) {
-                            let expected_sha = git_rev_parse_ref(&dest, pinned_ref);
-                            let at_ref = expected_sha.is_some_and(|s| s == head);
-                            if !at_ref {
-                                let short = &head[..head.len().min(8)];
-                                section_lines.push(format!(
-                                    "  M {}  (extdir: at {}, expected {})",
-                                    label, short, pinned_ref
-                                ));
+            match entry.kind {
+                EntryKind::ExternalDir => {
+                    if !dest.exists() {
+                        section_lines.push(format!("  ? {}  (extdir: not cloned)", label));
+                    } else if let Ok(marker) = parse_extdir_marker(&entry.src) {
+                        // Check ref drift: if a ref is pinned, compare against installed HEAD.
+                        if let Some(ref pinned_ref) = marker.ref_name {
+                            if let Some(head) = extdir_head_sha(&dest) {
+                                let expected_sha = git_rev_parse_ref(&dest, pinned_ref);
+                                let at_ref = expected_sha.is_some_and(|s| s == head);
+                                if !at_ref {
+                                    let short = &head[..head.len().min(8)];
+                                    section_lines.push(format!(
+                                        "  M {}  (extdir: at {}, expected {})",
+                                        label, short, pinned_ref
+                                    ));
+                                }
                             }
+                            // If git is unavailable or dest isn't a git repo — skip silently.
                         }
-                        // If git is unavailable or dest isn't a git repo — skip silently.
                     }
                 }
-                continue;
-            }
-
-            if entry.flags.extfile {
-                if !dest.exists() {
-                    section_lines.push(format!("  ? {}  (extfile: not downloaded)", label));
+                EntryKind::ExternalFile => {
+                    if !dest.exists() {
+                        section_lines.push(format!("  ? {}  (extfile: not downloaded)", label));
+                    }
+                    // No content-hash tracking yet — presence check only.
                 }
-                // No content-hash tracking yet — presence check only.
-                continue;
-            }
-
-            if entry.flags.symlink {
-                let (kind, expected_target) = if entry.flags.template {
-                    let src_text = std::fs::read_to_string(&entry.src);
-                    match src_text.and_then(|t| {
-                        crate::template::render(&t, &template_ctx).map_err(std::io::Error::other)
-                    }) {
-                        Err(e) => {
-                            section_lines
-                                .push(format!("  ~ {}  (template render failed: {})", label, e));
-                            continue;
-                        }
-                        Ok(rendered) => {
-                            let target = std::path::PathBuf::from(rendered.trim().to_string());
-                            let kind =
-                                match check_drift_link_template(&entry.src, &template_ctx, &dest) {
+                EntryKind::Symlink => {
+                    let (kind, expected_target) = if entry.template {
+                        let src_text = std::fs::read_to_string(&entry.src);
+                        match src_text.and_then(|t| {
+                            crate::template::render(&t, &template_ctx)
+                                .map_err(std::io::Error::other)
+                        }) {
+                            Err(e) => {
+                                section_lines.push(format!(
+                                    "  ~ {}  (template render failed: {})",
+                                    label, e
+                                ));
+                                continue;
+                            }
+                            Ok(rendered) => {
+                                let target =
+                                    std::path::PathBuf::from(rendered.trim().to_string());
+                                let kind = match check_drift_link_template(
+                                    &entry.src,
+                                    &template_ctx,
+                                    &dest,
+                                ) {
                                     Ok(k) => k,
                                     Err(e) => {
                                         section_lines.push(format!(
@@ -156,116 +160,128 @@ pub fn run(opts: &DiffOptions<'_>) -> Result<bool> {
                                         continue;
                                     }
                                 };
-                            (kind, target.display().to_string())
+                                (kind, target.display().to_string())
+                            }
                         }
-                    }
-                } else {
-                    (
-                        check_drift_link(&entry.src, &dest),
-                        entry.src.display().to_string(),
-                    )
-                };
-                match kind {
-                    DriftKind::Clean => {}
-                    DriftKind::Missing => {
-                        section_lines.push(format!("  ? {}", label));
-                    }
-                    DriftKind::SourceMissing => {
-                        section_lines.push(format!("  ! {}", label));
-                    }
-                    DriftKind::Modified => {
-                        let actual = if dest.is_symlink() {
-                            std::fs::read_link(&dest)
-                                .map(|p| p.display().to_string())
-                                .unwrap_or_else(|_| "(unreadable)".to_string())
-                        } else {
-                            "(not a symlink)".to_string()
-                        };
-                        section_lines.push(format!(
-                            "  M {}  (symlink: points to {}, expected {})",
-                            label, actual, expected_target
-                        ));
-                    }
-                }
-                continue;
-            }
-
-            if entry.flags.template {
-                let kind = match check_drift_template(&entry.src, &template_ctx, &dest) {
-                    Ok(k) => k,
-                    Err(e) => {
-                        // Non-fatal: show the ~ marker and continue.
-                        section_lines
-                            .push(format!("  ~ {}  (template render failed: {})", label, e));
-                        continue;
-                    }
-                };
-                match kind {
-                    DriftKind::Clean => {}
-                    DriftKind::Missing => {
-                        section_lines.push(format!("  ? {}", label));
-                    }
-                    DriftKind::SourceMissing => {
-                        section_lines.push(format!("  ! {}", label));
-                    }
-                    DriftKind::Modified => {
-                        let src_text = std::fs::read_to_string(&entry.src)
-                            .with_context(|| format!("Cannot read {}", entry.src.display()))?;
-                        let rendered = crate::template::render(&src_text, &template_ctx)
-                            .with_context(|| {
-                                format!("Cannot render template {}", entry.src.display())
-                            })?;
-                        let dest_text = read_text_or_notice(&dest, label, &mut section_lines);
-                        if let Some(dest_str) = dest_text {
-                            push_diff_output(
-                                &dest_str,
-                                &rendered,
-                                label,
-                                label,                          // --- dest (current)
-                                &format!("{} (source)", label), // +++ source (desired)
-                                opts.stat_only,
-                                use_color,
-                                &mut section_lines,
-                            );
-                        }
-                    }
-                }
-                continue;
-            }
-
-            // Plain file.
-            let kind = check_drift_haven_aware(&entry.src, &dest);
-            match kind {
-                DriftKind::Clean => {}
-                DriftKind::Missing => {
-                    section_lines.push(format!("  ? {}", label));
-                }
-                DriftKind::SourceMissing => {
-                    section_lines.push(format!("  ! {}", label));
-                }
-                DriftKind::Modified => {
-                    let src_bytes = std::fs::read(&entry.src)
-                        .with_context(|| format!("Cannot read {}", entry.src.display()))?;
-                    let dest_bytes = std::fs::read(&dest)
-                        .with_context(|| format!("Cannot read {}", dest.display()))?;
-
-                    if is_binary(&src_bytes) || is_binary(&dest_bytes) {
-                        section_lines.push(format!("  M {}  (binary files differ)", label));
                     } else {
-                        let src_text = String::from_utf8_lossy(&src_bytes).into_owned();
-                        let dest_text = crate::claude_md::strip_haven_section(
-                            &String::from_utf8_lossy(&dest_bytes),
-                        );
-                        push_diff_output(
-                            &dest_text, // a = current on disk
-                            &src_text,  // b = what apply would write
-                            label,
-                            label,                          // --- dest (current)
-                            &format!("{} (source)", label), // +++ source (desired)
-                            opts.stat_only,
-                            use_color,
-                            &mut section_lines,
-                        );
+                        (
+                            check_drift_link(&entry.src, &dest),
+                            entry.src.display().to_string(),
+                        )
+                    };
+                    match kind {
+                        DriftKind::Clean => {}
+                        DriftKind::Missing => {
+                            section_lines.push(format!("  ? {}", label));
+                        }
+                        DriftKind::SourceMissing => {
+                            section_lines.push(format!("  ! {}", label));
+                        }
+                        DriftKind::Modified => {
+                            let actual = if dest.is_symlink() {
+                                std::fs::read_link(&dest)
+                                    .map(|p| p.display().to_string())
+                                    .unwrap_or_else(|_| "(unreadable)".to_string())
+                            } else {
+                                "(not a symlink)".to_string()
+                            };
+                            section_lines.push(format!(
+                                "  M {}  (symlink: points to {}, expected {})",
+                                label, actual, expected_target
+                            ));
+                        }
+                    }
+                }
+                EntryKind::PlainFile => {
+                    if entry.template {
+                        let kind = match check_drift_template(&entry.src, &template_ctx, &dest) {
+                            Ok(k) => k,
+                            Err(e) => {
+                                // Non-fatal: show the ~ marker and continue.
+                                section_lines.push(format!(
+                                    "  ~ {}  (template render failed: {})",
+                                    label, e
+                                ));
+                                continue;
+                            }
+                        };
+                        match kind {
+                            DriftKind::Clean => {}
+                            DriftKind::Missing => {
+                                section_lines.push(format!("  ? {}", label));
+                            }
+                            DriftKind::SourceMissing => {
+                                section_lines.push(format!("  ! {}", label));
+                            }
+                            DriftKind::Modified => {
+                                let src_text = std::fs::read_to_string(&entry.src)
+                                    .with_context(|| {
+                                        format!("Cannot read {}", entry.src.display())
+                                    })?;
+                                let rendered =
+                                    crate::template::render(&src_text, &template_ctx)
+                                        .with_context(|| {
+                                            format!(
+                                                "Cannot render template {}",
+                                                entry.src.display()
+                                            )
+                                        })?;
+                                let dest_text =
+                                    read_text_or_notice(&dest, label, &mut section_lines);
+                                if let Some(dest_str) = dest_text {
+                                    push_diff_output(
+                                        &dest_str,
+                                        &rendered,
+                                        label,
+                                        label,
+                                        &format!("{} (source)", label),
+                                        opts.stat_only,
+                                        use_color,
+                                        &mut section_lines,
+                                    );
+                                }
+                            }
+                        }
+                    } else {
+                        let kind = check_drift_haven_aware(&entry.src, &dest);
+                        match kind {
+                            DriftKind::Clean => {}
+                            DriftKind::Missing => {
+                                section_lines.push(format!("  ? {}", label));
+                            }
+                            DriftKind::SourceMissing => {
+                                section_lines.push(format!("  ! {}", label));
+                            }
+                            DriftKind::Modified => {
+                                let src_bytes = std::fs::read(&entry.src).with_context(|| {
+                                    format!("Cannot read {}", entry.src.display())
+                                })?;
+                                let dest_bytes = std::fs::read(&dest).with_context(|| {
+                                    format!("Cannot read {}", dest.display())
+                                })?;
+
+                                if is_binary(&src_bytes) || is_binary(&dest_bytes) {
+                                    section_lines
+                                        .push(format!("  M {}  (binary files differ)", label));
+                                } else {
+                                    let src_text =
+                                        String::from_utf8_lossy(&src_bytes).into_owned();
+                                    let dest_text = crate::claude_md::strip_haven_section(
+                                        &String::from_utf8_lossy(&dest_bytes),
+                                    );
+                                    push_diff_output(
+                                        &dest_text,
+                                        &src_text,
+                                        label,
+                                        label,
+                                        &format!("{} (source)", label),
+                                        opts.stat_only,
+                                        use_color,
+                                        &mut section_lines,
+                                    );
+                                }
+                            }
+                        }
                     }
                 }
             }

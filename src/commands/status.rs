@@ -9,7 +9,7 @@ use crate::drift::{
 };
 use crate::fs::sha256_of_bytes;
 use crate::ignore::IgnoreList;
-use crate::source;
+use crate::source::{self, EntryKind};
 use crate::state::State;
 use crate::template::TemplateContext;
 
@@ -62,34 +62,43 @@ pub fn run(opts: &StatusOptions<'_>) -> Result<()> {
             let dest_expanded = expand_tilde(&entry.dest_tilde)?;
             let dest = resolve_dest(dest_expanded, opts.dest_root);
 
-            let drift = if entry.flags.extdir {
-                if !dest.exists() {
-                    DriftKind::Missing
-                } else if !dest.join(".git").exists() {
-                    DriftKind::Modified
-                } else {
-                    DriftKind::Clean
+            let drift = match entry.kind {
+                EntryKind::ExternalDir => {
+                    if !dest.exists() {
+                        DriftKind::Missing
+                    } else if !dest.join(".git").exists() {
+                        DriftKind::Modified
+                    } else {
+                        DriftKind::Clean
+                    }
                 }
-            } else if entry.flags.symlink {
-                if entry.flags.template {
-                    check_drift_link_template(&entry.src, &template_ctx, &dest)?
-                } else {
-                    check_drift_link(&entry.src, &dest)
+                EntryKind::ExternalFile => {
+                    if !dest.exists() {
+                        DriftKind::Missing
+                    } else {
+                        DriftKind::Clean
+                    }
                 }
-            } else if entry.flags.template {
-                check_drift_template(&entry.src, &template_ctx, &dest)?
-            } else {
-                check_drift_haven_aware(&entry.src, &dest)
+                EntryKind::Symlink => {
+                    if entry.template {
+                        check_drift_link_template(&entry.src, &template_ctx, &dest)?
+                    } else {
+                        check_drift_link(&entry.src, &dest)
+                    }
+                }
+                EntryKind::PlainFile => {
+                    if entry.template {
+                        check_drift_template(&entry.src, &template_ctx, &dest)?
+                    } else {
+                        check_drift_haven_aware(&entry.src, &dest)
+                    }
+                }
             };
 
             // C marker: check whether dest was edited since last apply.
             // Only applies to plain/template files that have a prior hash.
             // Symlinks, extdirs, extfiles, and create_only files are excluded.
-            let user_edited = if !entry.flags.extdir
-                && !entry.flags.extfile
-                && !entry.flags.symlink
-                && !entry.flags.create_only
-            {
+            let user_edited = if matches!(entry.kind, EntryKind::PlainFile) && !entry.create_only {
                 if let Some(prior) = state.applied_files.get(&entry.dest_tilde) {
                     match std::fs::read_to_string(&dest) {
                         Ok(text) => {

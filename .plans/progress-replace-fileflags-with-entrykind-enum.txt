@@ -5,3 +5,7 @@ Files: src/source.rs, src/commands/apply.rs
 ## TASK-002 — 2026-06-11T01:00:00Z
 Migrated apply.rs (apply_entry, collect_exact_dirs, print_dry_run_entry, cleanup) to use entry.kind + modifier fields instead of flags.*. Replaced cascading if-flag chains with exhaustive `match entry.kind { ExternalDir, ExternalFile, Symlink, PlainFile }` in apply_entry; updated collect_exact_dirs ExternalDir guard; updated state-cleanup filter to `matches!(e.kind, EntryKind::PlainFile) && !e.create_only`; updated print_dry_run_entry tag checks. Zero entry.flags.* accesses remain in apply.rs. All 621 tests pass.
 Files: ~src/commands/apply.rs, ~.plans/tasks-replace-fileflags-with-entrykind-enum.yml, ~.plans/progress-replace-fileflags-with-entrykind-enum.txt
+
+## TASK-003 — 2026-06-11T02:00:00Z
+Migrated status.rs, diff.rs, list.rs to use entry.kind + modifier fields. Removed dead exact-tag check from list.rs.
+Files: ~src/commands/status.rs, ~src/commands/diff.rs, ~src/commands/list.rs, ~.plans/tasks-replace-fileflags-with-entrykind-enum.yml, ~.plans/progress-replace-fileflags-with-entrykind-enum.txt

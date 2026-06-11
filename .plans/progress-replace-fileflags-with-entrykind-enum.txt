@@ -1,3 +1,7 @@
 ## TASK-001 — 2026-06-11T00:30:00Z
 Added public `EntryKind` enum (PlainFile, Symlink, ExternalDir, ExternalFile) and promoted `kind`, `private`, `executable`, `template`, `create_only` as direct fields on `SourceEntry`; replaced `SourceDir.flags: FileFlags` with `private: bool` and `exact: bool`; made `FileFlags` and `decode_component` `pub(crate)`; updated all source.rs unit tests to use the new fields. `SourceEntry.flags` retained for backward compat with apply.rs/status.rs/diff.rs/list.rs callers. Updated `apply.rs` to use `dir.private`/`dir.exact` directly (the only `SourceDir.flags` callsites). All 430 unit tests and 191 integration tests pass.
 Files: src/source.rs, src/commands/apply.rs
+
+## TASK-002 — 2026-06-11T01:00:00Z
+Migrated apply.rs (apply_entry, collect_exact_dirs, print_dry_run_entry, cleanup) to use entry.kind + modifier fields instead of flags.*. Replaced cascading if-flag chains with exhaustive `match entry.kind { ExternalDir, ExternalFile, Symlink, PlainFile }` in apply_entry; updated collect_exact_dirs ExternalDir guard; updated state-cleanup filter to `matches!(e.kind, EntryKind::PlainFile) && !e.create_only`; updated print_dry_run_entry tag checks. Zero entry.flags.* accesses remain in apply.rs. All 621 tests pass.
+Files: ~src/commands/apply.rs, ~.plans/tasks-replace-fileflags-with-entrykind-enum.yml, ~.plans/progress-replace-fileflags-with-entrykind-enum.txt

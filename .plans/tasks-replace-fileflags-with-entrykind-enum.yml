@@ -39,14 +39,14 @@ tasks:
       the kind tags. Update the state-cleanup guard (~line 308) to use
       `matches!(entry.kind, EntryKind::PlainFile) && !entry.create_only`. Run `cargo build`
       and `cargo test` and verify they pass.
-    status: pending
+    status: completed
     dependencies:
       - task-001
     acceptance_criteria:
       - 'Zero `entry.flags.*` or `dir.flags.*` accesses remain in apply.rs'
       - '`apply_entry` uses exhaustive `match entry.kind`'
       - '`cargo build` and `cargo test` pass'
-    completed_at: null
+    completed_at: "2026-06-11T01:00:00Z"
 
   - id: task-003
     title: 'Migrate status.rs, diff.rs, and list.rs to use EntryKind'
@@ -60,7 +60,7 @@ tasks:
       if-flag-push-tag blocks with a `match entry.kind` for the kind tag and modifier checks
       for the rest; remove the `entry.flags.exact` check (it was always false on files). Run
       `cargo build` and `cargo test` and verify they pass.
-    status: pending
+    status: in_progress
     dependencies:
       - task-001
     acceptance_criteria:

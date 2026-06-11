@@ -137,6 +137,7 @@ pub fn remove_from_misefile(path: &Path, name: &str) -> Result<usize> {
 /// Return all `(name, version)` pairs declared in `[tools]` in the mise config at `path`.
 ///
 /// Returns an empty vec if the file does not exist or has no `[tools]` section.
+#[allow(dead_code)]
 pub fn parse_mise_tools(path: &Path) -> Result<Vec<(String, String)>> {
     if !path.exists() {
         return Ok(Vec::new());

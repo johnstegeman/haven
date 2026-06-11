@@ -4950,7 +4950,10 @@ fn pkg_mise_install_creates_mise_toml() {
         .success();
 
     let mise_toml = repo.path().join("mise").join("mise.toml");
-    assert!(mise_toml.exists(), "mise/mise.toml should have been created");
+    assert!(
+        mise_toml.exists(),
+        "mise/mise.toml should have been created"
+    );
     let content = fs::read_to_string(&mise_toml).unwrap();
     assert!(
         content.contains("node = \"latest\""),
@@ -5006,7 +5009,10 @@ fn pkg_mise_install_version_pinned() {
         .success();
 
     let mise_toml = repo.path().join("mise").join("mise.toml");
-    assert!(mise_toml.exists(), "mise/mise.toml should have been created");
+    assert!(
+        mise_toml.exists(),
+        "mise/mise.toml should have been created"
+    );
     let content = fs::read_to_string(&mise_toml).unwrap();
     assert!(
         content.contains("node = \"22\""),
@@ -5022,11 +5028,7 @@ fn pkg_mise_uninstall_removes_entry() {
 
     let mise_dir = repo.path().join("mise");
     fs::create_dir_all(&mise_dir).unwrap();
-    fs::write(
-        mise_dir.join("mise.toml"),
-        "[tools]\nnode = \"latest\"\n",
-    )
-    .unwrap();
+    fs::write(mise_dir.join("mise.toml"), "[tools]\nnode = \"latest\"\n").unwrap();
 
     cmd(&repo)
         .args(["pkg", "uninstall", "node", "--mise"])
@@ -5071,11 +5073,7 @@ fn pkg_dual_backend_uninstall() {
 
     let mise_dir = repo.path().join("mise");
     fs::create_dir_all(&mise_dir).unwrap();
-    fs::write(
-        mise_dir.join("mise.toml"),
-        "[tools]\nnode = \"latest\"\n",
-    )
-    .unwrap();
+    fs::write(mise_dir.join("mise.toml"), "[tools]\nnode = \"latest\"\n").unwrap();
 
     let brew_bin = make_mock_brew();
     let mise_bin = make_mock_mise();

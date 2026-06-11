@@ -1,0 +1,4 @@
+## TASK-001 — 2026-06-11T18:00:00Z
+Added `PkgAction::Outdated`, `PkgAction::Upgrade { name: Option<String> }`, and `PkgAction::Search { term: String }` to the clap enum in `src/main.rs`, wired stubs in `commands/pkg.rs`, and added disambiguation note to `haven upgrade` help text.
+Files: ~src/main.rs, ~src/commands/pkg.rs, ~src/mise.rs, ~src/commands/list.rs
+Decisions: Fixed three pre-existing `cargo clippy -D warnings` failures (dead_code in mise.rs, unnecessary_map_or and needless_option_as_deref in list.rs) to satisfy the clippy acceptance criterion.

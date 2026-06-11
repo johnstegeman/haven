@@ -88,3 +88,15 @@ pub fn uninstall(
         ),
     }
 }
+
+pub fn outdated(_repo_root: &Path, _cfg: &HavenConfig) -> Result<()> {
+    Err(anyhow::anyhow!("not implemented"))
+}
+
+pub fn upgrade(_repo_root: &Path, _name: Option<&str>, _cfg: &HavenConfig) -> Result<()> {
+    Err(anyhow::anyhow!("not implemented"))
+}
+
+pub fn search(_repo_root: &Path, _term: &str, _cfg: &HavenConfig) -> Result<()> {
+    Err(anyhow::anyhow!("not implemented"))
+}

@@ -13,7 +13,8 @@ tasks:
       `commands/pkg.rs` — the stubs can return `todo!()` or an unimplemented error
       for now. Also add a disambiguation note to `haven upgrade` (binary self-update)
       help text to clarify it is distinct from `haven pkg upgrade`.
-    status: pending
+    status: completed
+    completed_at: "2026-06-11T18:00:00Z"
     dependencies: []
     acceptance_criteria:
       - "`haven pkg outdated --help`, `haven pkg upgrade --help`, and `haven pkg search --help` all render without error"

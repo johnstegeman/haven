@@ -1082,83 +1082,80 @@ fn print_dry_run_entry(entry: &SourceEntry, dest_root: &Path) {
         Err(_) => PathBuf::from(&entry.dest_tilde),
     };
 
-    if matches!(entry.kind, EntryKind::ExternalDir) {
-        match parse_extdir_content(&entry.src) {
-            Ok(content) => {
-                let ref_hint = content.ref_name.as_deref().unwrap_or("default branch");
-                println!(
-                    "  [extdir] clone {} → {}  ({})",
-                    content.url,
-                    dest.display(),
-                    ref_hint
-                );
-            }
-            Err(_) => {
-                println!("  [extdir] {}  (marker unreadable)", dest.display());
-            }
-        }
-        return;
-    }
-
-    if matches!(entry.kind, EntryKind::ExternalFile) {
-        match parse_extfile_content(&entry.src) {
-            Ok(content) => {
-                let ref_hint = content.ref_name.as_deref().unwrap_or("latest");
-                let type_hint = if content.kind == "archive" {
-                    "extract"
-                } else {
-                    "download"
-                };
-                println!(
-                    "  [extfile] {} {} → {}  ({})",
-                    type_hint,
-                    content.url,
-                    dest.display(),
-                    ref_hint
-                );
-            }
-            Err(_) => {
-                println!("  [extfile] {}  (marker unreadable)", dest.display());
+    match entry.kind {
+        EntryKind::ExternalDir => {
+            match parse_extdir_content(&entry.src) {
+                Ok(content) => {
+                    let ref_hint = content.ref_name.as_deref().unwrap_or("default branch");
+                    println!(
+                        "  [extdir] clone {} → {}  ({})",
+                        content.url,
+                        dest.display(),
+                        ref_hint
+                    );
+                }
+                Err(_) => {
+                    println!("  [extdir] {}  (marker unreadable)", dest.display());
+                }
             }
         }
-        return;
+        EntryKind::ExternalFile => {
+            match parse_extfile_content(&entry.src) {
+                Ok(content) => {
+                    let ref_hint = content.ref_name.as_deref().unwrap_or("latest");
+                    let type_hint = if content.kind == "archive" {
+                        "extract"
+                    } else {
+                        "download"
+                    };
+                    println!(
+                        "  [extfile] {} {} → {}  ({})",
+                        type_hint,
+                        content.url,
+                        dest.display(),
+                        ref_hint
+                    );
+                }
+                Err(_) => {
+                    println!("  [extfile] {}  (marker unreadable)", dest.display());
+                }
+            }
+        }
+        EntryKind::Symlink | EntryKind::PlainFile => {
+            let mut tags: Vec<&str> = Vec::new();
+            if entry.template {
+                tags.push("template");
+            }
+            if entry.private {
+                tags.push("private");
+            }
+            if entry.executable {
+                tags.push("executable");
+            }
+            if matches!(entry.kind, EntryKind::Symlink) {
+                tags.push("symlink");
+            }
+            if entry.create_only {
+                tags.push("create_only");
+            }
+            let annotation = if tags.is_empty() {
+                String::new()
+            } else {
+                format!("  ({})", tags.join(", "))
+            };
+            println!(
+                "  source/{} → {}{}",
+                entry
+                    .src
+                    .components()
+                    .next_back()
+                    .map(|c| c.as_os_str().to_string_lossy().into_owned())
+                    .unwrap_or_default(),
+                dest.display(),
+                annotation,
+            );
+        }
     }
-
-    let mut tags: Vec<&str> = Vec::new();
-    if entry.template {
-        tags.push("template");
-    }
-    if entry.private {
-        tags.push("private");
-    }
-    if entry.executable {
-        tags.push("executable");
-    }
-    if matches!(entry.kind, EntryKind::Symlink) {
-        tags.push("symlink");
-    }
-    if entry.create_only {
-        tags.push("create_only");
-    }
-    let annotation = if tags.is_empty() {
-        String::new()
-    } else {
-        format!("  ({})", tags.join(", "))
-    };
-    let src_rel = entry.src.file_name().unwrap_or(entry.src.as_os_str());
-    println!(
-        "  source/{} → {}{}",
-        entry
-            .src
-            .components()
-            .next_back()
-            .map(|c| c.as_os_str().to_string_lossy().into_owned())
-            .unwrap_or_default(),
-        dest.display(),
-        annotation,
-    );
-    // Print as the encoded relative path for clarity
-    let _ = src_rel; // suppress warning
 }
 
 // ─── Script execution ─────────────────────────────────────────────────────────

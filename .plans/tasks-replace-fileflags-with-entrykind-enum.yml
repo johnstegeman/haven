@@ -104,14 +104,14 @@ tasks:
       `match entry.kind { ExternalDir => ..., ExternalFile => ..., Symlink => ...,
       PlainFile => ... }` with explicit arms so the compiler enforces exhaustiveness. Run
       `cargo build` and `cargo test` and verify they pass.
-    status: pending
+    status: completed
     dependencies:
       - task-004
     acceptance_criteria:
       - 'No dead `src_rel` variable or `let _ = src_rel` suppressor in apply.rs'
       - '`print_dry_run_entry` uses exhaustive `match entry.kind` covering all 4 variants'
       - '`cargo build` and `cargo test` pass'
-    completed_at: null
+    completed_at: "2026-06-11T05:00:00Z"
     source: review
 
   - id: task-006
@@ -131,7 +131,7 @@ tasks:
       `assert_ne!(e.kind, EntryKind::Symlink)` in `path_extdir_plain` (which immediately
       follows `assert_eq!(e.kind, EntryKind::ExternalDir)` — one value cannot be two variants).
       Run `cargo test` and verify all tests pass.
-    status: pending
+    status: in_progress
     dependencies:
       - task-004
     acceptance_criteria:

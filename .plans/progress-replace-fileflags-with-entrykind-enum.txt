@@ -16,3 +16,7 @@ Files: ~src/source.rs, ~.plans/tasks-replace-fileflags-with-entrykind-enum.yml, 
 
 ## REVIEW — 2026-06-11T04:00:00Z
 Added 2 review tasks (task-005..task-006).
+
+## TASK-005 — 2026-06-11T05:00:00Z
+Fixed print_dry_run_entry: removed dead src_rel, converted to exhaustive match entry.kind.
+Files: ~src/commands/apply.rs, ~.plans/tasks-replace-fileflags-with-entrykind-enum.yml, ~.plans/progress-replace-fileflags-with-entrykind-enum.txt

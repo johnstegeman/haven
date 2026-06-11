@@ -80,7 +80,7 @@ tasks:
       Verify that `FileFlags` is truly private (no `pub`) and that nothing outside
       `source.rs` references it. Run `cargo build`, `cargo test`, and
       `cargo test --test integration` and verify all pass with zero changes to test output.
-    status: pending
+    status: completed
     dependencies:
       - task-002
       - task-003
@@ -90,4 +90,4 @@ tasks:
       - '`cargo build` passes with zero errors'
       - '`cargo test` passes (unit tests)'
       - '`cargo test --test integration` passes with no changes to test output'
-    completed_at: null
+    completed_at: "2026-06-11T03:00:00Z"

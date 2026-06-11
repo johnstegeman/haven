@@ -58,7 +58,7 @@ pub enum EntryKind {
 
 /// Flags decoded from a magic-name path component.
 #[derive(Debug, Clone, Default)]
-pub(crate) struct FileFlags {
+struct FileFlags {
     pub private: bool,
     pub executable: bool,
     pub symlink: bool,
@@ -86,8 +86,6 @@ pub struct SourceEntry {
     pub template: bool,
     /// Skip writing if the destination already exists (chezmoi `create_` prefix).
     pub create_only: bool,
-    /// Flags decoded from this file's own name component (kept for backward compat).
-    pub flags: FileFlags,
     /// Directory components between `source/` and the file, in order.
     /// Apply these first to create / permission parent directories.
     pub dirs: Vec<SourceDir>,
@@ -229,7 +227,6 @@ fn decode_path(abs: PathBuf, rel: &Path) -> SourceEntry {
         executable: flags.executable,
         template: flags.template,
         create_only: flags.create_only,
-        flags,
         dirs,
     }
 }
@@ -237,7 +234,7 @@ fn decode_path(abs: PathBuf, rel: &Path) -> SourceEntry {
 /// Decode one path component, stripping magic prefixes.
 ///
 /// `is_file`: when true, also strip the `.tmpl` suffix and set `template`.
-pub(crate) fn decode_component(s: &str, is_file: bool) -> (String, FileFlags) {
+fn decode_component(s: &str, is_file: bool) -> (String, FileFlags) {
     let mut flags = FileFlags::default();
     let mut remaining = s;
 

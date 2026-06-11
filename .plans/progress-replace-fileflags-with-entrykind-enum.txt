@@ -9,3 +9,7 @@ Files: ~src/commands/apply.rs, ~.plans/tasks-replace-fileflags-with-entrykind-en
 ## TASK-003 — 2026-06-11T02:00:00Z
 Migrated status.rs, diff.rs, list.rs to use entry.kind + modifier fields. Removed dead exact-tag check from list.rs.
 Files: ~src/commands/status.rs, ~src/commands/diff.rs, ~src/commands/list.rs, ~.plans/tasks-replace-fileflags-with-entrykind-enum.yml, ~.plans/progress-replace-fileflags-with-entrykind-enum.txt
+
+## TASK-004 — 2026-06-11T03:00:00Z
+Removed flags: FileFlags field from SourceEntry. FileFlags now fully internal to source.rs. Also made FileFlags and decode_component fully private (no pub(crate)). 621 unit tests and 191 integration tests pass.
+Files: ~src/source.rs, ~.plans/tasks-replace-fileflags-with-entrykind-enum.yml, ~.plans/progress-replace-fileflags-with-entrykind-enum.txt

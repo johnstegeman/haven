@@ -130,7 +130,8 @@ tasks:
       Print results grouped by backend. Each result line includes a copy-pasteable
       install hint, e.g. `haven pkg install <name>` or `haven pkg install <name>
       --mise`. Degrade gracefully when a backend binary is missing.
-    status: pending
+    status: completed
+    completed_at: "2026-06-11T23:30:00Z"
     dependencies:
       - task-001
       - task-002

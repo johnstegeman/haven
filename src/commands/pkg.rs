@@ -216,6 +216,60 @@ pub fn upgrade(repo_root: &Path, name: Option<&str>, cfg: &HavenConfig) -> Resul
     Ok(())
 }
 
-pub fn search(_repo_root: &Path, _term: &str, _cfg: &HavenConfig) -> Result<()> {
-    Err(anyhow::anyhow!("not implemented"))
+pub fn search(_repo_root: &Path, term: &str, cfg: &HavenConfig) -> Result<()> {
+    let allowed = cfg.packages.allowed_backends()?;
+
+    for backend in &allowed {
+        match backend.as_str() {
+            "brew" => {
+                let brew = match homebrew::brew_path() {
+                    Some(p) => p,
+                    None => {
+                        println!("brew not available — skipping");
+                        continue;
+                    }
+                };
+                let brew_str = brew.to_string_lossy();
+                match homebrew::brew_search(&brew_str, term) {
+                    Err(e) => println!("brew not available — skipping ({})", e),
+                    Ok(names) => {
+                        println!("==> brew");
+                        if names.is_empty() {
+                            println!("  (no results)");
+                        } else {
+                            for name in &names {
+                                println!("  {}    haven pkg install {}", name, name);
+                            }
+                        }
+                    }
+                }
+            }
+            "mise" => {
+                let mise_bin = match mise_lib::mise_path() {
+                    Some(p) => p,
+                    None => {
+                        println!("mise not available — skipping");
+                        continue;
+                    }
+                };
+                let mise_str = mise_bin.to_string_lossy();
+                match mise_lib::mise_search(&mise_str, term) {
+                    Err(e) => println!("mise not available — skipping ({})", e),
+                    Ok(names) => {
+                        println!("==> mise");
+                        if names.is_empty() {
+                            println!("  (no results)");
+                        } else {
+                            for name in &names {
+                                println!("  {}    haven pkg install {} --mise", name, name);
+                            }
+                        }
+                    }
+                }
+            }
+            other => unreachable!("unknown backend '{}'", other),
+        }
+    }
+
+    Ok(())
 }

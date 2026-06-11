@@ -31,7 +31,8 @@ tasks:
       runs `brew upgrade [name]`. Both functions must tolerate a missing binary by
       returning a well-typed error (not panic). Define `OutdatedPackage` struct in a
       shared location (homebrew.rs or a new types module) for use by the command layer.
-    status: pending
+    status: completed
+    completed_at: "2026-06-11T18:30:00Z"
     dependencies: []
     acceptance_criteria:
       - "`brew_outdated` parses `brew outdated --json=v2` JSON correctly"

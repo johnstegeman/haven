@@ -14,6 +14,18 @@ use anyhow::{Context, Result};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
+/// A package that has an available upgrade.
+///
+/// Used by both the brew and mise backends so the command layer can display
+/// results uniformly.
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct OutdatedPackage {
+    pub name: String,
+    pub current_version: String,
+    pub latest_version: String,
+}
+
 const BREW_INSTALL_URL: &str = "https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh";
 
 /// Well-known Homebrew binary locations checked when `brew` is not in PATH.
@@ -594,6 +606,122 @@ fn brewfile_entry_sort_key(line: &str, kind: &str) -> String {
     extract_entry_name(line.trim(), kind)
         .map(|name| name.split('/').next_back().unwrap_or(&name).to_lowercase())
         .unwrap_or_else(|| line.to_lowercase())
+}
+
+/// Run `brew outdated --json=v2` and return all outdated formulae and casks.
+#[allow(dead_code)]
+pub fn brew_outdated(brew: &str) -> Result<Vec<OutdatedPackage>> {
+    let out = std::process::Command::new(brew)
+        .args(["outdated", "--json=v2"])
+        .output()
+        .with_context(|| {
+            format!(
+                "Cannot run `{} outdated --json=v2` — is brew installed?",
+                brew
+            )
+        })?;
+
+    // brew outdated exits 1 when there are outdated packages; that is normal.
+    // Only treat it as an error when stdout is empty (binary not found is caught above).
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    if stdout.trim().is_empty() {
+        if !out.status.success() {
+            let stderr = String::from_utf8_lossy(&out.stderr);
+            anyhow::bail!("`{} outdated --json=v2` failed: {}", brew, stderr.trim());
+        }
+        return Ok(Vec::new());
+    }
+
+    parse_brew_outdated_json(&stdout)
+}
+
+fn parse_brew_outdated_json(json: &str) -> Result<Vec<OutdatedPackage>> {
+    let v: serde_json::Value =
+        serde_json::from_str(json).context("Failed to parse `brew outdated --json=v2` output")?;
+
+    let mut result = Vec::new();
+
+    for entry in v["formulae"].as_array().unwrap_or(&vec![]) {
+        let name = entry["name"].as_str().unwrap_or_default().to_string();
+        let current = entry["installed_versions"]
+            .as_array()
+            .and_then(|a| a.last())
+            .and_then(|v| v.as_str())
+            .unwrap_or("?")
+            .to_string();
+        let latest = entry["current_version"].as_str().unwrap_or("?").to_string();
+        if !name.is_empty() {
+            result.push(OutdatedPackage {
+                name,
+                current_version: current,
+                latest_version: latest,
+            });
+        }
+    }
+
+    for entry in v["casks"].as_array().unwrap_or(&vec![]) {
+        let name = entry["name"].as_str().unwrap_or_default().to_string();
+        let current = entry["installed_versions"]
+            .as_array()
+            .and_then(|a| a.last())
+            .and_then(|v| v.as_str())
+            .unwrap_or("?")
+            .to_string();
+        let latest = entry["current_version"].as_str().unwrap_or("?").to_string();
+        if !name.is_empty() {
+            result.push(OutdatedPackage {
+                name,
+                current_version: current,
+                latest_version: latest,
+            });
+        }
+    }
+
+    Ok(result)
+}
+
+/// Run `brew upgrade [name]`.
+///
+/// When `name` is `None` all outdated packages are upgraded.
+#[allow(dead_code)]
+pub fn brew_upgrade(brew: &str, name: Option<&str>) -> Result<()> {
+    let mut cmd = std::process::Command::new(brew);
+    cmd.arg("upgrade");
+    if let Some(n) = name {
+        cmd.arg(n);
+    }
+    cmd.stdin(std::process::Stdio::inherit())
+        .stdout(std::process::Stdio::inherit())
+        .stderr(std::process::Stdio::inherit());
+
+    let status = cmd
+        .status()
+        .with_context(|| format!("Cannot run `{} upgrade` — is brew installed?", brew))?;
+    if !status.success() {
+        anyhow::bail!("`{} upgrade` failed (exit {:?})", brew, status.code());
+    }
+    Ok(())
+}
+
+/// Run `brew search <term>` and return the list of matching package names.
+#[allow(dead_code)]
+pub fn brew_search(brew: &str, term: &str) -> Result<Vec<String>> {
+    let out = std::process::Command::new(brew)
+        .args(["search", term])
+        .output()
+        .with_context(|| format!("Cannot run `{} search` — is brew installed?", brew))?;
+
+    if !out.status.success() {
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        anyhow::bail!("`{} search {}` failed: {}", brew, term, stderr.trim());
+    }
+
+    Ok(String::from_utf8_lossy(&out.stdout)
+        .lines()
+        .map(str::trim)
+        .filter(|s| !s.is_empty() && !s.starts_with('='))
+        .map(str::to_string)
+        .collect())
 }
 
 /// Remove all `brew`/`cask`/`tap` lines matching `name` from a Brewfile.

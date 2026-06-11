@@ -88,7 +88,8 @@ tasks:
       by backend with a header per group. When a backend binary is missing, print a
       note ("brew not available — skipping") instead of aborting. The command must
       succeed even when one or more backends are unavailable.
-    status: pending
+    status: completed
+    completed_at: "2026-06-11T21:30:00Z"
     dependencies:
       - task-001
       - task-002

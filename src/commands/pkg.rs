@@ -1,9 +1,11 @@
 use anyhow::{bail, Result};
 use std::path::Path;
 
-use crate::commands::brew;
-use crate::commands::mise;
+use crate::commands::brew as brew_cmd;
+use crate::commands::mise as mise_cmd;
 use crate::config::haven::HavenConfig;
+use crate::homebrew;
+use crate::mise as mise_lib;
 
 pub fn resolve_backend(
     brew_flag: bool,
@@ -46,8 +48,8 @@ pub fn install(
 
     let backend = resolve_backend(brew_flag, mise_flag, cask, cfg)?;
     match backend.as_str() {
-        "brew" => brew::install(repo_root, name, cask, module),
-        "mise" => mise::install(repo_root, name, module),
+        "brew" => brew_cmd::install(repo_root, name, cask, module),
+        "mise" => mise_cmd::install(repo_root, name, module),
         other => unreachable!(
             "backend '{}' passed resolve_backend but has no handler",
             other
@@ -68,10 +70,10 @@ pub fn uninstall(
         let has_brew = allowed.contains(&"brew".to_string());
         let has_mise = allowed.contains(&"mise".to_string());
         if has_brew && has_mise {
-            if let Err(e) = brew::uninstall(repo_root, name, false) {
+            if let Err(e) = brew_cmd::uninstall(repo_root, name, false) {
                 eprintln!("warning: brew uninstall failed: {}", e);
             }
-            if let Err(e) = mise::uninstall(repo_root, name) {
+            if let Err(e) = mise_cmd::uninstall(repo_root, name) {
                 eprintln!("warning: mise uninstall failed: {}", e);
             }
             return Ok(());
@@ -80,8 +82,8 @@ pub fn uninstall(
 
     let backend = resolve_backend(brew_flag, mise_flag, cask, cfg)?;
     match backend.as_str() {
-        "brew" => brew::uninstall(repo_root, name, cask),
-        "mise" => mise::uninstall(repo_root, name),
+        "brew" => brew_cmd::uninstall(repo_root, name, cask),
+        "mise" => mise_cmd::uninstall(repo_root, name),
         other => unreachable!(
             "backend '{}' passed resolve_backend but has no handler",
             other
@@ -89,8 +91,76 @@ pub fn uninstall(
     }
 }
 
-pub fn outdated(_repo_root: &Path, _cfg: &HavenConfig) -> Result<()> {
-    Err(anyhow::anyhow!("not implemented"))
+pub fn outdated(repo_root: &Path, cfg: &HavenConfig) -> Result<()> {
+    let allowed = cfg.packages.allowed_backends()?;
+
+    for backend in &allowed {
+        match backend.as_str() {
+            "brew" => {
+                let brew = match homebrew::brew_path() {
+                    Some(p) => p,
+                    None => {
+                        println!("brew not available — skipping");
+                        continue;
+                    }
+                };
+                let brew_str = brew.to_string_lossy();
+                match homebrew::brew_outdated(&brew_str) {
+                    Err(e) => println!("brew not available — skipping ({})", e),
+                    Ok(pkgs) if pkgs.is_empty() => println!("brew: nothing outdated"),
+                    Ok(pkgs) => {
+                        println!("==> brew outdated");
+                        for pkg in pkgs {
+                            println!(
+                                "  {}  {} → {}",
+                                pkg.name, pkg.current_version, pkg.latest_version
+                            );
+                        }
+                    }
+                }
+            }
+            "mise" => {
+                let mise_bin = match mise_lib::mise_path() {
+                    Some(p) => p,
+                    None => {
+                        println!("mise not available — skipping");
+                        continue;
+                    }
+                };
+                let mise_str = mise_bin.to_string_lossy();
+                let misefiles = mise_cmd::all_misefiles(repo_root)?;
+                if misefiles.is_empty() {
+                    println!("mise: no config files found");
+                    continue;
+                }
+                let mut any_outdated = false;
+                for config_path in &misefiles {
+                    match mise_lib::mise_outdated(&mise_str, config_path) {
+                        Err(e) => println!("mise not available — skipping ({})", e),
+                        Ok(pkgs) if pkgs.is_empty() => {}
+                        Ok(pkgs) => {
+                            if !any_outdated {
+                                println!("==> mise outdated");
+                                any_outdated = true;
+                            }
+                            for pkg in pkgs {
+                                println!(
+                                    "  {}  {} → {}",
+                                    pkg.name, pkg.current_version, pkg.latest_version
+                                );
+                            }
+                        }
+                    }
+                }
+                if !any_outdated {
+                    println!("mise: nothing outdated");
+                }
+            }
+            other => unreachable!("unknown backend '{}'", other),
+        }
+    }
+
+    Ok(())
 }
 
 pub fn upgrade(_repo_root: &Path, _name: Option<&str>, _cfg: &HavenConfig) -> Result<()> {

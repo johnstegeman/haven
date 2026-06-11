@@ -17,3 +17,8 @@ Decisions: Used `mise outdated --json` (not table output) for reliable parsing. 
 Added `mise_upgrade` to `src/mise.rs`. Reads the config tools before upgrade, then runs `mise upgrade --bump --yes <tools>` with `MISE_CONFIG_FILE` set; reads the config back after to validate TOML integrity.
 Files: ~src/mise.rs
 Decisions: Used `mise upgrade --bump` (confirmed available in mise 2026.6.2) which natively rewrites the pinned version in the config file — no toml_edit fallback needed. When `name` is `None`, all tool names are read from the config and passed explicitly to avoid upgrading tools from other (global) config files.
+
+## TASK-005 — 2026-06-11T21:30:00Z
+Implemented `pkg::outdated` in `src/commands/pkg.rs`. Fans out to all allowed backends; for brew calls `brew_outdated` (binary resolved via `brew_path()`), for mise iterates all `mise/mise*.toml` files calling `mise_outdated` per config. Missing binary prints a skip note and continues; results are printed under `==> brew outdated` / `==> mise outdated` headers with `name  current → latest` format.
+Files: ~src/commands/pkg.rs
+Decisions: Renamed `crate::commands::{brew,mise}` imports to `brew_cmd`/`mise_cmd` to avoid shadowing the `crate::homebrew` and `crate::mise` crates needed by the new implementation. Reused `mise_cmd::all_misefiles` to discover config files consistently with the install/uninstall path.

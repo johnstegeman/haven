@@ -129,7 +129,10 @@ pub fn render_lenient(source: &str, ctx: &TemplateContext) -> String {
     match render(source, ctx) {
         Ok(s) => s,
         Err(e) => {
-            eprintln!("warning: config/ignore template error (ignoring all patterns): {}", e);
+            eprintln!(
+                "warning: config/ignore template error (ignoring all patterns): {}",
+                e
+            );
             String::new()
         }
     }

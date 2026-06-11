@@ -60,8 +60,8 @@ impl SkillSource {
     /// Parse a `gh:owner/repo[/subpath][@ref]`, `dir:~/path`, or `repo:` source string.
     pub fn parse(s: &str) -> Result<Self> {
         if let Some(rest) = s.strip_prefix("dir:") {
-            let path = expand_tilde(rest)
-                .with_context(|| format!("Cannot expand path in '{}'", s))?;
+            let path =
+                expand_tilde(rest).with_context(|| format!("Cannot expand path in '{}'", s))?;
             Ok(Self::Dir(path))
         } else if s == "repo:" {
             Ok(Self::Repo)
@@ -189,7 +189,8 @@ impl SkillsConfig {
             .with_context(|| format!("Cannot read {}", skills_dir.display()))?;
 
         for entry in entries {
-            let entry = entry.with_context(|| format!("Cannot read entry in {}", skills_dir.display()))?;
+            let entry =
+                entry.with_context(|| format!("Cannot read entry in {}", skills_dir.display()))?;
             if !entry.file_type()?.is_dir() {
                 continue;
             }
@@ -218,7 +219,6 @@ impl SkillsConfig {
 
         Ok(Some(SkillsConfig { skills }))
     }
-
 }
 
 // ─── Deploy ───────────────────────────────────────────────────────────────────
@@ -402,7 +402,11 @@ deploy   = "copy"
         let find = cfg.skills.iter().find(|s| s.name == "find-skills").unwrap();
         assert_eq!(find.deploy, DeployMethod::Copy);
 
-        let pdf = cfg.skills.iter().find(|s| s.name == "pdf-processing").unwrap();
+        let pdf = cfg
+            .skills
+            .iter()
+            .find(|s| s.name == "pdf-processing")
+            .unwrap();
         assert_eq!(pdf.deploy, DeployMethod::Symlink); // default
     }
 
@@ -413,7 +417,10 @@ deploy   = "copy"
         std::fs::create_dir_all(dir.path().join("ai").join("skills").join("orphan")).unwrap();
 
         let cfg = SkillsConfig::load(dir.path()).unwrap().unwrap();
-        assert!(cfg.skills.is_empty(), "directories without skill.toml must be ignored");
+        assert!(
+            cfg.skills.is_empty(),
+            "directories without skill.toml must be ignored"
+        );
     }
 
     // ── resolve_platforms ────────────────────────────────────────────────────
@@ -445,7 +452,10 @@ deploy   = "copy"
         let ids: Vec<&str> = targets.iter().map(|p| p.id.as_str()).collect();
         assert!(ids.contains(&"claude-code"));
         assert!(ids.contains(&"codex"));
-        assert!(!ids.contains(&"cross-client"), "cross-client must be excluded from 'all'");
+        assert!(
+            !ids.contains(&"cross-client"),
+            "cross-client must be excluded from 'all'"
+        );
     }
 
     #[test]
@@ -469,10 +479,7 @@ deploy   = "copy"
             name: "s".into(),
             source: "gh:a/b".into(),
             // "cursor" is not active — should be excluded.
-            platforms: SkillPlatforms::List(vec![
-                "claude-code".into(),
-                "cursor".into(),
-            ]),
+            platforms: SkillPlatforms::List(vec!["claude-code".into(), "cursor".into()]),
             deploy: DeployMethod::Symlink,
         };
         let targets = decl.resolve_platforms(&active);
@@ -529,8 +536,7 @@ deploy   = "copy"
 
         let owned: HashSet<PathBuf> = HashSet::new(); // target NOT in owned
 
-        let deployed =
-            deploy_skill(&skill_path, &target, &DeployMethod::Symlink, &owned).unwrap();
+        let deployed = deploy_skill(&skill_path, &target, &DeployMethod::Symlink, &owned).unwrap();
         assert!(!deployed, "should skip unmanaged collision");
         // Pre-existing file must not be touched.
         assert!(target.join("README.md").exists());

@@ -149,10 +149,17 @@ pub fn warn_duplicate_destinations(entries: &[SourceEntry]) {
 
     let mut by_dest: HashMap<&str, Vec<&std::path::Path>> = HashMap::new();
     for entry in entries {
-        by_dest.entry(entry.dest_tilde.as_str()).or_default().push(&entry.src);
+        by_dest
+            .entry(entry.dest_tilde.as_str())
+            .or_default()
+            .push(&entry.src);
     }
 
-    let mut dests: Vec<&str> = by_dest.keys().copied().filter(|d| by_dest[d].len() > 1).collect();
+    let mut dests: Vec<&str> = by_dest
+        .keys()
+        .copied()
+        .filter(|d| by_dest[d].len() > 1)
+        .collect();
     dests.sort();
 
     for dest in dests {
@@ -274,9 +281,15 @@ pub fn encode_filename(
     template: bool,
 ) -> String {
     let mut out = String::new();
-    if private    { out.push_str("private_"); }
-    if executable { out.push_str("executable_"); }
-    if symlink    { out.push_str("symlink_"); }
+    if private {
+        out.push_str("private_");
+    }
+    if executable {
+        out.push_str("executable_");
+    }
+    if symlink {
+        out.push_str("symlink_");
+    }
 
     if let Some(rest) = dest_name.strip_prefix('.') {
         out.push_str("dot_");
@@ -285,7 +298,9 @@ pub fn encode_filename(
         out.push_str(dest_name);
     }
 
-    if template { out.push_str(".tmpl"); }
+    if template {
+        out.push_str(".tmpl");
+    }
     out
 }
 
@@ -326,7 +341,10 @@ pub fn scan_scripts(scripts_dir: &std::path::Path) -> std::io::Result<Vec<Script
         let name = dent.file_name().to_string_lossy().to_string();
         // Strip permission prefixes to find the timing prefix.
         let mut stripped = name.as_str();
-        while let Some(rest) = stripped.strip_prefix("private_").or_else(|| stripped.strip_prefix("executable_")) {
+        while let Some(rest) = stripped
+            .strip_prefix("private_")
+            .or_else(|| stripped.strip_prefix("executable_"))
+        {
             stripped = rest;
         }
         let when = if stripped.starts_with("run_once_") || stripped.starts_with("once_") {
@@ -334,7 +352,11 @@ pub fn scan_scripts(scripts_dir: &std::path::Path) -> std::io::Result<Vec<Script
         } else {
             ScriptExecWhen::Always
         };
-        entries.push(ScriptEntry { src: dent.path(), name, when });
+        entries.push(ScriptEntry {
+            src: dent.path(),
+            name,
+            when,
+        });
     }
 
     entries.sort_by(|a, b| a.name.cmp(&b.name));
@@ -365,7 +387,10 @@ pub fn extdir_source_path(repo_source: &Path, dest_tilde: &str) -> PathBuf {
     }
     if n > 0 {
         let last = parts[n - 1];
-        let encoded_last = format!("extdir_{}", encode_filename(last, false, false, false, false));
+        let encoded_last = format!(
+            "extdir_{}",
+            encode_filename(last, false, false, false, false)
+        );
         path = path.join(encoded_last);
     }
     path
@@ -393,7 +418,10 @@ pub fn extfile_source_path(repo_source: &Path, dest_tilde: &str) -> PathBuf {
     }
     if n > 0 {
         let last = parts[n - 1];
-        let encoded_last = format!("extfile_{}", encode_filename(last, false, false, false, false));
+        let encoded_last = format!(
+            "extfile_{}",
+            encode_filename(last, false, false, false, false)
+        );
         path = path.join(encoded_last);
     }
     path
@@ -407,10 +435,7 @@ mod tests {
     use std::path::Path;
 
     fn decode(rel: &str) -> SourceEntry {
-        decode_path(
-            PathBuf::from("/repo/source").join(rel),
-            Path::new(rel),
-        )
+        decode_path(PathBuf::from("/repo/source").join(rel), Path::new(rel))
     }
 
     // ── decode_component ──────────────────────────────────────────────────────
@@ -544,27 +569,42 @@ mod tests {
 
     #[test]
     fn encode_plain_dotfile() {
-        assert_eq!(encode_filename(".zshrc", false, false, false, false), "dot_zshrc");
+        assert_eq!(
+            encode_filename(".zshrc", false, false, false, false),
+            "dot_zshrc"
+        );
     }
 
     #[test]
     fn encode_private_file() {
-        assert_eq!(encode_filename("id_rsa", true, false, false, false), "private_id_rsa");
+        assert_eq!(
+            encode_filename("id_rsa", true, false, false, false),
+            "private_id_rsa"
+        );
     }
 
     #[test]
     fn encode_private_dotfile() {
-        assert_eq!(encode_filename(".ssh", true, false, false, false), "private_dot_ssh");
+        assert_eq!(
+            encode_filename(".ssh", true, false, false, false),
+            "private_dot_ssh"
+        );
     }
 
     #[test]
     fn encode_template() {
-        assert_eq!(encode_filename(".vimrc", false, false, false, true), "dot_vimrc.tmpl");
+        assert_eq!(
+            encode_filename(".vimrc", false, false, false, true),
+            "dot_vimrc.tmpl"
+        );
     }
 
     #[test]
     fn encode_executable() {
-        assert_eq!(encode_filename("myscript", false, true, false, false), "executable_myscript");
+        assert_eq!(
+            encode_filename("myscript", false, true, false, false),
+            "executable_myscript"
+        );
     }
 
     #[test]
@@ -621,7 +661,10 @@ mod tests {
     fn path_exact_dir_sets_flag_on_sourcedir() {
         let e = decode("exact_dot_config/fish/config.fish");
         assert_eq!(e.dest_tilde, "~/.config/fish/config.fish");
-        assert!(e.dirs[0].flags.exact, "expected exact dir flag on ~/.config");
+        assert!(
+            e.dirs[0].flags.exact,
+            "expected exact dir flag on ~/.config"
+        );
         assert!(!e.flags.exact, "file itself should not have exact flag");
     }
 

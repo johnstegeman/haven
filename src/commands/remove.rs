@@ -7,8 +7,8 @@ use std::path::Path;
 
 use crate::config::module::expand_tilde;
 use crate::ignore::IgnoreList;
-use crate::template::TemplateContext;
 use crate::source;
+use crate::template::TemplateContext;
 
 pub struct RemoveOptions<'a> {
     pub repo_root: &'a Path,
@@ -85,9 +85,7 @@ mod tests {
         fs::create_dir_all(&source_dir).unwrap();
 
         // Encode the dest_name as a source filename (e.g. ~/.zshrc → dot_zshrc).
-        let encoded = dest_name
-            .trim_start_matches("~/.")
-            .to_string();
+        let encoded = dest_name.trim_start_matches("~/.").to_string();
         let encoded = format!("dot_{}", encoded);
         let src_file = source_dir.join(&encoded);
         fs::write(&src_file, "# content\n").unwrap();

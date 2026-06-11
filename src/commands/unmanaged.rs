@@ -18,8 +18,8 @@ use std::path::{Path, PathBuf};
 use crate::config::module::expand_tilde;
 use crate::fs::tilde_path;
 use crate::ignore::IgnoreList;
-use crate::template::TemplateContext;
 use crate::source;
+use crate::template::TemplateContext;
 
 pub struct UnmanagedOptions<'a> {
     pub repo_root: &'a Path,
@@ -46,14 +46,21 @@ pub fn run(opts: &UnmanagedOptions<'_>) -> Result<()> {
         }
     }
 
-    let max_depth = if opts.depth == 0 { usize::MAX } else { opts.depth };
+    let max_depth = if opts.depth == 0 {
+        usize::MAX
+    } else {
+        opts.depth
+    };
     let at_home_root = walk_root == home;
     let mut found = 0usize;
 
     walk_dir(walk_root, &tracked, max_depth, 0, at_home_root, &mut found);
 
     if found == 0 {
-        println!("All files in {} are tracked by haven.", tilde_path(walk_root));
+        println!(
+            "All files in {} are tracked by haven.",
+            tilde_path(walk_root)
+        );
     }
 
     Ok(())
@@ -72,9 +79,7 @@ fn walk_dir(
         Err(_) => return, // skip unreadable dirs silently
     };
 
-    let mut children: Vec<PathBuf> = entries
-        .filter_map(|e| e.ok().map(|e| e.path()))
-        .collect();
+    let mut children: Vec<PathBuf> = entries.filter_map(|e| e.ok().map(|e| e.path())).collect();
     children.sort();
 
     for path in children {

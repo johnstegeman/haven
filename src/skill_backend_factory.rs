@@ -121,8 +121,13 @@ mod tests {
             backend: BackendKind::Akm,
             ..AiConfig::default()
         };
-        let err = create_backend(&cfg, dir.path()).err().expect("should have failed");
+        let err = create_backend(&cfg, dir.path())
+            .err()
+            .expect("should have failed");
         let msg = format!("{err:#}");
-        assert!(msg.contains("not yet implemented"), "should say not yet implemented: {msg}");
+        assert!(
+            msg.contains("not yet implemented"),
+            "should say not yet implemented: {msg}"
+        );
     }
 }

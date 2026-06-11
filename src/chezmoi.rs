@@ -28,9 +28,9 @@
 ///        │
 ///        └─ (Vec<ChezmoiEntry>, Vec<ChezmoiExternalEntry>, Vec<SkippedEntry>)
 use anyhow::{Context, Result};
+use serde::Deserialize;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
-use serde::Deserialize;
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
@@ -235,7 +235,11 @@ fn try_chezmoi_source_path() -> Option<PathBuf> {
 
     let path_str = String::from_utf8(output.stdout).ok()?;
     let path = PathBuf::from(path_str.trim());
-    if path.exists() { Some(path) } else { None }
+    if path.exists() {
+        Some(path)
+    } else {
+        None
+    }
 }
 
 // ─── Data file detection ──────────────────────────────────────────────────────
@@ -269,8 +273,8 @@ pub fn scan_data_file(source_dir: &Path) -> Result<std::collections::HashMap<Str
 
 /// Parse flat string values from a YAML chezmoidata file.
 fn parse_chezmoidata_yaml(text: &str) -> Result<std::collections::HashMap<String, String>> {
-    let value: serde_yaml::Value = serde_yaml::from_str(text)
-        .context("Cannot parse .chezmoidata.yaml")?;
+    let value: serde_yaml::Value =
+        serde_yaml::from_str(text).context("Cannot parse .chezmoidata.yaml")?;
 
     let mut out = std::collections::HashMap::new();
     if let serde_yaml::Value::Mapping(map) = value {
@@ -285,8 +289,7 @@ fn parse_chezmoidata_yaml(text: &str) -> Result<std::collections::HashMap<String
 
 /// Parse flat string values from a TOML chezmoidata file.
 fn parse_chezmoidata_toml(text: &str) -> Result<std::collections::HashMap<String, String>> {
-    let value: toml::Value = toml::from_str(text)
-        .context("Cannot parse .chezmoidata.toml")?;
+    let value: toml::Value = toml::from_str(text).context("Cannot parse .chezmoidata.toml")?;
 
     let mut out = std::collections::HashMap::new();
     if let toml::Value::Table(table) = value {
@@ -315,7 +318,13 @@ fn parse_chezmoidata_toml(text: &str) -> Result<std::collections::HashMap<String
 /// is empty (empty = chezmoi has no state for this source, so filtering is meaningless).
 fn chezmoi_managed_paths(source_dir: &Path) -> Option<std::collections::HashSet<String>> {
     let output = std::process::Command::new("chezmoi")
-        .args(["managed", "--include=files,symlinks", "--path-style", "source-relative", "-S"])
+        .args([
+            "managed",
+            "--include=files,symlinks",
+            "--path-style",
+            "source-relative",
+            "-S",
+        ])
         .arg(source_dir)
         .output()
         .ok()?;
@@ -487,7 +496,16 @@ type ScanResultSkipped = Vec<SkippedEntry>;
 type ScanResultScripts = Vec<ChezmoiScriptEntry>;
 type ScanResultBrewfiles = Vec<ChezmoiBrewfileEntry>;
 
-pub fn scan(source_dir: &Path, include_ignored: bool) -> Result<(ScanResultKeeps, ScanResultExternals, ScanResultSkipped, ScanResultScripts, ScanResultBrewfiles)> {
+pub fn scan(
+    source_dir: &Path,
+    include_ignored: bool,
+) -> Result<(
+    ScanResultKeeps,
+    ScanResultExternals,
+    ScanResultSkipped,
+    ScanResultScripts,
+    ScanResultBrewfiles,
+)> {
     let managed = chezmoi_managed_paths(source_dir);
 
     let mut keeps: Vec<ChezmoiEntry> = Vec::new();
@@ -567,16 +585,25 @@ pub fn scan(source_dir: &Path, include_ignored: bool) -> Result<(ScanResultKeeps
                     keeps.push(e);
                 }
             }
-            ImportEntry::Skip(SkippedEntry { chezmoi_path, reason: SkipReason::Symlink }) => {
+            ImportEntry::Skip(SkippedEntry {
+                chezmoi_path,
+                reason: SkipReason::Symlink,
+            }) => {
                 // Try to resolve the symlink target from the file's content.
                 let abs = source_dir.join(&chezmoi_path);
                 if let Some(entry) = try_resolve_symlink(&abs, &chezmoi_path) {
                     keeps.push(entry);
                 } else {
-                    skips.push(SkippedEntry { chezmoi_path, reason: SkipReason::Symlink });
+                    skips.push(SkippedEntry {
+                        chezmoi_path,
+                        reason: SkipReason::Symlink,
+                    });
                 }
             }
-            ImportEntry::Skip(SkippedEntry { chezmoi_path, reason: SkipReason::Script }) => {
+            ImportEntry::Skip(SkippedEntry {
+                chezmoi_path,
+                reason: SkipReason::Script,
+            }) => {
                 // Try to detect a recognised migration pattern in the script body.
                 let abs = source_dir.join(&chezmoi_path);
                 let when = script_when(&chezmoi_path);
@@ -585,11 +612,18 @@ pub fn scan(source_dir: &Path, include_ignored: bool) -> Result<(ScanResultKeeps
                         let migration = detect_script_migration(&content);
                         // All scripts go into `scripts` — unrecognised ones still get
                         // copied to source/scripts/ for execution on apply.
-                        scripts.push(ChezmoiScriptEntry { chezmoi_path, when, migration });
+                        scripts.push(ChezmoiScriptEntry {
+                            chezmoi_path,
+                            when,
+                            migration,
+                        });
                     }
                     Err(_) => {
                         // Can't read the script — skip it.
-                        skips.push(SkippedEntry { chezmoi_path, reason: SkipReason::Script });
+                        skips.push(SkippedEntry {
+                            chezmoi_path,
+                            reason: SkipReason::Script,
+                        });
                     }
                 }
             }
@@ -602,12 +636,15 @@ pub fn scan(source_dir: &Path, include_ignored: bool) -> Result<(ScanResultKeeps
     if !include_ignored {
         if let Some(ref managed_paths) = managed {
             // chezmoi is on PATH — use its output to determine what is managed.
-            let (kept, ignored): (Vec<_>, Vec<_>) = keeps
-                .into_iter()
-                .partition(|e| managed_paths.contains(&e.chezmoi_path.to_string_lossy().into_owned()));
+            let (kept, ignored): (Vec<_>, Vec<_>) = keeps.into_iter().partition(|e| {
+                managed_paths.contains(&e.chezmoi_path.to_string_lossy().into_owned())
+            });
             keeps = kept;
             for e in ignored {
-                skips.push(SkippedEntry { chezmoi_path: e.chezmoi_path, reason: SkipReason::Ignored });
+                skips.push(SkippedEntry {
+                    chezmoi_path: e.chezmoi_path,
+                    reason: SkipReason::Ignored,
+                });
             }
         } else {
             // chezmoi not on PATH — convert .chezmoiignore to Tera, render against
@@ -677,8 +714,8 @@ fn parse_chezmoiexternal(source_dir: &Path) -> Result<Vec<ChezmoiExternalEntry>>
     let text = std::fs::read_to_string(&path)
         .with_context(|| format!("Cannot read {}", path.display()))?;
 
-    let table: toml::Table = toml::from_str(&text)
-        .with_context(|| format!("Invalid TOML in {}", path.display()))?;
+    let table: toml::Table =
+        toml::from_str(&text).with_context(|| format!("Invalid TOML in {}", path.display()))?;
 
     let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("/tmp"));
     let mut entries = Vec::new();
@@ -766,7 +803,11 @@ fn strip_permission_prefixes(s: &str) -> (&str, bool, bool) {
 ///   symlink_  > exact_ / create_ / modify_  > run_once_ / run_ / once_
 ///   > .tmpl suffix  > .chezmoi* / chezmoistate*  > dot_<name>  > <bare name>
 pub fn decode_entry(rel_path: &Path) -> ImportEntry {
-    let first = match rel_path.components().next().and_then(|c| c.as_os_str().to_str()) {
+    let first = match rel_path
+        .components()
+        .next()
+        .and_then(|c| c.as_os_str().to_str())
+    {
         Some(s) => s,
         None => return skip(rel_path, SkipReason::Internal),
     };
@@ -966,11 +1007,7 @@ pub fn source_name(rel_path: &Path) -> String {
 /// The `.tmpl` suffix is stripped from both the source name and the decoded
 /// destination path, because the template extension is a chezmoi convention that
 /// should not appear in the deployed file name.
-fn decode_template_entry(
-    rel_path: &Path,
-    is_private: bool,
-    is_executable: bool,
-) -> ImportEntry {
+fn decode_template_entry(rel_path: &Path, is_private: bool, is_executable: bool) -> ImportEntry {
     // Strip `.tmpl` from the last component of rel_path to decode the destination.
     // The source_name keeps `.tmpl` so haven recognises it as a template in source/.
     let stripped_path = strip_tmpl_suffix(rel_path);
@@ -990,7 +1027,7 @@ fn decode_template_entry(
         private: is_private,
         executable: is_executable,
         link: false,
-        template: true,          // content written in import.rs after reading & converting
+        template: true, // content written in import.rs after reading & converting
         converted_content: None, // populated in scan() after reading the file
         template_warnings: Vec::new(),
         copy_from: None,
@@ -1025,10 +1062,7 @@ fn skip(rel_path: &Path, reason: SkipReason) -> ImportEntry {
 ///
 /// Returns `None` if the target cannot be resolved (Go template content,
 /// non-existent path, or a directory).
-fn try_resolve_symlink(
-    chezmoi_file: &Path,
-    rel_path: &Path,
-) -> Option<ChezmoiEntry> {
+fn try_resolve_symlink(chezmoi_file: &Path, rel_path: &Path) -> Option<ChezmoiEntry> {
     // Read the file content — this is the symlink target path (or a template of it).
     let content = std::fs::read_to_string(chezmoi_file).ok()?;
     let target_str = content.trim();
@@ -1122,9 +1156,7 @@ fn decode_symlink_dest(rel_path: &Path) -> PathBuf {
 
     if let Some(first) = components.first_mut() {
         // Strip `symlink_` then any permission prefixes, then `dot_`.
-        let without_symlink = first
-            .strip_prefix("symlink_")
-            .unwrap_or(first.as_str());
+        let without_symlink = first.strip_prefix("symlink_").unwrap_or(first.as_str());
         let (stripped, _, _) = strip_permission_prefixes(without_symlink);
         if let Some(rest) = stripped.strip_prefix("dot_") {
             *first = format!(".{}", rest);
@@ -1189,10 +1221,7 @@ pub fn brewfile_module_name(filename: &str) -> String {
 
 /// Determine when a script should run from its filename prefix.
 fn script_when(rel_path: &Path) -> ScriptWhen {
-    let name = rel_path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("");
+    let name = rel_path.file_name().and_then(|n| n.to_str()).unwrap_or("");
     let (stripped, _, _) = strip_permission_prefixes(name);
     if stripped.starts_with("run_once_") || stripped.starts_with("once_") {
         ScriptWhen::Once
@@ -1219,7 +1248,9 @@ pub fn detect_script_migration(content: &str) -> ScriptMigration {
         if let Some(idx) = trimmed.find("brew bundle") {
             let after = trimmed[idx + "brew bundle".len()..].trim();
             if let Some(path) = extract_brew_bundle_file(after) {
-                return ScriptMigration::BrewBundle { brewfile_path: path };
+                return ScriptMigration::BrewBundle {
+                    brewfile_path: path,
+                };
             }
             // bare `brew bundle` with no --file flag
             if after.is_empty() || after.starts_with('#') || after.starts_with("--") {
@@ -1241,12 +1272,18 @@ pub fn detect_script_migration(content: &str) -> ScriptMigration {
 /// Extract the path argument from `--file=<path>` or `--file <path>`.
 fn extract_brew_bundle_file(rest: &str) -> Option<String> {
     if let Some(after) = rest.strip_prefix("--file=") {
-        let path = after.split_whitespace().next()?.trim_matches(|c| c == '"' || c == '\'');
+        let path = after
+            .split_whitespace()
+            .next()?
+            .trim_matches(|c| c == '"' || c == '\'');
         if !path.is_empty() {
             return Some(path.to_string());
         }
     } else if let Some(after) = rest.strip_prefix("--file ") {
-        let path = after.split_whitespace().next()?.trim_matches(|c| c == '"' || c == '\'');
+        let path = after
+            .split_whitespace()
+            .next()?
+            .trim_matches(|c| c == '"' || c == '\'');
         if !path.is_empty() {
             return Some(path.to_string());
         }
@@ -1263,10 +1300,7 @@ mod tests {
     fn keep(rel: &str) -> ChezmoiEntry {
         match decode_entry(Path::new(rel)) {
             ImportEntry::Keep(e) => e,
-            ImportEntry::Skip(s) => panic!(
-                "Expected Keep for '{}', got Skip({:?})",
-                rel, s.reason
-            ),
+            ImportEntry::Skip(s) => panic!("Expected Keep for '{}', got Skip({:?})", rel, s.reason),
         }
     }
 
@@ -1293,7 +1327,11 @@ mod tests {
     #[test]
     fn decode_dot_config_git_config() {
         let e = keep("dot_config/git/config");
-        assert!(e.dest_tilde.ends_with("/.config/git/config"), "dest={}", e.dest_tilde);
+        assert!(
+            e.dest_tilde.ends_with("/.config/git/config"),
+            "dest={}",
+            e.dest_tilde
+        );
         assert_eq!(e.module, "git");
         assert_eq!(e.source_name, "dot_config/git/config");
     }
@@ -1301,21 +1339,33 @@ mod tests {
     #[test]
     fn decode_dot_tmux_conf() {
         let e = keep("dot_tmux.conf");
-        assert!(e.dest_tilde.ends_with("/.tmux.conf"), "dest={}", e.dest_tilde);
+        assert!(
+            e.dest_tilde.ends_with("/.tmux.conf"),
+            "dest={}",
+            e.dest_tilde
+        );
         assert_eq!(e.module, "shell");
     }
 
     #[test]
     fn decode_dot_config_nvim_init_lua() {
         let e = keep("dot_config/nvim/init.lua");
-        assert!(e.dest_tilde.ends_with("/.config/nvim/init.lua"), "dest={}", e.dest_tilde);
+        assert!(
+            e.dest_tilde.ends_with("/.config/nvim/init.lua"),
+            "dest={}",
+            e.dest_tilde
+        );
         assert_eq!(e.module, "editor");
     }
 
     #[test]
     fn decode_dot_finicky_js() {
         let e = keep("dot_finicky.js");
-        assert!(e.dest_tilde.ends_with("/.finicky.js"), "dest={}", e.dest_tilde);
+        assert!(
+            e.dest_tilde.ends_with("/.finicky.js"),
+            "dest={}",
+            e.dest_tilde
+        );
         assert_eq!(e.module, "misc");
     }
 
@@ -1330,7 +1380,11 @@ mod tests {
     #[test]
     fn decode_bare_bin_mybin() {
         let e = keep("bin/mybin");
-        assert!(e.dest_tilde.ends_with("/bin/mybin"), "dest={}", e.dest_tilde);
+        assert!(
+            e.dest_tilde.ends_with("/bin/mybin"),
+            "dest={}",
+            e.dest_tilde
+        );
         assert_eq!(e.module, "misc");
         assert_eq!(e.source_name, "bin/mybin");
     }
@@ -1338,7 +1392,11 @@ mod tests {
     #[test]
     fn decode_bare_settings_json() {
         let e = keep("settings.json");
-        assert!(e.dest_tilde.ends_with("/settings.json"), "dest={}", e.dest_tilde);
+        assert!(
+            e.dest_tilde.ends_with("/settings.json"),
+            "dest={}",
+            e.dest_tilde
+        );
         assert_eq!(e.module, "misc");
     }
 
@@ -1347,7 +1405,11 @@ mod tests {
     #[test]
     fn decode_private_dot_ssh_config() {
         let e = keep("private_dot_ssh/config");
-        assert!(e.dest_tilde.ends_with("/.ssh/config"), "dest={}", e.dest_tilde);
+        assert!(
+            e.dest_tilde.ends_with("/.ssh/config"),
+            "dest={}",
+            e.dest_tilde
+        );
         assert_eq!(e.source_name, "private_dot_ssh/config");
         assert!(e.private, "expected private=true");
         assert!(!e.executable, "expected executable=false");
@@ -1366,7 +1428,11 @@ mod tests {
     #[test]
     fn decode_executable_dot_local_bin_foo() {
         let e = keep("executable_dot_local/bin/foo");
-        assert!(e.dest_tilde.ends_with("/.local/bin/foo"), "dest={}", e.dest_tilde);
+        assert!(
+            e.dest_tilde.ends_with("/.local/bin/foo"),
+            "dest={}",
+            e.dest_tilde
+        );
         assert_eq!(e.source_name, "executable_dot_local/bin/foo");
         assert!(!e.private, "expected private=false");
         assert!(e.executable, "expected executable=true");
@@ -1375,7 +1441,11 @@ mod tests {
     #[test]
     fn decode_executable_bare_script() {
         let e = keep("executable_deploy.sh");
-        assert!(e.dest_tilde.ends_with("/deploy.sh"), "dest={}", e.dest_tilde);
+        assert!(
+            e.dest_tilde.ends_with("/deploy.sh"),
+            "dest={}",
+            e.dest_tilde
+        );
         assert_eq!(e.source_name, "executable_deploy.sh");
         assert!(e.executable);
         assert!(!e.private);
@@ -1386,7 +1456,11 @@ mod tests {
     #[test]
     fn decode_private_executable_combined() {
         let e = keep("private_executable_dot_local/bin/secret");
-        assert!(e.dest_tilde.ends_with("/.local/bin/secret"), "dest={}", e.dest_tilde);
+        assert!(
+            e.dest_tilde.ends_with("/.local/bin/secret"),
+            "dest={}",
+            e.dest_tilde
+        );
         assert!(e.private, "expected private=true");
         assert!(e.executable, "expected executable=true");
     }
@@ -1394,7 +1468,11 @@ mod tests {
     #[test]
     fn decode_executable_private_combined_reversed_order() {
         let e = keep("executable_private_dot_local/bin/secret");
-        assert!(e.dest_tilde.ends_with("/.local/bin/secret"), "dest={}", e.dest_tilde);
+        assert!(
+            e.dest_tilde.ends_with("/.local/bin/secret"),
+            "dest={}",
+            e.dest_tilde
+        );
         assert!(e.private, "expected private=true");
         assert!(e.executable, "expected executable=true");
     }
@@ -1419,7 +1497,11 @@ mod tests {
     fn exact_dot_config_decodes_to_config() {
         // exact_ is now supported — it decodes like a regular dir prefix.
         let e = keep("exact_dot_config/fish/config.fish");
-        assert!(e.dest_tilde.ends_with("/.config/fish/config.fish"), "dest={}", e.dest_tilde);
+        assert!(
+            e.dest_tilde.ends_with("/.config/fish/config.fish"),
+            "dest={}",
+            e.dest_tilde
+        );
         assert_eq!(e.source_name, "exact_dot_config/fish/config.fish");
     }
 
@@ -1429,9 +1511,16 @@ mod tests {
         // `converted_content` is None here because decode_entry doesn't read files —
         // the scan() loop populates it. We just verify the structural decoding.
         let e = keep("dot_zshrc.tmpl");
-        assert!(e.dest_tilde.ends_with("/.zshrc"), "expected dest ~/.zshrc, got {}", e.dest_tilde);
+        assert!(
+            e.dest_tilde.ends_with("/.zshrc"),
+            "expected dest ~/.zshrc, got {}",
+            e.dest_tilde
+        );
         // source_name keeps the .tmpl suffix — haven source/ uses it too.
-        assert_eq!(e.source_name, "dot_zshrc.tmpl", "expected source_name with .tmpl suffix");
+        assert_eq!(
+            e.source_name, "dot_zshrc.tmpl",
+            "expected source_name with .tmpl suffix"
+        );
         assert!(e.template, "expected template=true");
     }
 
@@ -1464,7 +1553,10 @@ mod tests {
 
     #[test]
     fn source_name_nested_preserves_encoding() {
-        assert_eq!(source_name(Path::new("dot_config/git/config")), "dot_config/git/config");
+        assert_eq!(
+            source_name(Path::new("dot_config/git/config")),
+            "dot_config/git/config"
+        );
     }
 
     #[test]
@@ -1479,7 +1571,10 @@ mod tests {
 
     #[test]
     fn source_name_template_keeps_tmpl_suffix() {
-        assert_eq!(source_name(Path::new("dot_gitconfig.tmpl")), "dot_gitconfig.tmpl");
+        assert_eq!(
+            source_name(Path::new("dot_gitconfig.tmpl")),
+            "dot_gitconfig.tmpl"
+        );
     }
 
     // ── create_: decoded as Keep, dest strips create_ prefix ──────────────────
@@ -1537,7 +1632,10 @@ mod tests {
 
     #[test]
     fn script_when_run_once_prefix() {
-        assert_eq!(script_when(Path::new("run_once_setup.sh")), ScriptWhen::Once);
+        assert_eq!(
+            script_when(Path::new("run_once_setup.sh")),
+            ScriptWhen::Once
+        );
     }
 
     #[test]
@@ -1564,7 +1662,11 @@ mod tests {
     fn private_create_dot_ssh_config_decodes_correctly() {
         // private_ comes before create_ — both should be stripped for dest calculation.
         let e = keep("private_create_dot_ssh/config");
-        assert!(e.dest_tilde.ends_with("/.ssh/config"), "dest={}", e.dest_tilde);
+        assert!(
+            e.dest_tilde.ends_with("/.ssh/config"),
+            "dest={}",
+            e.dest_tilde
+        );
         assert!(e.private, "expected private=true");
         // source_name preserves the full encoding (create_ and private_ stay in source/).
         assert_eq!(e.source_name, "private_create_dot_ssh/config");
@@ -1573,7 +1675,11 @@ mod tests {
     #[test]
     fn create_dot_config_fish_config_decodes_correctly() {
         let e = keep("create_dot_config/fish/config.fish");
-        assert!(e.dest_tilde.ends_with("/.config/fish/config.fish"), "dest={}", e.dest_tilde);
+        assert!(
+            e.dest_tilde.ends_with("/.config/fish/config.fish"),
+            "dest={}",
+            e.dest_tilde
+        );
         assert_eq!(e.source_name, "create_dot_config/fish/config.fish");
     }
 
@@ -1605,7 +1711,7 @@ mod tests {
     fn brewfile_detection_rejects_ordinary_files() {
         assert!(!is_brewfile_name("zshrc"));
         assert!(!is_brewfile_name("Gemfile"));
-        assert!(!is_brewfile_name("brewfile"));   // case-sensitive
+        assert!(!is_brewfile_name("brewfile")); // case-sensitive
     }
 
     // ── brewfile_brew_dest / brewfile_module_name ──────────────────────────────
@@ -1619,7 +1725,10 @@ mod tests {
     #[test]
     fn brewfile_brew_dest_suffix_preserves_suffix() {
         assert_eq!(brewfile_brew_dest("Brewfile.work"), "brew/Brewfile.work");
-        assert_eq!(brewfile_brew_dest("Brewfile.personal"), "brew/Brewfile.personal");
+        assert_eq!(
+            brewfile_brew_dest("Brewfile.personal"),
+            "brew/Brewfile.personal"
+        );
     }
 
     #[test]
@@ -1641,7 +1750,11 @@ mod tests {
         // `symlink_dot_gitconfig.tmpl` → dest `~/.gitconfig` (both symlink_ and .tmpl stripped)
         let dest = decode_symlink_dest_strip_tmpl(Path::new("symlink_dot_gitconfig.tmpl"));
         let tilde = crate::fs::tilde_path(&dest);
-        assert!(tilde.ends_with("/.gitconfig"), "expected ~/.gitconfig, got {}", tilde);
+        assert!(
+            tilde.ends_with("/.gitconfig"),
+            "expected ~/.gitconfig, got {}",
+            tilde
+        );
     }
 
     #[test]
@@ -1662,12 +1775,18 @@ mod tests {
         // source_name keeps the .tmpl suffix.
         assert_eq!(entry.source_name, "symlink_dot_gitconfig.tmpl");
         // dest should be ~/.gitconfig (not ~/.gitconfig.tmpl).
-        assert!(entry.dest_tilde.ends_with("/.gitconfig"),
-            "expected dest ~/.gitconfig, got {}", entry.dest_tilde);
+        assert!(
+            entry.dest_tilde.ends_with("/.gitconfig"),
+            "expected dest ~/.gitconfig, got {}",
+            entry.dest_tilde
+        );
         // converted_content should contain Tera syntax.
         let content = entry.converted_content.unwrap();
-        assert!(content.contains("home_dir"),
-            "expected converted Tera content with home_dir, got: {}", content);
+        assert!(
+            content.contains("home_dir"),
+            "expected converted Tera content with home_dir, got: {}",
+            content
+        );
     }
 
     #[test]
@@ -1681,7 +1800,10 @@ mod tests {
 
         let rel = Path::new("symlink_dot_gitconfig");
         let result = try_resolve_symlink(&p, rel);
-        assert!(result.is_none(), "expected None for symlink without .tmpl but template content");
+        assert!(
+            result.is_none(),
+            "expected None for symlink without .tmpl but template content"
+        );
     }
 
     // ─── convert_chezmoiignore_to_tera ────────────────────────────────────────
@@ -1728,14 +1850,22 @@ mod tests {
     fn eq_hostname_passes_through() {
         let input = "{{ if eq .chezmoi.hostname \"myhost\" }}\n.hostspecific\n{{ end }}\n";
         let out = convert(input);
-        assert!(out.contains("{% if hostname == \"myhost\" %}"), "got: {}", out);
+        assert!(
+            out.contains("{% if hostname == \"myhost\" %}"),
+            "got: {}",
+            out
+        );
     }
 
     #[test]
     fn eq_username_passes_through() {
         let input = "{{ if eq .chezmoi.username \"alice\" }}\n.private\n{{ end }}\n";
         let out = convert(input);
-        assert!(out.contains("{% if username == \"alice\" %}"), "got: {}", out);
+        assert!(
+            out.contains("{% if username == \"alice\" %}"),
+            "got: {}",
+            out
+        );
     }
 
     #[test]
@@ -1760,9 +1890,17 @@ mod tests {
         let input = "{{ if .chezmoi.kernel }}\n.kernel-file\n{{ end }}\n";
         let out = convert(input);
         // The whole block should be suppressed
-        assert!(!out.contains(".kernel-file"), "block not suppressed: {}", out);
+        assert!(
+            !out.contains(".kernel-file"),
+            "block not suppressed: {}",
+            out
+        );
         assert!(!out.contains("{% if"), "directive leaked: {}", out);
-        assert!(!out.contains("{% endif %}"), "endif for suppressed block: {}", out);
+        assert!(
+            !out.contains("{% endif %}"),
+            "endif for suppressed block: {}",
+            out
+        );
         let w = warnings(input);
         assert!(!w.is_empty(), "expected warning for unsupported expression");
     }
@@ -1779,7 +1917,11 @@ mod tests {
 {{ end }}\n";
         let out = convert(input);
         assert!(out.contains(".osx"), "outer block should be kept: {}", out);
-        assert!(!out.contains(".never"), "inner block should be suppressed: {}", out);
+        assert!(
+            !out.contains(".never"),
+            "inner block should be suppressed: {}",
+            out
+        );
     }
 
     #[test]
@@ -1794,9 +1936,21 @@ mod tests {
 {{ end }}\n\
 .after\n";
         let out = convert(input);
-        assert!(!out.contains(".outer"), "outer should be suppressed: {}", out);
-        assert!(!out.contains(".inner"), "inner should be suppressed: {}", out);
-        assert!(out.contains(".after"), "content after suppressed block: {}", out);
+        assert!(
+            !out.contains(".outer"),
+            "outer should be suppressed: {}",
+            out
+        );
+        assert!(
+            !out.contains(".inner"),
+            "inner should be suppressed: {}",
+            out
+        );
+        assert!(
+            out.contains(".after"),
+            "content after suppressed block: {}",
+            out
+        );
     }
 
     #[test]

@@ -9,8 +9,8 @@ use crate::config::haven::HavenConfig;
 use crate::config::module::expand_tilde;
 use crate::fs::{is_sensitive, tilde_path};
 use crate::ignore::IgnoreList;
-use crate::template::TemplateContext;
 use crate::source::{encode_filename, extdir_source_path};
+use crate::template::TemplateContext;
 
 pub fn run(repo_root: &Path, file: &Path, link: bool, apply: bool, update: bool) -> Result<()> {
     let file = resolve_path(file)?;
@@ -82,17 +82,12 @@ pub fn run(repo_root: &Path, file: &Path, link: bool, apply: bool, update: bool)
     let file_content = std::fs::read_to_string(&file).ok();
     if let Some(content) = file_content {
         let stripped = crate::claude_md::strip_haven_section(&content);
-        std::fs::write(&source_dest, &stripped).with_context(|| {
-            format!("Cannot write {}", source_dest.display())
-        })?;
+        std::fs::write(&source_dest, &stripped)
+            .with_context(|| format!("Cannot write {}", source_dest.display()))?;
     } else {
         // Binary file — copy as-is (managed sections only apply to text files).
         std::fs::copy(&file, &source_dest).with_context(|| {
-            format!(
-                "Cannot copy {} → {}",
-                file.display(),
-                source_dest.display()
-            )
+            format!("Cannot copy {} → {}", file.display(), source_dest.display())
         })?;
     }
 
@@ -118,9 +113,8 @@ pub fn run(repo_root: &Path, file: &Path, link: bool, apply: bool, update: bool)
             let mut line = String::new();
             io::stdin().read_line(&mut line)?;
             if !matches!(line.trim().to_lowercase().as_str(), "y" | "yes") {
-                std::fs::remove_file(&source_dest).with_context(|| {
-                    format!("Cannot remove {}", source_dest.display())
-                })?;
+                std::fs::remove_file(&source_dest)
+                    .with_context(|| format!("Cannot remove {}", source_dest.display()))?;
                 println!("Removed from tracking: {}", dest_tilde);
                 return Ok(());
             }
@@ -143,9 +137,7 @@ fn install_symlink(dest: &Path, source_file: &Path) -> Result<()> {
     use std::os::unix::fs::symlink;
 
     // If dest already is the correct symlink, nothing to do.
-    if dest.is_symlink()
-        && std::fs::read_link(dest).ok().as_deref() == Some(source_file)
-    {
+    if dest.is_symlink() && std::fs::read_link(dest).ok().as_deref() == Some(source_file) {
         println!("Symlink already in place: {}", dest.display());
         return Ok(());
     }
@@ -162,14 +154,15 @@ fn install_symlink(dest: &Path, source_file: &Path) -> Result<()> {
         println!("  backed up {} → {}", dest.display(), backup.display());
     }
 
-    symlink(source_file, dest)
-        .with_context(|| format!("Cannot create symlink {} → {}", dest.display(), source_file.display()))?;
+    symlink(source_file, dest).with_context(|| {
+        format!(
+            "Cannot create symlink {} → {}",
+            dest.display(),
+            source_file.display()
+        )
+    })?;
 
-    println!(
-        "  linked {} → {}",
-        dest.display(),
-        source_file.display(),
-    );
+    println!("  linked {} → {}", dest.display(), source_file.display(),);
     Ok(())
 }
 
@@ -196,7 +189,13 @@ fn run_dir(repo_root: &Path, dir: &Path, ignore: &IgnoreList) -> Result<()> {
     add_dir_recursive(repo_root, dir, ignore)
 }
 
-fn add_as_extdir(repo_root: &Path, dir: &Path, _remote_name: &str, url: &str, ignore: &IgnoreList) -> Result<()> {
+fn add_as_extdir(
+    repo_root: &Path,
+    dir: &Path,
+    _remote_name: &str,
+    url: &str,
+    ignore: &IgnoreList,
+) -> Result<()> {
     let home = dirs::home_dir().context("Cannot determine home directory")?;
     let dest_tilde = tilde_path(dir);
     let repo_source = repo_root.join("source");
@@ -215,7 +214,10 @@ fn add_as_extdir(repo_root: &Path, dir: &Path, _remote_name: &str, url: &str, ig
         println!(
             "{} is already tracked as external (source/{})",
             dest_tilde,
-            extdir_path.strip_prefix(&repo_source).unwrap_or(&extdir_path).display()
+            extdir_path
+                .strip_prefix(&repo_source)
+                .unwrap_or(&extdir_path)
+                .display()
         );
         return Ok(());
     }
@@ -236,7 +238,10 @@ fn add_as_extdir(repo_root: &Path, dir: &Path, _remote_name: &str, url: &str, ig
     println!(
         "Added external: {} → source/{}  ({})",
         dest_tilde,
-        extdir_path.strip_prefix(&repo_source).unwrap_or(&extdir_path).display(),
+        extdir_path
+            .strip_prefix(&repo_source)
+            .unwrap_or(&extdir_path)
+            .display(),
         url,
     );
     Ok(())
@@ -254,7 +259,11 @@ fn add_dir_recursive(repo_root: &Path, dir: &Path, ignore: &IgnoreList) -> Resul
             // Skip hidden directories (e.g. .git) but still descend into
             // non-hidden ones. Hidden *files* are allowed — they'll get dot_ encoding.
             !e.file_type().is_dir()
-                || !e.file_name().to_str().map(|s| s.starts_with('.')).unwrap_or(false)
+                || !e
+                    .file_name()
+                    .to_str()
+                    .map(|s| s.starts_with('.'))
+                    .unwrap_or(false)
         })
     {
         let dent = dent.with_context(|| format!("Cannot walk {}", dir.display()))?;
@@ -379,7 +388,10 @@ fn prompt_dir_mode(dir: &Path, remotes: &[(String, String)]) -> Result<DirMode> 
     println!();
 
     // Build the prompt options.
-    let extdir_options: String = (1..=remotes.len()).map(|i| i.to_string()).collect::<Vec<_>>().join("/");
+    let extdir_options: String = (1..=remotes.len())
+        .map(|i| i.to_string())
+        .collect::<Vec<_>>()
+        .join("/");
     print!(
         "How to add?\n  {options}  Add as external (cloned on apply)\n  f) Add all files recursively\n  q) Skip\n[{options}/f/q]: ",
         options = extdir_options,
@@ -415,7 +427,13 @@ fn prompt_dir_mode(dir: &Path, remotes: &[(String, String)]) -> Result<DirMode> 
 /// appropriate (e.g. `~/.ssh` → `private_dot_ssh`).
 ///
 /// The final file component gets full magic-name encoding via [`encode_filename`].
-fn encode_rel_path(home: &Path, rel: &Path, private: bool, executable: bool, symlink: bool) -> Result<PathBuf> {
+fn encode_rel_path(
+    home: &Path,
+    rel: &Path,
+    private: bool,
+    executable: bool,
+    symlink: bool,
+) -> Result<PathBuf> {
     let components: Vec<String> = rel
         .components()
         .filter_map(|c| c.as_os_str().to_str().map(str::to_owned))

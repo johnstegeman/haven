@@ -18,9 +18,9 @@ use tera::{Error as TeraError, Value};
 
 /// Well-known `op` install locations checked when it is not in PATH.
 const OP_LOCATIONS: &[&str] = &[
-    "/opt/homebrew/bin/op",      // macOS Homebrew (Apple Silicon)
-    "/usr/local/bin/op",         // macOS Homebrew (Intel) or manual install
-    "/usr/bin/op",               // Linux system install
+    "/opt/homebrew/bin/op",              // macOS Homebrew (Apple Silicon)
+    "/usr/local/bin/op",                 // macOS Homebrew (Intel) or manual install
+    "/usr/bin/op",                       // Linux system install
     "/home/linuxbrew/.linuxbrew/bin/op", // Linux Homebrew
 ];
 
@@ -34,10 +34,7 @@ pub fn op_path() -> Option<PathBuf> {
             }
         }
     }
-    OP_LOCATIONS
-        .iter()
-        .map(PathBuf::from)
-        .find(|p| p.exists())
+    OP_LOCATIONS.iter().map(PathBuf::from).find(|p| p.exists())
 }
 
 /// Check whether the user is currently signed into 1Password.
@@ -72,7 +69,11 @@ pub fn read_secret(op: &Path, uri: &str) -> Result<String, String> {
     } else {
         let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
         Err(if stderr.is_empty() {
-            format!("`op read {}` failed (exit {:?})", full_uri, out.status.code())
+            format!(
+                "`op read {}` failed (exit {:?})",
+                full_uri,
+                out.status.code()
+            )
         } else {
             format!("`op read {}` failed: {}", full_uri, stderr)
         })
@@ -89,15 +90,12 @@ pub fn read_secret(op: &Path, uri: &str) -> Result<String, String> {
 /// if `{{ op(...) }}` actually appears in the template being rendered.
 pub fn make_tera_function() -> impl tera::Function {
     move |args: &HashMap<String, Value>| -> tera::Result<Value> {
-        let path = args
-            .get("path")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| {
-                TeraError::msg(
-                    "op() requires a 'path' argument.\n\
+        let path = args.get("path").and_then(|v| v.as_str()).ok_or_else(|| {
+            TeraError::msg(
+                "op() requires a 'path' argument.\n\
                      Example: {{ op(path=\"op://vault/item/field\") }}",
-                )
-            })?;
+            )
+        })?;
 
         let op_bin = op_path().ok_or_else(|| {
             TeraError::msg(
@@ -114,6 +112,8 @@ pub fn make_tera_function() -> impl tera::Function {
             ));
         }
 
-        read_secret(&op_bin, path).map(Value::String).map_err(TeraError::msg)
+        read_secret(&op_bin, path)
+            .map(Value::String)
+            .map_err(TeraError::msg)
     }
 }

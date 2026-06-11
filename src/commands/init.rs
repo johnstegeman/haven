@@ -102,11 +102,10 @@ fn run_from_source(opts: &InitOptions<'_>, source_str: &str) -> Result<()> {
     if haven_toml.exists() {
         let config = crate::config::HavenConfig::load(repo_root).unwrap_or_default();
         if !config.profile.contains_key("default") {
-            let mut contents = std::fs::read_to_string(&haven_toml)
-                .context("Cannot read haven.toml")?;
+            let mut contents =
+                std::fs::read_to_string(&haven_toml).context("Cannot read haven.toml")?;
             contents.push_str("\n[profile.default]\nmodules = []\n");
-            std::fs::write(&haven_toml, &contents)
-                .context("Cannot update haven.toml")?;
+            std::fs::write(&haven_toml, &contents).context("Cannot update haven.toml")?;
             println!("note: added [profile.default] to haven.toml (none was present)");
         }
     }
@@ -162,10 +161,7 @@ fn run_from_source(opts: &InitOptions<'_>, source_str: &str) -> Result<()> {
 fn run_scaffold(repo_root: &Path) -> Result<()> {
     // Already initialized — nothing to do.
     if repo_root.join("haven.toml").exists() {
-        println!(
-            "{} is already initialized.",
-            repo_root.display()
-        );
+        println!("{} is already initialized.", repo_root.display());
         println!();
         println!("To apply your config to this machine, run: haven apply");
         return Ok(());
@@ -188,12 +184,9 @@ fn run_scaffold(repo_root: &Path) -> Result<()> {
     }
 
     // Scaffold directory structure.
-    std::fs::create_dir_all(repo_root.join("modules"))
-        .context("Cannot create modules/")?;
-    std::fs::create_dir_all(repo_root.join("source"))
-        .context("Cannot create source/")?;
-    std::fs::create_dir_all(repo_root.join("brew"))
-        .context("Cannot create brew/")?;
+    std::fs::create_dir_all(repo_root.join("modules")).context("Cannot create modules/")?;
+    std::fs::create_dir_all(repo_root.join("source")).context("Cannot create source/")?;
+    std::fs::create_dir_all(repo_root.join("brew")).context("Cannot create brew/")?;
 
     // Write haven.toml.
     HavenConfig::write_scaffold(repo_root)?;
@@ -212,11 +205,8 @@ fn run_scaffold(repo_root: &Path) -> Result<()> {
 # [homebrew]
 # brewfile = "brew/Brewfile.shell"
 "#;
-    std::fs::write(
-        repo_root.join("modules").join("shell.toml"),
-        shell_toml,
-    )
-    .context("Cannot write modules/shell.toml")?;
+    std::fs::write(repo_root.join("modules").join("shell.toml"), shell_toml)
+        .context("Cannot write modules/shell.toml")?;
 
     // Write .gitignore (never commit state files).
     let gitignore = "# haven runtime files — do not commit\n.haven/\n";

@@ -74,27 +74,59 @@ pub fn resolve_from_parts(
     prompt_result: Option<VcsPromptResult>,
 ) -> Option<ResolvedVcs> {
     if let Some(b) = cli_flag {
-        return Some(ResolvedVcs { backend: b, source: VcsResolutionSource::CliFlag, save_to_config: false });
+        return Some(ResolvedVcs {
+            backend: b,
+            source: VcsResolutionSource::CliFlag,
+            save_to_config: false,
+        });
     }
     if let Some(b) = env_var {
-        return Some(ResolvedVcs { backend: b, source: VcsResolutionSource::EnvVar, save_to_config: false });
+        return Some(ResolvedVcs {
+            backend: b,
+            source: VcsResolutionSource::EnvVar,
+            save_to_config: false,
+        });
     }
     if let Some(b) = config_backend {
-        return Some(ResolvedVcs { backend: b, source: VcsResolutionSource::Config, save_to_config: false });
+        return Some(ResolvedVcs {
+            backend: b,
+            source: VcsResolutionSource::Config,
+            save_to_config: false,
+        });
     }
     if jj_on_path {
         if let Some(pr) = prompt_result {
             return match pr {
-                VcsPromptResult::UseJj => Some(ResolvedVcs { backend: VcsBackend::Jj, source: VcsResolutionSource::Detected, save_to_config: false }),
-                VcsPromptResult::UseGit => Some(ResolvedVcs { backend: VcsBackend::Git, source: VcsResolutionSource::Detected, save_to_config: false }),
-                VcsPromptResult::SaveJj => Some(ResolvedVcs { backend: VcsBackend::Jj, source: VcsResolutionSource::Detected, save_to_config: true }),
-                VcsPromptResult::SaveGit => Some(ResolvedVcs { backend: VcsBackend::Git, source: VcsResolutionSource::Detected, save_to_config: true }),
+                VcsPromptResult::UseJj => Some(ResolvedVcs {
+                    backend: VcsBackend::Jj,
+                    source: VcsResolutionSource::Detected,
+                    save_to_config: false,
+                }),
+                VcsPromptResult::UseGit => Some(ResolvedVcs {
+                    backend: VcsBackend::Git,
+                    source: VcsResolutionSource::Detected,
+                    save_to_config: false,
+                }),
+                VcsPromptResult::SaveJj => Some(ResolvedVcs {
+                    backend: VcsBackend::Jj,
+                    source: VcsResolutionSource::Detected,
+                    save_to_config: true,
+                }),
+                VcsPromptResult::SaveGit => Some(ResolvedVcs {
+                    backend: VcsBackend::Git,
+                    source: VcsResolutionSource::Detected,
+                    save_to_config: true,
+                }),
                 VcsPromptResult::Abort => None, // caller should exit
             };
         }
     }
     // Default: git
-    Some(ResolvedVcs { backend: VcsBackend::Git, source: VcsResolutionSource::Default, save_to_config: false })
+    Some(ResolvedVcs {
+        backend: VcsBackend::Git,
+        source: VcsResolutionSource::Default,
+        save_to_config: false,
+    })
 }
 
 /// Full resolution: reads env var, config, detects jj, shows prompt if needed.
@@ -109,15 +141,16 @@ pub fn resolve(
     let on_path = jj_on_path();
 
     // If nothing is set and jj is available, show detection prompt.
-    let prompt_result = if cli_flag.is_none() && env_var.is_none() && config_backend.is_none() && on_path {
-        let pr = prompt_vcs_backend()?;
-        if let VcsPromptResult::SaveJj | VcsPromptResult::SaveGit = pr {
-            // Caller handles the config save.
-        }
-        Some(pr)
-    } else {
-        None
-    };
+    let prompt_result =
+        if cli_flag.is_none() && env_var.is_none() && config_backend.is_none() && on_path {
+            let pr = prompt_vcs_backend()?;
+            if let VcsPromptResult::SaveJj | VcsPromptResult::SaveGit = pr {
+                // Caller handles the config save.
+            }
+            Some(pr)
+        } else {
+            None
+        };
 
     let resolved = resolve_from_parts(cli_flag, env_var, config_backend, on_path, prompt_result);
 
@@ -149,9 +182,8 @@ fn parse_vcs_env() -> Result<Option<VcsBackend>> {
 pub fn jj_on_path() -> bool {
     std::env::var_os("PATH")
         .map(|path| {
-            std::env::split_paths(&path).any(|dir| {
-                dir.join("jj").exists() || dir.join("jj.exe").exists()
-            })
+            std::env::split_paths(&path)
+                .any(|dir| dir.join("jj").exists() || dir.join("jj.exe").exists())
         })
         .unwrap_or(false)
 }
@@ -218,7 +250,10 @@ fn save_vcs_to_config(repo_root: &Path, backend: VcsBackend) -> Result<()> {
     let content = std::fs::read_to_string(&path)
         .with_context(|| format!("Cannot read {}", path.display()))?;
 
-    let value = match backend { VcsBackend::Git => "git", VcsBackend::Jj => "jj" };
+    let value = match backend {
+        VcsBackend::Git => "git",
+        VcsBackend::Jj => "jj",
+    };
 
     let updated = if content.contains("[vcs]") {
         // Replace existing backend line, or insert after [vcs].
@@ -226,8 +261,13 @@ fn save_vcs_to_config(repo_root: &Path, backend: VcsBackend) -> Result<()> {
         let mut found = false;
         let mut in_vcs = false;
         for line in &mut lines {
-            if line.trim() == "[vcs]" { in_vcs = true; continue; }
-            if in_vcs && line.trim_start().starts_with('[') { in_vcs = false; }
+            if line.trim() == "[vcs]" {
+                in_vcs = true;
+                continue;
+            }
+            if in_vcs && line.trim_start().starts_with('[') {
+                in_vcs = false;
+            }
             if in_vcs && line.trim_start().starts_with("backend") {
                 // We need to replace this line — use a sentinel approach below.
                 found = true;
@@ -235,7 +275,8 @@ fn save_vcs_to_config(repo_root: &Path, backend: VcsBackend) -> Result<()> {
         }
         if found {
             // Replace the backend line.
-            content.lines()
+            content
+                .lines()
                 .map(|l| {
                     if in_vcs_section_backend_line(l) {
                         format!("backend = \"{}\"", value)
@@ -244,7 +285,8 @@ fn save_vcs_to_config(repo_root: &Path, backend: VcsBackend) -> Result<()> {
                     }
                 })
                 .collect::<Vec<_>>()
-                .join("\n") + if content.ends_with('\n') { "\n" } else { "" }
+                .join("\n")
+                + if content.ends_with('\n') { "\n" } else { "" }
         } else {
             // [vcs] exists but no backend line — append after [vcs].
             insert_after_vcs_header(&content, value)
@@ -255,8 +297,7 @@ fn save_vcs_to_config(repo_root: &Path, backend: VcsBackend) -> Result<()> {
         format!("{}{}[vcs]\nbackend = \"{}\"\n", content, sep, value)
     };
 
-    std::fs::write(&path, updated)
-        .with_context(|| format!("Cannot write {}", path.display()))?;
+    std::fs::write(&path, updated).with_context(|| format!("Cannot write {}", path.display()))?;
 
     println!("  Saved vcs.backend = \"{}\" to haven.toml", value);
     Ok(())
@@ -385,7 +426,9 @@ pub fn ensure_colocated(dir: &Path, migrate_all: bool) -> Result<MigrateOutcome>
         io::stdin().read_line(&mut line)?;
         match line.trim().to_lowercase().as_str() {
             "y" | "yes" => {} // fall through to migrate
-            "always" => { said_always = true; } // migrate this one, caller sets flag
+            "always" => {
+                said_always = true;
+            } // migrate this one, caller sets flag
             _ => {
                 println!("  Skipping jj migration for {}", dest_display);
                 return Ok(MigrateOutcome::Skipped);
@@ -403,7 +446,11 @@ pub fn ensure_colocated(dir: &Path, migrate_all: bool) -> Result<MigrateOutcome>
         bail!("jj git init --colocate failed in {}", dir.display());
     }
     println!("  ✓  {} is now a jj colocated repo", dest_display);
-    Ok(if said_always { MigrateOutcome::MigratedAll } else { MigrateOutcome::Migrated })
+    Ok(if said_always {
+        MigrateOutcome::MigratedAll
+    } else {
+        MigrateOutcome::Migrated
+    })
 }
 
 // ─── Status display ───────────────────────────────────────────────────────────
@@ -412,18 +459,22 @@ pub fn ensure_colocated(dir: &Path, migrate_all: bool) -> Result<MigrateOutcome>
 pub fn print_status(resolved: &ResolvedVcs, repo_root: &Path) {
     let backend_str = match resolved.backend {
         VcsBackend::Git => "git",
-        VcsBackend::Jj  => "jj (colocated)",
+        VcsBackend::Jj => "jj (colocated)",
     };
     let source_str = match resolved.source {
-        VcsResolutionSource::CliFlag  => "  (set via --vcs flag)",
-        VcsResolutionSource::EnvVar   => "  (set via HAVEN_VCS env var)",
-        VcsResolutionSource::Config   => "  (set in haven.toml [vcs])",
+        VcsResolutionSource::CliFlag => "  (set via --vcs flag)",
+        VcsResolutionSource::EnvVar => "  (set via HAVEN_VCS env var)",
+        VcsResolutionSource::Config => "  (set in haven.toml [vcs])",
         VcsResolutionSource::Detected => "  (detected — jj on PATH)",
-        VcsResolutionSource::Default  => "  (default)",
+        VcsResolutionSource::Default => "  (default)",
     };
     println!("VCS backend: {}{}", backend_str, source_str);
 
-    let jj_str = if jj_on_path() { "installed" } else { "not found" };
+    let jj_str = if jj_on_path() {
+        "installed"
+    } else {
+        "not found"
+    };
     println!("jj:          {}", jj_str);
 
     let config_path = repo_root.join("haven.toml");
@@ -438,8 +489,12 @@ pub fn print_status(resolved: &ResolvedVcs, repo_root: &Path) {
 mod tests {
     use super::*;
 
-    fn git() -> Option<VcsBackend> { Some(VcsBackend::Git) }
-    fn jj() -> Option<VcsBackend> { Some(VcsBackend::Jj) }
+    fn git() -> Option<VcsBackend> {
+        Some(VcsBackend::Git)
+    }
+    fn jj() -> Option<VcsBackend> {
+        Some(VcsBackend::Jj)
+    }
 
     #[test]
     fn cli_flag_overrides_all() {

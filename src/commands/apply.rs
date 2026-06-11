@@ -14,26 +14,28 @@
 ///                  + install foo module's AI skills / commands
 ///                  + run foo module's mise
 ///
-use anyhow::{Context, Result, bail};
+use anyhow::{bail, Context, Result};
 use chrono::Utc;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
+use crate::ai_config::{AiConfig, BackendKind};
 use crate::ai_platform::{PlatformPlugin, PlatformsConfig};
 use crate::ai_skill::{SkillDeclaration, SkillSource, SkillsConfig};
-use crate::github::GhSource;
-use crate::config::{sort_modules, HavenConfig, ModuleConfig};
-use crate::vcs::{self, MigrateOutcome, VcsBackend};
 use crate::config::module::expand_tilde;
-use crate::fs::{apply_permissions, backup_file, copy_to_dest, sha256_of_bytes, sha256_of_str, write_to_dest};
+use crate::config::{sort_modules, HavenConfig, ModuleConfig};
+use crate::fs::{
+    apply_permissions, backup_file, copy_to_dest, sha256_of_bytes, sha256_of_str, write_to_dest,
+};
+use crate::github::GhSource;
 use crate::ignore::IgnoreList;
-use crate::ai_config::{AiConfig, BackendKind};
 use crate::skill_backend::{DeploymentTarget, ResolvedSkill, SkillMetadata};
 use crate::skill_backend_factory::create_backend;
 use crate::skill_cache::SkillCache;
 use crate::source::{scan, scan_scripts, ScriptExecWhen, SourceEntry};
 use crate::state::{AiDeployedEntry, AppliedFileEntry, ModuleState, State};
 use crate::template::TemplateContext;
+use crate::vcs::{self, MigrateOutcome, VcsBackend};
 
 /// How to resolve a conflict when the destination file was edited since last apply.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -50,10 +52,13 @@ impl std::str::FromStr for OnConflict {
     type Err = anyhow::Error;
     fn from_str(s: &str) -> Result<Self> {
         match s {
-            "prompt"    => Ok(Self::Prompt),
-            "skip"      => Ok(Self::Skip),
+            "prompt" => Ok(Self::Prompt),
+            "skip" => Ok(Self::Skip),
             "overwrite" => Ok(Self::Overwrite),
-            other => anyhow::bail!("unknown --on-conflict value '{}' (expected: prompt | skip | overwrite)", other),
+            other => anyhow::bail!(
+                "unknown --on-conflict value '{}' (expected: prompt | skip | overwrite)",
+                other
+            ),
         }
     }
 }
@@ -137,7 +142,11 @@ impl ApplyLock {
         let path = state_dir.join("apply.lock");
         std::fs::create_dir_all(state_dir).context("Cannot create state directory")?;
         loop {
-            match std::fs::OpenOptions::new().write(true).create_new(true).open(&path) {
+            match std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&path)
+            {
                 Ok(mut f) => {
                     write!(f, "{}", std::process::id())
                         .with_context(|| format!("Cannot write lock file {}", path.display()))?;
@@ -210,12 +219,22 @@ pub fn run(opts: &ApplyOptions<'_>) -> Result<ApplyOutcome> {
 
     if opts.dry_run {
         let mut sections = Vec::new();
-        if opts.apply_files  { sections.push("files"); }
-        if opts.apply_brews  { sections.push("brews"); }
-        if opts.apply_ai     { sections.push("ai"); }
+        if opts.apply_files {
+            sections.push("files");
+        }
+        if opts.apply_brews {
+            sections.push("brews");
+        }
+        if opts.apply_ai {
+            sections.push("ai");
+        }
         println!("Dry run — no files will be written.\n");
         println!("Profile:  {}", opts.profile);
-        let applying = if sections.is_empty() { "nothing".to_string() } else { sections.join(", ") };
+        let applying = if sections.is_empty() {
+            "nothing".to_string()
+        } else {
+            sections.join(", ")
+        };
         println!("Applying: {}", applying);
         if let Some(m) = opts.module_filter {
             println!("Module:   {} (brew/AI only)", m);
@@ -265,7 +284,8 @@ pub fn run(opts: &ApplyOptions<'_>) -> Result<ApplyOutcome> {
     // ── 2. Apply module brew / AI / mise / externals ─────────────────────────
     let modules_to_apply: Vec<String> = match opts.module_filter {
         Some(m) => vec![m.to_string()],
-        None => HavenConfig::load(opts.repo_root)?.resolve_modules(opts.profile)
+        None => HavenConfig::load(opts.repo_root)?
+            .resolve_modules(opts.profile)
             .unwrap_or_default(),
     };
     let sorted = sort_modules(&modules_to_apply);
@@ -284,11 +304,16 @@ pub fn run(opts: &ApplyOptions<'_>) -> Result<ApplyOutcome> {
     // ── Retain cleanup: remove stale applied_files entries ───────────────────
     // Any dest that is no longer tracked should not carry a lingering hash.
     if opts.apply_files && !opts.dry_run {
-        let tracked: HashSet<&str> = entries.iter()
-            .filter(|e| !e.flags.extdir && !e.flags.extfile && !e.flags.symlink && !e.flags.create_only)
+        let tracked: HashSet<&str> = entries
+            .iter()
+            .filter(|e| {
+                !e.flags.extdir && !e.flags.extfile && !e.flags.symlink && !e.flags.create_only
+            })
             .map(|e| e.dest_tilde.as_str())
             .collect();
-        state.applied_files.retain(|k, _| tracked.contains(k.as_str()));
+        state
+            .applied_files
+            .retain(|k, _| tracked.contains(k.as_str()));
     }
 
     let mut lock = crate::lock::LockFile::load(opts.repo_root)?;
@@ -318,10 +343,7 @@ pub fn run(opts: &ApplyOptions<'_>) -> Result<ApplyOutcome> {
                     } else {
                         "not signed into 1Password (run: op signin)"
                     };
-                    eprintln!(
-                        "warning: [{}] skipped — {}",
-                        module_name, reason
-                    );
+                    eprintln!("warning: [{}] skipped — {}", module_name, reason);
                     continue;
                 }
             }
@@ -373,8 +395,7 @@ pub fn run(opts: &ApplyOptions<'_>) -> Result<ApplyOutcome> {
     // ── 4. Run scripts from source/scripts/ ──────────────────────────────────
     if opts.run_scripts && !opts.dry_run {
         let scripts_dir = opts.repo_root.join("source").join("scripts");
-        let script_entries = scan_scripts(&scripts_dir)
-            .context("Cannot scan source/scripts/")?;
+        let script_entries = scan_scripts(&scripts_dir).context("Cannot scan source/scripts/")?;
         apply_scripts(&script_entries, &mut state)?;
     }
 
@@ -411,7 +432,9 @@ pub fn run(opts: &ApplyOptions<'_>) -> Result<ApplyOutcome> {
             eprintln!("warning: config injection failed: {}", e);
         }
         // Regenerate CLAUDE.md with updated skill snippets.
-        if let Err(e) = crate::claude_md::generate(opts.claude_dir, Some(opts.repo_root), opts.profile) {
+        if let Err(e) =
+            crate::claude_md::generate(opts.claude_dir, Some(opts.repo_root), opts.profile)
+        {
             eprintln!("warning: CLAUDE.md generation failed: {}", e);
         }
         state.version = "1".into();
@@ -567,14 +590,21 @@ fn apply_extfile_entry(content: &ExtfileContent, dest: &Path, backup_dir: &Path)
 ///
 /// Only direct children (one level deep) of each exact dir are collected.
 /// Subdirectory names are tracked the same as file names — both are protected.
-fn collect_exact_dirs(entries: &[SourceEntry], dest_root: &Path) -> HashMap<PathBuf, HashSet<String>> {
+fn collect_exact_dirs(
+    entries: &[SourceEntry],
+    dest_root: &Path,
+) -> HashMap<PathBuf, HashSet<String>> {
     let mut exact_dirs: HashMap<PathBuf, HashSet<String>> = HashMap::new();
 
     for entry in entries {
-        if entry.flags.extdir { continue; }
+        if entry.flags.extdir {
+            continue;
+        }
 
         for (idx, dir) in entry.dirs.iter().enumerate() {
-            if !dir.flags.exact { continue; }
+            if !dir.flags.exact {
+                continue;
+            }
 
             let exact_dir_path = match expand_tilde(&dir.dest_tilde) {
                 Ok(p) => resolve_dest(p, dest_root),
@@ -594,7 +624,10 @@ fn collect_exact_dirs(entries: &[SourceEntry], dest_root: &Path) -> HashMap<Path
             };
 
             if child_path.parent() == Some(&exact_dir_path) {
-                if let Some(name) = child_path.file_name().map(|n| n.to_string_lossy().to_string()) {
+                if let Some(name) = child_path
+                    .file_name()
+                    .map(|n| n.to_string_lossy().to_string())
+                {
                     exact_dirs.entry(exact_dir_path).or_default().insert(name);
                 }
             }
@@ -629,7 +662,11 @@ fn purge_exact_dir(dir_path: &Path, tracked: &HashSet<String>, backup_dir: &Path
                 .with_context(|| format!("Cannot back up {}", path.display()))?;
             std::fs::remove_file(&path)
                 .with_context(|| format!("Cannot remove untracked file {}", path.display()))?;
-            println!("  [exact] removed {} → backed up to {}", path.display(), backup.display());
+            println!(
+                "  [exact] removed {} → backed up to {}",
+                path.display(),
+                backup.display()
+            );
         }
     }
 
@@ -646,10 +683,7 @@ fn apply_entry(
     run_state: &mut ApplyRunState<'_>,
 ) -> Result<bool> {
     // Expand dest and rebase onto dest_root.
-    let dest = resolve_dest(
-        expand_tilde(&entry.dest_tilde)?,
-        opts.dest_root,
-    );
+    let dest = resolve_dest(expand_tilde(&entry.dest_tilde)?, opts.dest_root);
 
     // Ensure parent directories exist with correct permissions.
     for dir in &entry.dirs {
@@ -718,14 +752,15 @@ fn apply_entry(
         // Skip silently when the symlink already points to the right target,
         // matching the behaviour of regular files that are already up-to-date.
         let already_correct = dest.is_symlink()
-            && std::fs::read_link(&dest).map(|t| t == link_target).unwrap_or(false);
+            && std::fs::read_link(&dest)
+                .map(|t| t == link_target)
+                .unwrap_or(false);
         if already_correct {
             return Ok(false);
         }
-        let backup = apply_symlink(&link_target, &dest, opts.backup_dir)
-            .with_context(|| {
-                format!("Cannot link {} → {}", dest.display(), link_target.display())
-            })?;
+        let backup = apply_symlink(&link_target, &dest, opts.backup_dir).with_context(|| {
+            format!("Cannot link {} → {}", dest.display(), link_target.display())
+        })?;
         if let Some(b) = backup {
             println!("  backed up {} → {}", dest.display(), b.display());
         }
@@ -736,7 +771,10 @@ fn apply_entry(
     // create_only: seed-only file — excluded from hash tracking (apply never
     // overwrites them, so a C marker in status would be misleading).
     if entry.flags.create_only && dest.exists() {
-        println!("  ~ {} (create_only — already exists, not overwritten)", dest.display());
+        println!(
+            "  ~ {} (create_only — already exists, not overwritten)",
+            dest.display()
+        );
         return Ok(false);
     }
 
@@ -756,7 +794,11 @@ fn apply_entry(
     // Path A: no prior hash in state — use existing idempotency logic.
     // Path B: prior hash exists — check whether dest was edited since last apply.
     if dest.exists() && !dest.is_symlink() {
-        let prior = run_state.state.applied_files.get(&entry.dest_tilde).cloned();
+        let prior = run_state
+            .state
+            .applied_files
+            .get(&entry.dest_tilde)
+            .cloned();
         match prior {
             None => {
                 // Path A: no prior hash. Check idempotency with files_equal / string compare.
@@ -775,14 +817,16 @@ fn apply_entry(
                             sha256_of_bytes(&bytes)
                         }
                     };
-                    run_state.state.applied_files.insert(
-                        entry.dest_tilde.clone(),
-                        AppliedFileEntry { sha256: hash },
-                    );
+                    run_state
+                        .state
+                        .applied_files
+                        .insert(entry.dest_tilde.clone(), AppliedFileEntry { sha256: hash });
                     // Re-apply permissions in case they drifted, then silently return.
                     if entry.flags.private || entry.flags.executable {
                         apply_permissions(&dest, entry.flags.private, entry.flags.executable)
-                            .with_context(|| format!("Cannot set permissions on {}", dest.display()))?;
+                            .with_context(|| {
+                                format!("Cannot set permissions on {}", dest.display())
+                            })?;
                     }
                     return Ok(false);
                 }
@@ -805,7 +849,8 @@ fn apply_entry(
 
                 if dest_hash != prior_entry.sha256 {
                     // User edited dest since last apply — resolve conflict.
-                    let action = resolve_conflict(entry, opts, run_state, &dest, &dest_bytes, &new_content)?;
+                    let action =
+                        resolve_conflict(entry, opts, run_state, &dest, &dest_bytes, &new_content)?;
                     match action {
                         ConflictAction::Skip => {
                             run_state.had_conflict_skips = true;
@@ -820,9 +865,7 @@ fn apply_entry(
                     // dest unchanged since last apply. Check if source changed.
                     let source_matches = match &new_content {
                         Some(rendered) => match std::str::from_utf8(&dest_bytes) {
-                            Ok(text) => {
-                                crate::claude_md::strip_haven_section(text) == *rendered
-                            }
+                            Ok(text) => crate::claude_md::strip_haven_section(text) == *rendered,
                             Err(_) => false,
                         },
                         None => {
@@ -843,7 +886,9 @@ fn apply_entry(
                         // Still identical — no write needed.
                         if entry.flags.private || entry.flags.executable {
                             apply_permissions(&dest, entry.flags.private, entry.flags.executable)
-                                .with_context(|| format!("Cannot set permissions on {}", dest.display()))?;
+                                .with_context(|| {
+                                format!("Cannot set permissions on {}", dest.display())
+                            })?;
                         }
                         return Ok(false);
                     }
@@ -871,8 +916,9 @@ fn apply_entry(
         None => {
             let src_bytes = std::fs::read(&entry.src)
                 .with_context(|| format!("Cannot read {}", entry.src.display()))?;
-            copy_to_dest(&entry.src, &dest)
-                .with_context(|| format!("Cannot copy {} → {}", entry.src.display(), dest.display()))?;
+            copy_to_dest(&entry.src, &dest).with_context(|| {
+                format!("Cannot copy {} → {}", entry.src.display(), dest.display())
+            })?;
             sha256_of_bytes(&src_bytes)
         }
     };
@@ -880,7 +926,9 @@ fn apply_entry(
     // Record hash so conflict detection fires on the next apply.
     run_state.state.applied_files.insert(
         entry.dest_tilde.clone(),
-        AppliedFileEntry { sha256: written_hash },
+        AppliedFileEntry {
+            sha256: written_hash,
+        },
     );
 
     if entry.flags.private || entry.flags.executable {
@@ -978,7 +1026,10 @@ fn show_conflict_diff(
 
     let src_str: String = match new_content {
         Some(rendered) => rendered.clone(),
-        None => match std::fs::read(&entry.src).ok().and_then(|b| String::from_utf8(b).ok()) {
+        None => match std::fs::read(&entry.src)
+            .ok()
+            .and_then(|b| String::from_utf8(b).ok())
+        {
             Some(s) => s,
             None => {
                 println!("  (binary file — diff not available)");
@@ -1039,7 +1090,11 @@ fn print_dry_run_entry(entry: &SourceEntry, dest_root: &Path) {
         match parse_extfile_content(&entry.src) {
             Ok(content) => {
                 let ref_hint = content.ref_name.as_deref().unwrap_or("latest");
-                let type_hint = if content.kind == "archive" { "extract" } else { "download" };
+                let type_hint = if content.kind == "archive" {
+                    "extract"
+                } else {
+                    "download"
+                };
                 println!(
                     "  [extfile] {} {} → {}  ({})",
                     type_hint,
@@ -1056,11 +1111,21 @@ fn print_dry_run_entry(entry: &SourceEntry, dest_root: &Path) {
     }
 
     let mut tags: Vec<&str> = Vec::new();
-    if entry.flags.template    { tags.push("template"); }
-    if entry.flags.private     { tags.push("private"); }
-    if entry.flags.executable  { tags.push("executable"); }
-    if entry.flags.symlink     { tags.push("symlink"); }
-    if entry.flags.create_only { tags.push("create_only"); }
+    if entry.flags.template {
+        tags.push("template");
+    }
+    if entry.flags.private {
+        tags.push("private");
+    }
+    if entry.flags.executable {
+        tags.push("executable");
+    }
+    if entry.flags.symlink {
+        tags.push("symlink");
+    }
+    if entry.flags.create_only {
+        tags.push("create_only");
+    }
     let annotation = if tags.is_empty() {
         String::new()
     } else {
@@ -1069,7 +1134,8 @@ fn print_dry_run_entry(entry: &SourceEntry, dest_root: &Path) {
     let src_rel = entry.src.file_name().unwrap_or(entry.src.as_os_str());
     println!(
         "  source/{} → {}{}",
-        entry.src
+        entry
+            .src
             .components()
             .next_back()
             .map(|c| c.as_os_str().to_string_lossy().into_owned())
@@ -1100,9 +1166,7 @@ fn apply_scripts(scripts: &[crate::source::ScriptEntry], state: &mut State) -> R
     let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
 
     for script in scripts {
-        if script.when == ScriptExecWhen::Once
-            && state.scripts_run.contains_key(&script.name)
-        {
+        if script.when == ScriptExecWhen::Once && state.scripts_run.contains_key(&script.name) {
             println!("  ~ {} (already run — skipped)", script.name);
             continue;
         }
@@ -1124,10 +1188,7 @@ fn apply_scripts(scripts: &[crate::source::ScriptEntry], state: &mut State) -> R
         } else {
             let code = status.code().unwrap_or(-1);
             println!("✗ (exit code {})", code);
-            anyhow::bail!(
-                "Script {} failed with exit code {}",
-                script.name, code
-            );
+            anyhow::bail!("Script {} failed with exit code {}", script.name, code);
         }
     }
 
@@ -1210,8 +1271,12 @@ fn apply_ai_skills(
             Err(e) => {
                 eprintln!("  error: skill '{}' — invalid source: {:#}", skill.name, e);
                 plans.push(SkillPlan {
-                    skill, source_str, target_platforms: vec![],
-                    path: None, sha: None, failed: true,
+                    skill,
+                    source_str,
+                    target_platforms: vec![],
+                    path: None,
+                    sha: None,
+                    failed: true,
                 });
                 skills_failed += 1;
                 continue;
@@ -1229,9 +1294,12 @@ fn apply_ai_skills(
                 // fetches and installs during deploy(). cached_path is ignored by deploy().
                 if ai_config.backend == BackendKind::AgentSkills {
                     plans.push(SkillPlan {
-                        skill, source_str, target_platforms,
+                        skill,
+                        source_str,
+                        target_platforms,
                         path: Some(PathBuf::new()), // sentinel: deploy() ignores this
-                        sha: None, failed: false,
+                        sha: None,
+                        failed: false,
                     });
                     continue;
                 }
@@ -1243,7 +1311,9 @@ fn apply_ai_skills(
                 if let (Some(ref lsha), Some(ref csha)) = (&lock_sha, &cached) {
                     if lsha == csha {
                         plans.push(SkillPlan {
-                            skill, source_str, target_platforms,
+                            skill,
+                            source_str,
+                            target_platforms,
                             path: Some(skill_cache.cache_path(&gh)),
                             sha: Some(csha.clone()),
                             failed: false,
@@ -1255,8 +1325,12 @@ fn apply_ai_skills(
                 // Cache miss or stale — schedule a fetch.
                 let plan_idx = plans.len();
                 plans.push(SkillPlan {
-                    skill, source_str, target_platforms,
-                    path: None, sha: None, failed: false,
+                    skill,
+                    source_str,
+                    target_platforms,
+                    path: None,
+                    sha: None,
+                    failed: false,
                 });
                 fetch_tasks.push((plan_idx, gh, lock_sha));
             }
@@ -1264,17 +1338,26 @@ fn apply_ai_skills(
                 if !path.exists() {
                     eprintln!(
                         "  error: skill '{}' — dir: path not found: {}",
-                        skill.name, path.display()
+                        skill.name,
+                        path.display()
                     );
                     plans.push(SkillPlan {
-                        skill, source_str, target_platforms,
-                        path: None, sha: None, failed: true,
+                        skill,
+                        source_str,
+                        target_platforms,
+                        path: None,
+                        sha: None,
+                        failed: true,
                     });
                     skills_failed += 1;
                 } else {
                     plans.push(SkillPlan {
-                        skill, source_str, target_platforms,
-                        path: Some(path), sha: None, failed: false,
+                        skill,
+                        source_str,
+                        target_platforms,
+                        path: Some(path),
+                        sha: None,
+                        failed: false,
                     });
                 }
             }
@@ -1293,14 +1376,22 @@ fn apply_ai_skills(
                         files_path.display()
                     );
                     plans.push(SkillPlan {
-                        skill, source_str, target_platforms,
-                        path: None, sha: None, failed: true,
+                        skill,
+                        source_str,
+                        target_platforms,
+                        path: None,
+                        sha: None,
+                        failed: true,
                     });
                     skills_failed += 1;
                 } else {
                     plans.push(SkillPlan {
-                        skill, source_str, target_platforms,
-                        path: Some(files_path), sha: None, failed: false,
+                        skill,
+                        source_str,
+                        target_platforms,
+                        path: Some(files_path),
+                        sha: None,
+                        failed: false,
                     });
                 }
             }
@@ -1321,23 +1412,21 @@ fn apply_ai_skills(
         // Each thread owns its GhSource + expected_sha; borrows &skill_cache
         // (SkillCache: Sync) via a shared reference within the scope lifetime.
         let skill_cache_ref = &skill_cache;
-        let results: Vec<(usize, GhSource, Result<String>)> =
-            std::thread::scope(|s| {
-                let handles: Vec<_> = fetch_tasks
-                    .into_iter()
-                    .map(|(plan_idx, gh, expected_sha)| {
-                        s.spawn(move || {
-                            let result = skill_cache_ref
-                                .fetch_and_verify(&gh, expected_sha.as_deref());
-                            (plan_idx, gh, result)
-                        })
+        let results: Vec<(usize, GhSource, Result<String>)> = std::thread::scope(|s| {
+            let handles: Vec<_> = fetch_tasks
+                .into_iter()
+                .map(|(plan_idx, gh, expected_sha)| {
+                    s.spawn(move || {
+                        let result = skill_cache_ref.fetch_and_verify(&gh, expected_sha.as_deref());
+                        (plan_idx, gh, result)
                     })
-                    .collect();
-                handles
-                    .into_iter()
-                    .map(|h| h.join().expect("fetch thread panicked"))
-                    .collect()
-            });
+                })
+                .collect();
+            handles
+                .into_iter()
+                .map(|h| h.join().expect("fetch thread panicked"))
+                .collect()
+        });
 
         for (plan_idx, gh, result) in results {
             match result {
@@ -1355,7 +1444,10 @@ fn apply_ai_skills(
                     if n == 1 {
                         println!("✗");
                     }
-                    eprintln!("  error: skill '{}' — fetch failed: {:#}", plans[plan_idx].skill.name, e);
+                    eprintln!(
+                        "  error: skill '{}' — fetch failed: {:#}",
+                        plans[plan_idx].skill.name, e
+                    );
                     plans[plan_idx].failed = true;
                     skills_failed += 1;
                 }
@@ -1410,10 +1502,8 @@ fn apply_ai_skills(
                     // trait boundary without modifying it. See skill_backend_agentskills.rs.
                     let mut meta = SkillMetadata::default();
                     if ai_config.backend == BackendKind::AgentSkills {
-                        meta.metadata.insert(
-                            "_haven_source".to_string(),
-                            plan.source_str.to_string(),
-                        );
+                        meta.metadata
+                            .insert("_haven_source".to_string(), plan.source_str.to_string());
                     }
                     ResolvedSkill {
                         name: plan.skill.name.clone(),
@@ -1435,8 +1525,10 @@ fn apply_ai_skills(
     let mut skills_applied = 0usize;
 
     if !deploy_entries.is_empty() {
-        let pairs: Vec<(&ResolvedSkill, &DeploymentTarget)> =
-            deploy_entries.iter().map(|e| (&e.resolved, &e.target)).collect();
+        let pairs: Vec<(&ResolvedSkill, &DeploymentTarget)> = deploy_entries
+            .iter()
+            .map(|e| (&e.resolved, &e.target))
+            .collect();
         match backend.deploy_all(&pairs) {
             Ok(results) => {
                 for (entry, result) in deploy_entries.iter().zip(results.iter()) {
@@ -1455,7 +1547,11 @@ fn apply_ai_skills(
                                 sha: entry.sha.clone(),
                             },
                         );
-                        println!("  ✓ {} → {}", entry.skill_name, result.target_path.display());
+                        println!(
+                            "  ✓ {} → {}",
+                            entry.skill_name,
+                            result.target_path.display()
+                        );
                         skills_applied += 1;
                     }
                     // was_collision=true: NativeBackend already printed the warning
@@ -1489,7 +1585,8 @@ fn apply_brew(opts: &ApplyOptions<'_>, sorted_modules: &[String]) -> Result<usiz
     // When --module is set, only that module's brewfile is used.
     let brewfiles: Vec<PathBuf> = if let Some(module) = opts.module_filter {
         let config = ModuleConfig::load(opts.repo_root, module)?;
-        config.homebrew
+        config
+            .homebrew
             .map(|hb| opts.repo_root.join(&hb.brewfile))
             .into_iter()
             .filter(|p| p.exists())
@@ -1553,29 +1650,32 @@ fn print_dry_run_module(module_name: &str, module: &ModuleConfig, _opts: &ApplyO
     let mut has_output = false;
 
     if let Some(hb) = &module.homebrew {
-        if !has_output { println!("[{}]", module_name); has_output = true; }
-        println!(
-            "  brew bundle --file {}",
-            hb.brewfile
-        );
+        if !has_output {
+            println!("[{}]", module_name);
+            has_output = true;
+        }
+        println!("  brew bundle --file {}", hb.brewfile);
     }
     if let Some(mise_cfg) = &module.mise {
-        if !has_output { println!("[{}]", module_name); has_output = true; }
-        let config_hint = mise_cfg.config.as_ref()
+        if !has_output {
+            println!("[{}]", module_name);
+            has_output = true;
+        }
+        let config_hint = mise_cfg
+            .config
+            .as_ref()
             .map(|c| format!(" --config-file {}", c))
             .unwrap_or_default();
         println!("  mise install{}", config_hint);
     }
-    if has_output { println!(); }
+    if has_output {
+        println!();
+    }
 }
 
 // ─── Symlink helper ───────────────────────────────────────────────────────────
 
-fn apply_symlink(
-    source_abs: &Path,
-    dest: &Path,
-    backup_dir: &Path,
-) -> Result<Option<PathBuf>> {
+fn apply_symlink(source_abs: &Path, dest: &Path, backup_dir: &Path) -> Result<Option<PathBuf>> {
     // Fast path: already the correct symlink.
     if dest.is_symlink() {
         if let Ok(target) = std::fs::read_link(dest) {
@@ -1595,13 +1695,14 @@ fn apply_symlink(
         // backup_file uses std::fs::copy which follows symlinks. Skip backup for
         // dangling symlinks (target gone — nothing useful to preserve).
         let b = if dest.exists() {
-            Some(backup_file(dest, backup_dir)
-                .with_context(|| format!("Cannot back up {}", dest.display()))?)
+            Some(
+                backup_file(dest, backup_dir)
+                    .with_context(|| format!("Cannot back up {}", dest.display()))?,
+            )
         } else {
             None // dangling symlink — target already missing, no backup needed
         };
-        std::fs::remove_file(dest)
-            .with_context(|| format!("Cannot remove {}", dest.display()))?;
+        std::fs::remove_file(dest).with_context(|| format!("Cannot remove {}", dest.display()))?;
         b
     } else {
         None
@@ -1613,10 +1714,13 @@ fn apply_symlink(
     }
 
     #[cfg(unix)]
-    std::os::unix::fs::symlink(source_abs, dest)
-        .with_context(|| {
-            format!("Cannot create symlink {} → {}", dest.display(), source_abs.display())
-        })?;
+    std::os::unix::fs::symlink(source_abs, dest).with_context(|| {
+        format!(
+            "Cannot create symlink {} → {}",
+            dest.display(),
+            source_abs.display()
+        )
+    })?;
 
     #[cfg(not(unix))]
     anyhow::bail!("Symlink entries are not supported on non-Unix platforms");
@@ -1766,7 +1870,11 @@ fn purge_unreferenced_brews(opts: &ApplyOptions<'_>, sorted_modules: &[String]) 
     // Interactive: ask before removing.
     if opts.interactive {
         use std::io::Write;
-        print!("\nRemove {} package{}? [y/N] ", total, if total == 1 { "" } else { "s" });
+        print!(
+            "\nRemove {} package{}? [y/N] ",
+            total,
+            if total == 1 { "" } else { "s" }
+        );
         std::io::stdout().flush()?;
         let mut line = String::new();
         std::io::stdin().read_line(&mut line)?;

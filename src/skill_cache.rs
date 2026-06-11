@@ -176,9 +176,7 @@ fn try_sparse_checkout(source: &GhSource, dest: &Path) -> Result<String> {
     }
     cmd.arg(&url).arg(tmp.path());
 
-    let status = cmd
-        .status()
-        .context("git not found or failed to start")?;
+    let status = cmd.status().context("git not found or failed to start")?;
     if !status.success() {
         anyhow::bail!("git sparse clone failed");
     }
@@ -257,8 +255,7 @@ fn read_sha_file(cache_dir: &Path) -> Result<String> {
 
 fn write_sha_file(cache_dir: &Path, sha: &str) -> Result<()> {
     let path = cache_dir.join(SHA_FILE);
-    std::fs::write(&path, sha)
-        .with_context(|| format!("Cannot write {}", path.display()))
+    std::fs::write(&path, sha).with_context(|| format!("Cannot write {}", path.display()))
 }
 
 // ─── Dir copy helper ──────────────────────────────────────────────────────────
@@ -494,14 +491,24 @@ mod tests {
 
         let mut lock = LockFile::default();
         lock.pin_skill("gh:pinned/skill", "pinned-sha");
-        let original_fetched_at = lock.skill.get("gh:pinned/skill").unwrap().fetched_at.clone();
+        let original_fetched_at = lock
+            .skill
+            .get("gh:pinned/skill")
+            .unwrap()
+            .fetched_at
+            .clone();
 
         // Cache hit — no re-fetch, lock entry is unchanged.
         let sha = cache.ensure(&source, &mut lock).unwrap();
         assert_eq!(sha, "pinned-sha");
 
         // Lock was NOT re-stamped (no network call was made).
-        let after = lock.skill.get("gh:pinned/skill").unwrap().fetched_at.clone();
+        let after = lock
+            .skill
+            .get("gh:pinned/skill")
+            .unwrap()
+            .fetched_at
+            .clone();
         assert_eq!(original_fetched_at, after);
     }
 }

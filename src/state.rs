@@ -98,8 +98,9 @@ impl State {
         let text = serde_json::to_string_pretty(self)?;
         std::fs::write(&tmp_path, &text)
             .with_context(|| format!("Cannot write {}", tmp_path.display()))?;
-        std::fs::rename(&tmp_path, &path)
-            .with_context(|| format!("Cannot rename {} → {}", tmp_path.display(), path.display()))?;
+        std::fs::rename(&tmp_path, &path).with_context(|| {
+            format!("Cannot rename {} → {}", tmp_path.display(), path.display())
+        })?;
         Ok(())
     }
 }
@@ -140,7 +141,8 @@ mod tests {
             },
         );
         let mut ai = AiState::default();
-        ai.deployed_skills.insert("claude-code".to_string(), platform_skills);
+        ai.deployed_skills
+            .insert("claude-code".to_string(), platform_skills);
         state.ai = Some(ai);
 
         state.save(dir.path()).unwrap();
@@ -181,7 +183,10 @@ mod tests {
         state.save(dir.path()).unwrap();
 
         let text = std::fs::read_to_string(dir.path().join("state.json")).unwrap();
-        assert!(!text.contains("\"ai\""), "state.json should not contain ai key when ai is None");
+        assert!(
+            !text.contains("\"ai\""),
+            "state.json should not contain ai key when ai is None"
+        );
     }
 
     #[test]
@@ -205,7 +210,10 @@ mod tests {
         state.save(dir.path()).unwrap();
 
         let text = std::fs::read_to_string(dir.path().join("state.json")).unwrap();
-        assert!(!text.contains("applied_files"), "empty applied_files should be omitted");
+        assert!(
+            !text.contains("applied_files"),
+            "empty applied_files should be omitted"
+        );
     }
 
     #[test]
@@ -218,7 +226,10 @@ mod tests {
         .unwrap();
 
         let state = State::load(dir.path()).unwrap();
-        assert!(state.applied_files.is_empty(), "missing applied_files should default to empty");
+        assert!(
+            state.applied_files.is_empty(),
+            "missing applied_files should default to empty"
+        );
     }
 
     #[test]
@@ -231,7 +242,9 @@ mod tests {
         };
         state.applied_files.insert(
             "~/.zshrc".into(),
-            AppliedFileEntry { sha256: "deadbeef".into() },
+            AppliedFileEntry {
+                sha256: "deadbeef".into(),
+            },
         );
         state.save(dir.path()).unwrap();
 

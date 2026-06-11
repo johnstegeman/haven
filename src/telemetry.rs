@@ -100,7 +100,9 @@ pub fn list(kind_filter: Option<&str>) -> anyhow::Result<()> {
     let contents = std::fs::read_to_string(&path)?;
     for line in contents.lines() {
         if let Some(kind) = kind_filter {
-            let Ok(val) = serde_json::from_str::<serde_json::Value>(line) else { continue };
+            let Ok(val) = serde_json::from_str::<serde_json::Value>(line) else {
+                continue;
+            };
             if val.get("kind").and_then(|v| v.as_str()) != Some(kind) {
                 continue;
             }
@@ -115,14 +117,20 @@ pub fn list(kind_filter: Option<&str>) -> anyhow::Result<()> {
 /// Scans every line in `path` looking for `"id":"<prefix><digits>"` and
 /// returns `max + 1` (or `1` if no matches are found).
 fn next_seq_for_prefix(path: &PathBuf, prefix: char) -> u32 {
-    let Ok(contents) = std::fs::read_to_string(path) else { return 1 };
+    let Ok(contents) = std::fs::read_to_string(path) else {
+        return 1;
+    };
     let mut max = 0u32;
     for line in contents.lines() {
-        let Ok(val) = serde_json::from_str::<serde_json::Value>(line) else { continue };
+        let Ok(val) = serde_json::from_str::<serde_json::Value>(line) else {
+            continue;
+        };
         if let Some(id) = val.get("id").and_then(|v| v.as_str()) {
             if id.starts_with(prefix) {
                 if let Ok(n) = id[prefix.len_utf8()..].parse::<u32>() {
-                    if n > max { max = n; }
+                    if n > max {
+                        max = n;
+                    }
                 }
             }
         }
@@ -145,11 +153,7 @@ fn append_jsonl<T: serde::Serialize>(path: &PathBuf, event: &T) -> std::io::Resu
 
 /// Build identity embedded at compile time: `"<version>+<short-commit>"`.
 /// Example: `"0.3.0+47625a5"`.
-pub const BUILD_VERSION: &str = concat!(
-    env!("CARGO_PKG_VERSION"),
-    "+",
-    env!("HAVEN_GIT_COMMIT"),
-);
+pub const BUILD_VERSION: &str = concat!(env!("CARGO_PKG_VERSION"), "+", env!("HAVEN_GIT_COMMIT"),);
 
 /// A single telemetry event.
 #[derive(Debug, Serialize)]
@@ -223,7 +227,11 @@ impl Recorder {
         let error = result.as_ref().err().map(|e| {
             // Truncate long errors; strip any path segments that might be PII.
             let msg = e.to_string();
-            if msg.len() > 200 { format!("{}…", &msg[..200]) } else { msg }
+            if msg.len() > 200 {
+                format!("{}…", &msg[..200])
+            } else {
+                msg
+            }
         });
 
         let event = Event {
@@ -430,6 +438,9 @@ mod tests {
             path: path.clone(),
         };
         rec.finish(&Ok(()));
-        assert!(!path.exists(), "no file should be written when telemetry is disabled");
+        assert!(
+            !path.exists(),
+            "no file should be written when telemetry is disabled"
+        );
     }
 }

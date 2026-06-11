@@ -27,11 +27,13 @@ pub fn run(opts: &ListOptions<'_>) -> Result<()> {
     let none_specified = !opts.show_files && !opts.show_brews && !opts.show_ai;
     let show_files = opts.show_files || none_specified;
     let show_brews = opts.show_brews || none_specified;
-    let show_ai    = opts.show_ai   || none_specified;
+    let show_ai = opts.show_ai || none_specified;
 
     let filter_lc = opts.filter.map(|f| f.to_lowercase());
     let matches = |s: &str| -> bool {
-        filter_lc.as_deref().map_or(true, |f| s.to_lowercase().contains(f))
+        filter_lc
+            .as_deref()
+            .map_or(true, |f| s.to_lowercase().contains(f))
     };
 
     let config = HavenConfig::load(opts.repo_root).unwrap_or_default();
@@ -57,14 +59,30 @@ pub fn run(opts: &ListOptions<'_>) -> Result<()> {
             }
             for entry in &matched {
                 let mut tags: Vec<&str> = Vec::new();
-                if entry.flags.template    { tags.push("template"); }
-                if entry.flags.symlink     { tags.push("symlink"); }
-                if entry.flags.private     { tags.push("private"); }
-                if entry.flags.executable  { tags.push("executable"); }
-                if entry.flags.extdir      { tags.push("extdir"); }
-                if entry.flags.extfile     { tags.push("extfile"); }
-                if entry.flags.create_only { tags.push("create-only"); }
-                if entry.flags.exact       { tags.push("exact"); }
+                if entry.flags.template {
+                    tags.push("template");
+                }
+                if entry.flags.symlink {
+                    tags.push("symlink");
+                }
+                if entry.flags.private {
+                    tags.push("private");
+                }
+                if entry.flags.executable {
+                    tags.push("executable");
+                }
+                if entry.flags.extdir {
+                    tags.push("extdir");
+                }
+                if entry.flags.extfile {
+                    tags.push("extfile");
+                }
+                if entry.flags.create_only {
+                    tags.push("create-only");
+                }
+                if entry.flags.exact {
+                    tags.push("exact");
+                }
 
                 let indent = if none_specified { "" } else { "  " };
                 if tags.is_empty() {

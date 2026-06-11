@@ -91,7 +91,10 @@ pub fn discover(opts: &DiscoverOptions<'_>) -> Result<()> {
 
     let ids_to_add: Vec<String> = to_add.iter().map(|p| p.id.clone()).collect();
     update_platforms_active(opts.repo_root, &ids_to_add)?;
-    println!("Updated ai/platforms.toml — active: {}", ids_to_add.join(", "));
+    println!(
+        "Updated ai/platforms.toml — active: {}",
+        ids_to_add.join(", ")
+    );
     println!();
     println!("Run `haven apply --ai` to deploy skills to the newly-added platforms.");
     Ok(())
@@ -138,8 +141,7 @@ fn update_platforms_active(repo_root: &Path, ids_to_add: &[String]) -> Result<()
     let path = ai_dir.join("platforms.toml");
 
     let text = if path.exists() {
-        std::fs::read_to_string(&path)
-            .with_context(|| format!("Cannot read {}", path.display()))?
+        std::fs::read_to_string(&path).with_context(|| format!("Cannot read {}", path.display()))?
     } else {
         String::new()
     };
@@ -163,7 +165,10 @@ fn update_platforms_active(repo_root: &Path, ids_to_add: &[String]) -> Result<()
         for id in ids_to_add {
             arr.push(id.as_str());
         }
-        doc.insert("active", toml_edit::Item::Value(toml_edit::Value::Array(arr)));
+        doc.insert(
+            "active",
+            toml_edit::Item::Value(toml_edit::Value::Array(arr)),
+        );
     }
 
     std::fs::write(&path, doc.to_string())
@@ -188,8 +193,7 @@ pub struct AddOptions<'a> {
 /// Add a new skill to `ai/skills/<name>/skill.toml` and create a blank snippet stub.
 pub fn add(opts: &AddOptions<'_>) -> Result<()> {
     // Validate source.
-    let parsed = SkillSource::parse(opts.source)
-        .context("Invalid source")?;
+    let parsed = SkillSource::parse(opts.source).context("Invalid source")?;
 
     // Infer name if not explicitly given.
     let name = match opts.name {
@@ -212,10 +216,19 @@ pub fn add(opts: &AddOptions<'_>) -> Result<()> {
     let _ = parse_deploy_method(opts.deploy)?;
 
     // Write ai/skills/<name>/skill.toml and create blank all.md stub.
-    write_skill_dir(opts.repo_root, &name, opts.source, opts.platforms, opts.deploy)?;
+    write_skill_dir(
+        opts.repo_root,
+        &name,
+        opts.source,
+        opts.platforms,
+        opts.deploy,
+    )?;
 
     println!("Added skill '{}'.", name);
-    println!("  → snippet: ai/skills/{}/all.md (edit to add agent instructions)", name);
+    println!(
+        "  → snippet: ai/skills/{}/all.md (edit to add agent instructions)",
+        name
+    );
     println!();
     println!("Run `haven apply --ai` to deploy it, or `haven ai fetch` to pre-warm the cache.");
     Ok(())
@@ -263,8 +276,8 @@ pub fn add_local(opts: &AddLocalOptions<'_>) -> Result<()> {
     use crate::config::module::expand_tilde;
 
     // Expand tilde and resolve the source path.
-    let src_path = expand_tilde(opts.path)
-        .with_context(|| format!("Cannot expand path '{}'", opts.path))?;
+    let src_path =
+        expand_tilde(opts.path).with_context(|| format!("Cannot expand path '{}'", opts.path))?;
 
     if !src_path.exists() {
         anyhow::bail!("Path does not exist: {}", src_path.display());
@@ -337,7 +350,10 @@ pub fn add_local(opts: &AddLocalOptions<'_>) -> Result<()> {
 
     println!("Added local skill '{}'.", name);
     println!("  Files:   ai/skills/{}/files/", name);
-    println!("  Snippet: ai/skills/{}/all.md  (edit to add agent instructions)", name);
+    println!(
+        "  Snippet: ai/skills/{}/all.md  (edit to add agent instructions)",
+        name
+    );
     println!();
     println!("Run `haven apply --ai` to deploy the skill symlink.");
 
@@ -378,11 +394,17 @@ fn write_skill_dir(
         let ids: Vec<&str> = platforms.split(',').map(str::trim).collect();
         format!(
             "[{}]",
-            ids.iter().map(|id| format!("\"{}\"", id)).collect::<Vec<_>>().join(", ")
+            ids.iter()
+                .map(|id| format!("\"{}\"", id))
+                .collect::<Vec<_>>()
+                .join(", ")
         )
     };
 
-    let mut toml = format!("source    = \"{}\"\nplatforms = {}\n", source, platforms_toml);
+    let mut toml = format!(
+        "source    = \"{}\"\nplatforms = {}\n",
+        source, platforms_toml
+    );
     if deploy != "symlink" {
         toml.push_str(&format!("deploy    = \"{}\"\n", deploy));
     }
@@ -567,7 +589,10 @@ pub fn remove(opts: &RemoveOptions<'_>) -> Result<()> {
         .with_context(|| {
             let names: Vec<&str> = skills.skills.iter().map(|s| s.name.as_str()).collect();
             if names.is_empty() {
-                format!("No skill named '{}' found — no skills are declared yet.", opts.name)
+                format!(
+                    "No skill named '{}' found — no skills are declared yet.",
+                    opts.name
+                )
             } else {
                 format!(
                     "No skill named '{}' found in ai/skills/.\nAvailable skills: {}",
@@ -581,10 +606,7 @@ pub fn remove(opts: &RemoveOptions<'_>) -> Result<()> {
 
     // Confirm removal from config.
     if !opts.yes {
-        print!(
-            "Remove skill '{}' ({})? [y/N] ",
-            opts.name, source_str
-        );
+        print!("Remove skill '{}' ({})? [y/N] ", opts.name, source_str);
         io::stdout().flush()?;
         let mut input = String::new();
         io::stdin().read_line(&mut input)?;
@@ -632,13 +654,11 @@ pub fn remove(opts: &RemoveOptions<'_>) -> Result<()> {
         for (platform_id, target) in &deployed {
             if target.is_symlink() || target.exists() {
                 if target.is_dir() && !target.is_symlink() {
-                    std::fs::remove_dir_all(target).with_context(|| {
-                        format!("Cannot remove {}", target.display())
-                    })?;
+                    std::fs::remove_dir_all(target)
+                        .with_context(|| format!("Cannot remove {}", target.display()))?;
                 } else {
-                    std::fs::remove_file(target).with_context(|| {
-                        format!("Cannot remove {}", target.display())
-                    })?;
+                    std::fs::remove_file(target)
+                        .with_context(|| format!("Cannot remove {}", target.display()))?;
                 }
                 println!("Removed {} ({})", target.display(), platform_id);
             }
@@ -759,8 +779,8 @@ pub fn scan(opts: &ScanOptions<'_>) -> Result<()> {
         }
 
         // Resolve symlinks to their real path.
-        let real_path = std::fs::canonicalize(entry.path())
-            .unwrap_or_else(|_| entry.path().to_path_buf());
+        let real_path =
+            std::fs::canonicalize(entry.path()).unwrap_or_else(|_| entry.path().to_path_buf());
 
         // Skip if not a directory.
         if !real_path.is_dir() {
@@ -793,7 +813,9 @@ pub fn scan(opts: &ScanOptions<'_>) -> Result<()> {
                 if let Ok(sub_entries) = std::fs::read_dir(&real_path) {
                     for sub in sub_entries.flatten() {
                         let sub_name = sub.file_name().to_string_lossy().into_owned();
-                        if sub_name.starts_with('.') { continue; }
+                        if sub_name.starts_with('.') {
+                            continue;
+                        }
                         let sub_real = std::fs::canonicalize(sub.path())
                             .unwrap_or_else(|_| sub.path().to_path_buf());
                         if sub_real.is_dir() && sub_real.join("SKILL.md").exists() {
@@ -819,7 +841,11 @@ pub fn scan(opts: &ScanOptions<'_>) -> Result<()> {
         return Ok(());
     }
 
-    println!("Found {} unmanaged skill(s) in {}.\n", candidates.len(), scan_dir.display());
+    println!(
+        "Found {} unmanaged skill(s) in {}.\n",
+        candidates.len(),
+        scan_dir.display()
+    );
 
     let total = candidates.len();
     let mut added = 0usize;
@@ -836,8 +862,7 @@ pub fn scan(opts: &ScanOptions<'_>) -> Result<()> {
 
         let proposed = match &detected {
             Some(src) => {
-                let detail = git_remote_url(real_path)
-                    .unwrap_or_else(|| "git remote".to_string());
+                let detail = git_remote_url(real_path).unwrap_or_else(|| "git remote".to_string());
                 println!("  Detected: {}  ({})", src, detail);
                 src.clone()
             }
@@ -854,12 +879,18 @@ pub fn scan(opts: &ScanOptions<'_>) -> Result<()> {
                 } else {
                     let best = &scan_search_results[0];
                     let dup_note = if scan_search_results.len() > 1 {
-                        format!("  ({} results — use '?' to see all)", scan_search_results.len())
+                        format!(
+                            "  ({} results — use '?' to see all)",
+                            scan_search_results.len()
+                        )
                     } else {
                         String::new()
                     };
-                    let installs_note = best.installs.map(|n| format!(" ({} installs)", n)).unwrap_or_default();
-                    println!("  Best match: {}{}{}",best.source, installs_note, dup_note);
+                    let installs_note = best
+                        .installs
+                        .map(|n| format!(" ({} installs)", n))
+                        .unwrap_or_default();
+                    println!("  Best match: {}{}{}", best.source, installs_note, dup_note);
                     best.source.clone()
                 }
             }
@@ -892,7 +923,10 @@ pub fn scan(opts: &ScanOptions<'_>) -> Result<()> {
                     } else {
                         write_skill_dir(opts.repo_root, name, &proposed, "all", "symlink")?;
                         println!("  Added {}.", proposed);
-                        println!("  → snippet: ai/skills/{}/all.md (edit to add agent instructions)", name);
+                        println!(
+                            "  → snippet: ai/skills/{}/all.md (edit to add agent instructions)",
+                            name
+                        );
                     }
                     added += 1;
                     break;
@@ -936,7 +970,10 @@ pub fn scan(opts: &ScanOptions<'_>) -> Result<()> {
                         println!("  No search results available.");
                     } else {
                         for (i, r) in results.iter().enumerate() {
-                            let installs_note = r.installs.map(|n| format!("  ({} installs)", n)).unwrap_or_default();
+                            let installs_note = r
+                                .installs
+                                .map(|n| format!("  ({} installs)", n))
+                                .unwrap_or_default();
                             println!("    {}. {}{}", i + 1, r.source, installs_note);
                         }
                         print!("  Pick [1-{}] or (n)ext/(e)nter manually: ", results.len());
@@ -950,7 +987,13 @@ pub fn scan(opts: &ScanOptions<'_>) -> Result<()> {
                                 if opts.dry_run {
                                     println!("  (dry-run) Would add: {}", chosen);
                                 } else {
-                                    write_skill_dir(opts.repo_root, name, &chosen, "all", "symlink")?;
+                                    write_skill_dir(
+                                        opts.repo_root,
+                                        name,
+                                        &chosen,
+                                        "all",
+                                        "symlink",
+                                    )?;
                                     println!("  Added {}.", chosen);
                                     println!("  → snippet: ai/skills/{}/all.md (edit to add agent instructions)", name);
                                 }
@@ -1023,19 +1066,26 @@ fn skillssh_search(query: &str, limit: usize) -> Result<Vec<SearchEntry>> {
     let response = ureq::get("https://skills.sh/api/search")
         .query("q", query)
         .query("limit", &limit.to_string())
-        .set("User-Agent", "haven/0.1 (+https://github.com/johnstegeman/haven)")
+        .set(
+            "User-Agent",
+            "haven/0.1 (+https://github.com/johnstegeman/haven)",
+        )
         .call()
         .context("skills.sh request failed")?
         .into_string()
         .context("skills.sh response was not UTF-8")?;
 
-    let parsed: SkillsShResponse = serde_json::from_str(&response)
-        .context("skills.sh response could not be parsed")?;
+    let parsed: SkillsShResponse =
+        serde_json::from_str(&response).context("skills.sh response could not be parsed")?;
 
-    Ok(parsed.skills.into_iter().map(|e| SearchEntry {
-        source: format!("gh:{}", e.id),
-        installs: Some(e.installs),
-    }).collect())
+    Ok(parsed
+        .skills
+        .into_iter()
+        .map(|e| SearchEntry {
+            source: format!("gh:{}", e.id),
+            installs: Some(e.installs),
+        })
+        .collect())
 }
 
 // ─── agent-skills backend ─────────────────────────────────────────────────────
@@ -1059,7 +1109,12 @@ fn agentskills_search(runner: &[String], query: &str, limit: usize) -> Result<Ve
         .args(&runner[1..])
         .args(["search", query, "--json", "--limit", &limit.to_string()])
         .output()
-        .with_context(|| format!("Failed to run '{}' — is agent-skills-cli installed?", runner_display))?;
+        .with_context(|| {
+            format!(
+                "Failed to run '{}' — is agent-skills-cli installed?",
+                runner_display
+            )
+        })?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
@@ -1067,13 +1122,17 @@ fn agentskills_search(runner: &[String], query: &str, limit: usize) -> Result<Ve
     }
 
     let text = String::from_utf8(output.stdout).context("agent-skills-cli output was not UTF-8")?;
-    let parsed: AgentSkillsSearchResponse =
-        serde_json::from_str(&text).context("agent-skills-cli search output could not be parsed")?;
+    let parsed: AgentSkillsSearchResponse = serde_json::from_str(&text)
+        .context("agent-skills-cli search output could not be parsed")?;
 
-    Ok(parsed.skills.into_iter().map(|e| SearchEntry {
-        source: format!("gh:{}", e.path),
-        installs: e.stars,
-    }).collect())
+    Ok(parsed
+        .skills
+        .into_iter()
+        .map(|e| SearchEntry {
+            source: format!("gh:{}", e.path),
+            installs: e.stars,
+        })
+        .collect())
 }
 
 // ─── git source detection ─────────────────────────────────────────────────────
@@ -1083,19 +1142,28 @@ fn agentskills_search(runner: &[String], query: &str, limit: usize) -> Result<Ve
 fn detect_gh_source(skill_dir: &Path) -> Option<String> {
     // Find the git repo root containing this directory.
     let root_out = std::process::Command::new("git")
-        .args(["-C", &skill_dir.to_string_lossy(), "rev-parse", "--show-toplevel"])
+        .args([
+            "-C",
+            &skill_dir.to_string_lossy(),
+            "rev-parse",
+            "--show-toplevel",
+        ])
         .output()
         .ok()?;
     if !root_out.status.success() {
         return None;
     }
-    let git_root = PathBuf::from(
-        String::from_utf8(root_out.stdout).ok()?.trim().to_string()
-    );
+    let git_root = PathBuf::from(String::from_utf8(root_out.stdout).ok()?.trim().to_string());
 
     // Get the origin remote URL.
     let remote_out = std::process::Command::new("git")
-        .args(["-C", &skill_dir.to_string_lossy(), "remote", "get-url", "origin"])
+        .args([
+            "-C",
+            &skill_dir.to_string_lossy(),
+            "remote",
+            "get-url",
+            "origin",
+        ])
         .output()
         .ok()?;
     if !remote_out.status.success() {
@@ -1118,7 +1186,13 @@ fn detect_gh_source(skill_dir: &Path) -> Option<String> {
 /// Return just the remote URL string (for display), without parsing it.
 fn git_remote_url(skill_dir: &Path) -> Option<String> {
     let out = std::process::Command::new("git")
-        .args(["-C", &skill_dir.to_string_lossy(), "remote", "get-url", "origin"])
+        .args([
+            "-C",
+            &skill_dir.to_string_lossy(),
+            "remote",
+            "get-url",
+            "origin",
+        ])
         .output()
         .ok()?;
     if !out.status.success() {
@@ -1257,10 +1331,8 @@ mod tests {
 
         // Both skill dirs should exist.
         assert!(dir.path().join("ai/skills/existing/skill.toml").exists());
-        let text = std::fs::read_to_string(
-            dir.path().join("ai/skills/new-skill/skill.toml"),
-        )
-        .unwrap();
+        let text =
+            std::fs::read_to_string(dir.path().join("ai/skills/new-skill/skill.toml")).unwrap();
         assert!(text.contains("gh:owner/new-skill"));
         assert!(text.contains("deploy"));
     }
@@ -1292,7 +1364,10 @@ mod tests {
             deploy: "symlink",
         })
         .unwrap();
-        assert!(dir.path().join("ai/skills/pdf-processing/skill.toml").exists());
+        assert!(dir
+            .path()
+            .join("ai/skills/pdf-processing/skill.toml")
+            .exists());
     }
 
     #[test]
@@ -1306,7 +1381,10 @@ mod tests {
             deploy: "symlink",
         })
         .unwrap();
-        assert!(dir.path().join("ai/skills/my-skill-repo/skill.toml").exists());
+        assert!(dir
+            .path()
+            .join("ai/skills/my-skill-repo/skill.toml")
+            .exists());
     }
 
     #[test]
@@ -1320,10 +1398,8 @@ mod tests {
             deploy: "symlink",
         })
         .unwrap();
-        let text = std::fs::read_to_string(
-            dir.path().join("ai/skills/my-skill/skill.toml"),
-        )
-        .unwrap();
+        let text =
+            std::fs::read_to_string(dir.path().join("ai/skills/my-skill/skill.toml")).unwrap();
         assert!(text.contains("claude-code"));
         assert!(text.contains("codex"));
     }
@@ -1353,8 +1429,11 @@ mod tests {
     #[test]
     fn update_platforms_active_creates_file() {
         let dir = TempDir::new().unwrap();
-        update_platforms_active(dir.path(), &["claude-code".to_string(), "codex".to_string()])
-            .unwrap();
+        update_platforms_active(
+            dir.path(),
+            &["claude-code".to_string(), "codex".to_string()],
+        )
+        .unwrap();
 
         let cfg = crate::ai_platform::PlatformsConfig::load(dir.path())
             .unwrap()

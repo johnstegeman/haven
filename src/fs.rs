@@ -44,7 +44,11 @@ pub fn is_sensitive_with_rule(name: &str) -> Option<&'static str> {
             return Some(p);
         }
     }
-    SENSITIVE_SUFFIXES.iter().find(|&&s| lower.ends_with(s)).copied().map(|v| v as _)
+    SENSITIVE_SUFFIXES
+        .iter()
+        .find(|&&s| lower.ends_with(s))
+        .copied()
+        .map(|v| v as _)
 }
 
 /// Returns true if the filename matches a sensitive pattern.
@@ -55,7 +59,10 @@ pub fn is_sensitive(path: &Path) -> bool {
         .unwrap_or_default()
         .to_lowercase();
 
-    if SENSITIVE_PATTERNS.iter().any(|p| name == *p || name.ends_with(p)) {
+    if SENSITIVE_PATTERNS
+        .iter()
+        .any(|p| name == *p || name.ends_with(p))
+    {
         return true;
     }
     if SENSITIVE_SUFFIXES.iter().any(|s| name.ends_with(s)) {
@@ -91,12 +98,10 @@ pub fn backup_file(live_path: &Path, backup_dir: &Path) -> Result<PathBuf> {
 /// Write rendered template content to `dest`, creating parent directories as needed.
 pub fn write_to_dest(content: &str, dest: &Path) -> Result<()> {
     if let Some(parent) = dest.parent() {
-        std::fs::create_dir_all(parent).with_context(|| {
-            format!("Cannot create directory {}", parent.display())
-        })?;
+        std::fs::create_dir_all(parent)
+            .with_context(|| format!("Cannot create directory {}", parent.display()))?;
     }
-    std::fs::write(dest, content)
-        .with_context(|| format!("Cannot write {}", dest.display()))?;
+    std::fs::write(dest, content).with_context(|| format!("Cannot write {}", dest.display()))?;
     Ok(())
 }
 
@@ -153,9 +158,8 @@ pub fn sha256_of_str(s: &str) -> String {
 /// Copy `src` to `dest`, creating parent directories as needed.
 pub fn copy_to_dest(src: &Path, dest: &Path) -> Result<()> {
     if let Some(parent) = dest.parent() {
-        std::fs::create_dir_all(parent).with_context(|| {
-            format!("Cannot create directory {}", parent.display())
-        })?;
+        std::fs::create_dir_all(parent)
+            .with_context(|| format!("Cannot create directory {}", parent.display()))?;
     }
     std::fs::copy(src, dest)
         .with_context(|| format!("Cannot copy {} → {}", src.display(), dest.display()))?;

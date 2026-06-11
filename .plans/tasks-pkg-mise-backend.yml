@@ -94,7 +94,7 @@ tasks:
       uninstall path removes from both Brewfile and mise config. Update the existing
       `pkg_mise_not_yet_available` test to assert success instead of failure now that the
       backend is wired.
-    status: in_progress
+    status: completed
     dependencies:
       - task-003
     acceptance_criteria:
@@ -104,7 +104,7 @@ tasks:
       - "Test for `--module shell` asserts both `mise/mise.shell.toml` and updated `modules/shell.toml`"
       - "Test for dual-backend uninstall asserts removal from both Brewfile and mise config"
       - "Test for `--cask --mise` asserts failure with a message containing \"cask\""
-    completed_at: null
+    completed_at: "2026-06-11T00:00:00Z"
 
   - id: task-005
     title: "Update CLAUDE.md and docs/COMMANDS.md for mise/ convention and backend status"

@@ -11,6 +11,10 @@ Files: +src/commands/mise.rs, ~src/commands/mod.rs, ~.plans/tasks-pkg-mise-backe
 Wired mise backend in commands/pkg.rs; replaced stubs; added --cask--mise guard and dual-backend uninstall.
 Files: ~src/commands/pkg.rs, ~.plans/tasks-pkg-mise-backend.yml, ~.plans/progress-pkg-mise-backend.txt
 
+## TASK-004 — 2026-06-11T00:00:00Z
+Added integration tests for haven pkg --mise (install, module, version, uninstall, cask rejection, dual-backend); updated pkg_mise_not_yet_available; fixed --cask --mise guard in commands/pkg.rs; updated pkg_mise_default_errors_without_brew_flag to use empty PATH.
+Files: ~tests/integration.rs, ~src/commands/pkg.rs, ~.plans/tasks-pkg-mise-backend.yml, ~.plans/progress-pkg-mise-backend.txt
+
 ## TASK-005 — 2026-06-11T00:00:00Z
 Updated CLAUDE.md (added mise/ to layout, updated pkg section) and docs/COMMANDS.md (removed "not yet available", added tool-spec docs and dual-backend uninstall note).
 Files: ~CLAUDE.md, ~docs/COMMANDS.md, ~.plans/tasks-pkg-mise-backend.yml, ~.plans/progress-pkg-mise-backend.txt

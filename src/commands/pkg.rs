@@ -40,15 +40,14 @@ pub fn install(
     module: Option<&str>,
     cfg: &HavenConfig,
 ) -> Result<()> {
+    if cask && mise_flag {
+        bail!("--cask is not supported with the mise backend (mise has no casks)");
+    }
+
     let backend = resolve_backend(brew_flag, mise_flag, cask, cfg)?;
     match backend.as_str() {
         "brew" => brew::install(repo_root, name, cask, module),
-        "mise" => {
-            if cask {
-                bail!("--cask is not supported with the mise backend (mise has no casks)");
-            }
-            mise::install(repo_root, name, module)
-        }
+        "mise" => mise::install(repo_root, name, module),
         other => unreachable!(
             "backend '{}' passed resolve_backend but has no handler",
             other

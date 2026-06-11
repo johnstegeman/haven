@@ -287,6 +287,9 @@ haven status [--profile &lt;p&gt;] [--files] [--brews] [--ai]
 haven source-path
 haven pkg install &lt;name&gt; [--cask] [--module &lt;m&gt;] [--brew] [--mise]
 haven pkg uninstall &lt;name&gt; [--cask] [--brew] [--mise]
+haven pkg outdated
+haven pkg upgrade [name]
+haven pkg search &lt;term&gt;
 haven import --from chezmoi [--source &lt;dir&gt;] [--dry-run]
              [--include-ignored-files]
 haven ai discover
@@ -769,6 +772,70 @@ machines — the formula is automatically added to or removed from the Brewfile(
 <p>Removes the formula from <strong>all</strong> Brewfiles in the repo, then runs <code>brew uninstall</code>.
 When both <code>brew</code> and <code>mise</code> are listed in <code>[packages] backends</code> and no explicit backend
 flag is passed, uninstall removes the tool from both backends.</p>
+<h3 id="haven-pkg-outdated"><code>haven pkg outdated</code><a class="headerlink" href="#haven-pkg-outdated" title="Permanent link">&para;</a></h3>
+<pre><code>haven pkg outdated
+</code></pre>
+<p>Lists upgradable packages across all configured backends, grouped by backend. Output format:</p>
+<pre><code>==&gt; brew outdated
+bat  0.24.0 → 0.25.0
+fd   9.0.0  → 10.2.0
+
+==&gt; mise outdated
+node  20.11.0 → 22.14.0
+</code></pre>
+<p>A missing backend binary prints a skip note and does not abort the command.</p>
+<h3 id="haven-pkg-upgrade"><code>haven pkg upgrade</code><a class="headerlink" href="#haven-pkg-upgrade" title="Permanent link">&para;</a></h3>
+<pre><code>haven pkg upgrade [name]
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td>Optional. Package or tool name to upgrade. Omit to upgrade all packages across all backends.</td>
+</tr>
+</tbody>
+</table>
+<p>Fans out to all allowed backends. For mise, rewrites the pinned version in the targeted
+<code>mise/mise*.toml</code> config file so the change propagates to VCS. For brew, runs <code>brew upgrade</code>
+without modifying Brewfiles. A missing backend binary prints a skip note and continues.</p>
+<blockquote>
+<p><strong>Note:</strong> <code>haven upgrade</code> (no <code>pkg</code>) upgrades the haven binary itself from GitHub.
+Use <code>haven pkg upgrade</code> to upgrade managed packages.</p>
+</blockquote>
+<h3 id="haven-pkg-search"><code>haven pkg search</code><a class="headerlink" href="#haven-pkg-search" title="Permanent link">&para;</a></h3>
+<pre><code>haven pkg search &lt;term&gt;
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>term</code></td>
+<td>Search term (substring match across all backends).</td>
+</tr>
+</tbody>
+</table>
+<p>Queries all configured backends and prints results grouped by backend with copy-pasteable
+install hints:</p>
+<pre><code>==&gt; brew
+bat                   haven pkg install bat
+bat-extras            haven pkg install bat-extras
+
+==&gt; mise
+node                  haven pkg install node --mise
+bun                   haven pkg install bun --mise
+</code></pre>
+<p>A missing backend binary prints a skip note and does not abort the command.</p>
 <hr />
 <h2 id="haven-import"><code>haven import</code><a class="headerlink" href="#haven-import" title="Permanent link">&para;</a></h2>
 <p>Import dotfiles from another dotfile manager (one-time migration).</p>

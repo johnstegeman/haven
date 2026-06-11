@@ -193,6 +193,10 @@
             
             <li class="nav-item" data-bs-level="1"><a href="#changelog" class="nav-link">Changelog</a>
               <ul class="nav flex-column">
+            <li class="nav-item" data-bs-level="2"><a href="#unreleased" class="nav-link">[Unreleased]</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
             <li class="nav-item" data-bs-level="2"><a href="#v100-2026-03-29" class="nav-link">[v1.0.0] — 2026-03-29</a>
               <ul class="nav flex-column">
               </ul>
@@ -261,6 +265,23 @@
 <p>Format: <a href="https://keepachangelog.com/en/1.1.0/">Keep a Changelog</a>.
 Versioning: <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <hr />
+<h2 id="unreleased">[Unreleased]<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<h3 id="added">Added<a class="headerlink" href="#added" title="Permanent link">&para;</a></h3>
+<ul>
+<li>
+<p><strong><code>haven pkg outdated</code></strong> — lists upgradable packages across all configured backends (brew and/or mise), grouped by backend. A missing backend binary prints a skip note instead of aborting.</p>
+</li>
+<li>
+<p><strong><code>haven pkg upgrade [name]</code></strong> — upgrades one named package or all packages across all allowed backends. For mise, rewrites the pinned version in the <code>mise/mise*.toml</code> config file so the change is tracked in VCS. For brew, runs <code>brew upgrade</code> without modifying Brewfiles. Missing backend binary prints a skip note and continues.</p>
+</li>
+<li>
+<p><strong><code>haven pkg search &lt;term&gt;</code></strong> — queries all configured backends and prints results grouped by backend with copy-pasteable <code>haven pkg install</code> hints. Missing backend binary prints a skip note and does not abort.</p>
+</li>
+</ul>
+<blockquote>
+<p><strong>Note:</strong> <code>haven upgrade</code> (no <code>pkg</code>) upgrades the haven binary itself. Use <code>haven pkg upgrade</code> to upgrade managed packages.</p>
+</blockquote>
+<hr />
 <h2 id="v100-2026-03-29">[v1.0.0] — 2026-03-29<a class="headerlink" href="#v100-2026-03-29" title="Permanent link">&para;</a></h2>
 <h3 id="changed">Changed<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h3>
 <ul>
@@ -286,7 +307,7 @@ Versioning: <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a
 <p><code>haven.lock</code> (in the repo root, tracked by VCS) is unaffected.</p>
 <hr />
 <h2 id="v090-2026-03-27">[v0.9.0] — 2026-03-27<a class="headerlink" href="#v090-2026-03-27" title="Permanent link">&para;</a></h2>
-<h3 id="added">Added<a class="headerlink" href="#added" title="Permanent link">&para;</a></h3>
+<h3 id="added_1">Added<a class="headerlink" href="#added_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
 <p><strong><code>haven telemetry</code> subcommand</strong> — telemetry management is now a proper subcommand (<code>haven telemetry status</code>, <code>haven telemetry on/off</code>). Top-level shortcuts <code>haven note</code>, <code>haven bug</code>, and <code>haven question</code> are also added for quick feedback capture.</p>
@@ -330,7 +351,7 @@ Versioning: <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a
 </ul>
 <hr />
 <h2 id="v080-2026-03-27">[v0.8.0] — 2026-03-27<a class="headerlink" href="#v080-2026-03-27" title="Permanent link">&para;</a></h2>
-<h3 id="added_1">Added<a class="headerlink" href="#added_1" title="Permanent link">&para;</a></h3>
+<h3 id="added_2">Added<a class="headerlink" href="#added_2" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
 <p><strong>CLAUDE.md staleness detection</strong> — <code>haven status</code> now shows a <code>~</code> marker in the
@@ -366,7 +387,7 @@ Versioning: <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a
 </ul>
 <hr />
 <h2 id="v076-2026-03-26">[v0.7.6] — 2026-03-26<a class="headerlink" href="#v076-2026-03-26" title="Permanent link">&para;</a></h2>
-<h3 id="added_2">Added<a class="headerlink" href="#added_2" title="Permanent link">&para;</a></h3>
+<h3 id="added_3">Added<a class="headerlink" href="#added_3" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
 <p><strong><code>runner</code> accepts an array</strong> — the <code>runner</code> field in <code>ai/config.toml</code> now accepts
@@ -399,7 +420,7 @@ Versioning: <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a
 </ul>
 <hr />
 <h2 id="v075-2026-03-26">[v0.7.5] — 2026-03-26<a class="headerlink" href="#v075-2026-03-26" title="Permanent link">&para;</a></h2>
-<h3 id="added_3">Added<a class="headerlink" href="#added_3" title="Permanent link">&para;</a></h3>
+<h3 id="added_4">Added<a class="headerlink" href="#added_4" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>AgentSkills backend</strong> — new <code>backend = "agent-skills"</code> in <code>ai/config.toml</code>
   delegates skill fetch and deployment to <a href="https://www.agentskills.in/">agent-skills-cli</a>.
@@ -432,7 +453,7 @@ Versioning: <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a
 </ul>
 <hr />
 <h2 id="v070-2026-03-26">[v0.7.0] — 2026-03-26<a class="headerlink" href="#v070-2026-03-26" title="Permanent link">&para;</a></h2>
-<h3 id="added_4">Added<a class="headerlink" href="#added_4" title="Permanent link">&para;</a></h3>
+<h3 id="added_5">Added<a class="headerlink" href="#added_5" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
 <p><strong>Conflict detection</strong> — <code>haven apply --files</code> now detects when you've edited a
@@ -452,7 +473,7 @@ Versioning: <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a
 </ul>
 <hr />
 <h2 id="v060-2026-03-24">[v0.6.0] — 2026-03-24<a class="headerlink" href="#v060-2026-03-24" title="Permanent link">&para;</a></h2>
-<h3 id="added_5">Added<a class="headerlink" href="#added_5" title="Permanent link">&para;</a></h3>
+<h3 id="added_6">Added<a class="headerlink" href="#added_6" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
 <p><strong>Swappable skill backends</strong> — the AI skills pipeline now delegates to a
@@ -473,7 +494,7 @@ Versioning: <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a
 </ul>
 <hr />
 <h2 id="v055-2026-03-24">[v0.5.5] — 2026-03-24<a class="headerlink" href="#v055-2026-03-24" title="Permanent link">&para;</a></h2>
-<h3 id="added_6">Added<a class="headerlink" href="#added_6" title="Permanent link">&para;</a></h3>
+<h3 id="added_7">Added<a class="headerlink" href="#added_7" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Brewfile auto-sort</strong> — set <code>[homebrew] sort = true</code> in any module config to
   keep the Brewfile sorted alphabetically after every <code>haven pkg install</code> or
@@ -508,7 +529,7 @@ Versioning: <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a
 </ul>
 <hr />
 <h2 id="v050-2026-03-23">[v0.5.0] — 2026-03-23<a class="headerlink" href="#v050-2026-03-23" title="Permanent link">&para;</a></h2>
-<h3 id="added_7">Added<a class="headerlink" href="#added_7" title="Permanent link">&para;</a></h3>
+<h3 id="added_8">Added<a class="headerlink" href="#added_8" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong><code>haven apply --zap</code></strong> — when removing unreferenced casks, also delete their
   associated app data and support files (<code>brew uninstall --cask --zap</code>). Implies
@@ -601,7 +622,7 @@ Versioning: <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a
 <p>The source encoding (<code>dot_</code>, <code>private_</code>, <code>.tmpl</code>, etc.) and repo layout are
   unchanged — existing repos continue to work by moving <code>dfiles.toml</code> →
   <code>haven.toml</code> and <code>~/.dfiles/</code> → <code>~/.haven/</code>.</p>
-<h3 id="added_8">Added<a class="headerlink" href="#added_8" title="Permanent link">&para;</a></h3>
+<h3 id="added_9">Added<a class="headerlink" href="#added_9" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong><code>config/ignore</code> is now a Tera template</strong> — the ignore file is rendered against
   the current machine context (<code>os</code>, <code>hostname</code>, <code>username</code>, <code>profile</code>, <code>data.*</code>)
@@ -631,7 +652,7 @@ Versioning: <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a
   <code>haven apply</code>. See <code>.gstack/security-reports/2026-03-23.json</code> for the full
   audit record.</li>
 </ul>
-<h3 id="added_9">Added<a class="headerlink" href="#added_9" title="Permanent link">&para;</a></h3>
+<h3 id="added_10">Added<a class="headerlink" href="#added_10" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong><code>haven security-scan</code></strong> — audit all tracked source files for secrets,
   sensitive filenames, and credential paths. Checks filename patterns (<code>.env</code>,
@@ -697,7 +718,7 @@ Versioning: <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a
 </ul>
 <hr />
 <h2 id="v020-2026-03-21">[v0.2.0] — 2026-03-21<a class="headerlink" href="#v020-2026-03-21" title="Permanent link">&para;</a></h2>
-<h3 id="added_10">Added<a class="headerlink" href="#added_10" title="Permanent link">&para;</a></h3>
+<h3 id="added_11">Added<a class="headerlink" href="#added_11" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong><code>haven ai add-local</code></strong> — import a locally developed skill directory into
   the haven repo. Moves the skill into <code>ai/skills/&lt;name&gt;/files/</code>, writes
@@ -756,7 +777,7 @@ Versioning: <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a
 </ul>
 <hr />
 <h2 id="v010-2026-03-20-initial-release">[v0.1.0] — 2026-03-20 (initial release)<a class="headerlink" href="#v010-2026-03-20-initial-release" title="Permanent link">&para;</a></h2>
-<h3 id="added_11">Added<a class="headerlink" href="#added_11" title="Permanent link">&para;</a></h3>
+<h3 id="added_12">Added<a class="headerlink" href="#added_12" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong><code>haven init</code></strong> — create a blank scaffold or clone an existing haven repo.
   Supports <code>gh:owner/repo[@ref]</code> shorthand, <code>--apply</code>, <code>--profile</code>, <code>--branch</code>.</li>

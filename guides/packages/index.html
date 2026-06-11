@@ -197,6 +197,18 @@
               <ul class="nav flex-column">
               </ul>
             </li>
+            <li class="nav-item" data-bs-level="2"><a href="#checking-for-outdated-packages" class="nav-link">Checking for outdated packages</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#upgrading-packages" class="nav-link">Upgrading packages</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#searching-for-packages" class="nav-link">Searching for packages</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
             <li class="nav-item" data-bs-level="2"><a href="#mise-language-runtimes" class="nav-link">mise (language runtimes)</a>
               <ul class="nav flex-column">
               </ul>
@@ -275,6 +287,37 @@ haven apply --brews --zap                          # remove + zap cask app data
 <h3 id="checking-homebrew-drift">Checking Homebrew drift<a class="headerlink" href="#checking-homebrew-drift" title="Permanent link">&para;</a></h3>
 <pre><code class="language-sh">haven status --brews    # which packages are present / missing
 haven diff --brews      # detailed diff
+</code></pre>
+<h2 id="checking-for-outdated-packages">Checking for outdated packages<a class="headerlink" href="#checking-for-outdated-packages" title="Permanent link">&para;</a></h2>
+<pre><code class="language-sh">haven pkg outdated
+</code></pre>
+<p>Lists upgradable packages across all configured backends, grouped by backend. Output:</p>
+<pre><code>==&gt; brew outdated
+bat  0.24.0 → 0.25.0
+
+==&gt; mise outdated
+node  20.11.0 → 22.14.0
+</code></pre>
+<h2 id="upgrading-packages">Upgrading packages<a class="headerlink" href="#upgrading-packages" title="Permanent link">&para;</a></h2>
+<pre><code class="language-sh">haven pkg upgrade          # upgrade all packages across all backends
+haven pkg upgrade ripgrep  # upgrade a specific package
+haven pkg upgrade node     # upgrade a specific mise tool
+</code></pre>
+<p>For mise tools, the pinned version in <code>mise/mise*.toml</code> is rewritten after the upgrade
+so the change is tracked in VCS. For brew, <code>brew upgrade</code> runs without modifying Brewfiles.</p>
+<blockquote>
+<p><strong>Note:</strong> <code>haven upgrade</code> (no <code>pkg</code>) upgrades the <strong>haven binary</strong> itself. Use <code>haven pkg upgrade</code> for managed packages.</p>
+</blockquote>
+<h2 id="searching-for-packages">Searching for packages<a class="headerlink" href="#searching-for-packages" title="Permanent link">&para;</a></h2>
+<pre><code class="language-sh">haven pkg search bat    # search across all configured backends
+</code></pre>
+<p>Results are grouped by backend with copy-pasteable install hints:</p>
+<pre><code>==&gt; brew
+bat                   haven pkg install bat
+bat-extras            haven pkg install bat-extras
+
+==&gt; mise
+bun                   haven pkg install bun --mise
 </code></pre>
 <h2 id="mise-language-runtimes">mise (language runtimes)<a class="headerlink" href="#mise-language-runtimes" title="Permanent link">&para;</a></h2>
 <p><a href="https://mise.jdx.dev/">mise</a> manages language runtimes (Node.js, Python, Ruby, Go, etc.). haven integrates with it via module configuration.</p>

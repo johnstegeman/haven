@@ -245,6 +245,18 @@
               <ul class="nav flex-column">
               </ul>
             </li>
+            <li class="nav-item" data-bs-level="2"><a href="#haven-pkg-outdated" class="nav-link">haven pkg outdated</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#haven-pkg-upgrade" class="nav-link">haven pkg upgrade</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#haven-pkg-search" class="nav-link">haven pkg search</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
             <li class="nav-item" data-bs-level="2"><a href="#haven-import" class="nav-link">haven import</a>
               <ul class="nav flex-column">
               </ul>
@@ -325,6 +337,9 @@ haven status [--profile &lt;p&gt;] [--files] [--brews] [--ai]
 haven source-path
 haven pkg install &lt;name&gt; [--cask] [--module &lt;m&gt;] [--brew] [--mise]
 haven pkg uninstall &lt;name&gt; [--cask] [--brew] [--mise]
+haven pkg outdated
+haven pkg upgrade [name]
+haven pkg search &lt;term&gt;
 haven import --from chezmoi [--source &lt;dir&gt;] [--dry-run]
              [--include-ignored-files]
 haven ai discover
@@ -628,7 +643,7 @@ $EDITOR $(haven source-path)/haven.toml
 </tr>
 <tr>
 <td><code>--mise</code></td>
-<td>Force mise backend (not yet available).</td>
+<td>Force mise backend.</td>
 </tr>
 </tbody>
 </table>
@@ -636,6 +651,55 @@ $EDITOR $(haven source-path)/haven.toml
 <p>Uninstall a package and remove it from all Brewfiles (brew backend).</p>
 <pre><code class="language-sh">haven pkg uninstall &lt;name&gt; [--cask] [--brew] [--mise]
 </code></pre>
+<h2 id="haven-pkg-outdated"><code>haven pkg outdated</code><a class="headerlink" href="#haven-pkg-outdated" title="Permanent link">&para;</a></h2>
+<p>List upgradable packages across all configured backends, grouped by backend.</p>
+<pre><code class="language-sh">haven pkg outdated
+</code></pre>
+<p>A missing backend binary prints a skip note and does not abort the command.</p>
+<h2 id="haven-pkg-upgrade"><code>haven pkg upgrade</code><a class="headerlink" href="#haven-pkg-upgrade" title="Permanent link">&para;</a></h2>
+<p>Upgrade one or all packages across all configured backends.</p>
+<pre><code class="language-sh">haven pkg upgrade [name]
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td>Optional. Package name to upgrade. Omit to upgrade all packages.</td>
+</tr>
+</tbody>
+</table>
+<p>For mise, rewrites the pinned version in the targeted <code>mise/mise*.toml</code> config file so the change is tracked in VCS. For brew, runs <code>brew upgrade</code> without modifying Brewfiles. A missing backend binary prints a skip note and continues.</p>
+<blockquote>
+<p><strong>Note:</strong> <code>haven upgrade</code> (no <code>pkg</code>) is the binary self-update command. Use <code>haven pkg upgrade</code> to upgrade managed packages.</p>
+</blockquote>
+<h2 id="haven-pkg-search"><code>haven pkg search</code><a class="headerlink" href="#haven-pkg-search" title="Permanent link">&para;</a></h2>
+<p>Search all configured backends for packages matching a term.</p>
+<pre><code class="language-sh">haven pkg search &lt;term&gt;
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>term</code></td>
+<td>Search term (substring match).</td>
+</tr>
+</tbody>
+</table>
+<p>Results are grouped by backend. Each result includes a copy-pasteable install hint:
+- Brew results: <code>haven pkg install &lt;name&gt;</code>
+- Mise results: <code>haven pkg install &lt;name&gt; --mise</code></p>
+<p>A missing backend binary prints a skip note and does not abort the command.</p>
 <hr />
 <h2 id="haven-import"><code>haven import</code><a class="headerlink" href="#haven-import" title="Permanent link">&para;</a></h2>
 <p>Import dotfiles from another dotfile manager (one-time migration). Currently only <code>chezmoi</code> is supported.</p>

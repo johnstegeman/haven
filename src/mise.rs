@@ -15,7 +15,7 @@ use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 use toml_edit::{DocumentMut, Item, Table, Value};
 
-use crate::homebrew::OutdatedPackage;
+use crate::commands::pkg::OutdatedPackage;
 
 /// Find the `mise` binary. Checks PATH first, then `~/.local/bin/mise`.
 pub fn mise_path() -> Option<PathBuf> {
@@ -173,7 +173,6 @@ pub fn mise_uninstall(mise: &Path, name: &str) -> Result<()> {
 /// outdated tools.
 ///
 /// `mise outdated` exits 0 whether or not packages are outdated.
-#[allow(dead_code)]
 pub fn mise_outdated(mise: &str, config: &Path) -> Result<Vec<OutdatedPackage>> {
     let out = std::process::Command::new(mise)
         .args(["outdated", "--json"])
@@ -220,7 +219,6 @@ fn parse_mise_outdated_json(json: &str) -> Result<Vec<OutdatedPackage>> {
 /// Uses `mise registry` (lists all tools) and filters locally.  `mise registry
 /// <name>` only works for exact names, so substring search requires the full
 /// listing.
-#[allow(dead_code)]
 pub fn mise_search(mise: &str, term: &str) -> Result<Vec<String>> {
     let out = std::process::Command::new(mise)
         .arg("registry")
@@ -253,7 +251,6 @@ pub fn mise_search(mise: &str, term: &str) -> Result<Vec<String>> {
 ///
 /// When `name` is `None`, all tools declared in the config are upgraded.
 /// The config is read back after the upgrade to surface any parse errors early.
-#[allow(dead_code)]
 pub fn mise_upgrade(mise: &str, config: &Path, name: Option<&str>) -> Result<()> {
     let tools_before = parse_mise_tools(config)?;
 

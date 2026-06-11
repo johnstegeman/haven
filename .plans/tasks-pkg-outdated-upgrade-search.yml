@@ -197,7 +197,8 @@ tasks:
       attributes from the six public functions (`brew_outdated`, `brew_upgrade`,
       `brew_search`, `mise_outdated`, `mise_search`, `mise_upgrade`) since they are all
       called from `commands/pkg.rs` and the attributes are actively misleading.
-    status: pending
+    status: completed
+    completed_at: "2026-06-11T26:00:00Z"
     source: review
     dependencies: []
     acceptance_criteria:

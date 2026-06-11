@@ -42,3 +42,7 @@ Added 2 review tasks (task-010..task-011).
 ## TASK-009 — 2026-06-11T25:00:00Z
 Documented `haven pkg outdated`, `haven pkg upgrade [name]`, and `haven pkg search <term>` in CLAUDE.md, CHANGELOG.md (under [Unreleased]), docs/reference/commands.md, docs/COMMANDS.md, and docs/guides/packages.md. All three files note the distinction between `haven upgrade` (binary self-update) and `haven pkg upgrade` (package upgrade).
 Files: ~CLAUDE.md, ~CHANGELOG.md, ~docs/reference/commands.md, ~docs/COMMANDS.md, ~docs/guides/packages.md
+
+## TASK-010 — 2026-06-11T26:00:00Z
+Moved OutdatedPackage from homebrew.rs to commands/pkg.rs; updated homebrew.rs and mise.rs imports; removed 6 spurious #[allow(dead_code)] attributes.
+Files: ~src/homebrew.rs, ~src/mise.rs, ~src/commands/pkg.rs

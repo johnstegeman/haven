@@ -14,17 +14,7 @@ use anyhow::{Context, Result};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
-/// A package that has an available upgrade.
-///
-/// Used by both the brew and mise backends so the command layer can display
-/// results uniformly.
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub struct OutdatedPackage {
-    pub name: String,
-    pub current_version: String,
-    pub latest_version: String,
-}
+use crate::commands::pkg::OutdatedPackage;
 
 const BREW_INSTALL_URL: &str = "https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh";
 
@@ -609,7 +599,6 @@ fn brewfile_entry_sort_key(line: &str, kind: &str) -> String {
 }
 
 /// Run `brew outdated --json=v2` and return all outdated formulae and casks.
-#[allow(dead_code)]
 pub fn brew_outdated(brew: &str) -> Result<Vec<OutdatedPackage>> {
     let out = std::process::Command::new(brew)
         .args(["outdated", "--json=v2"])
@@ -683,7 +672,6 @@ fn parse_brew_outdated_json(json: &str) -> Result<Vec<OutdatedPackage>> {
 /// Run `brew upgrade [name]`.
 ///
 /// When `name` is `None` all outdated packages are upgraded.
-#[allow(dead_code)]
 pub fn brew_upgrade(brew: &str, name: Option<&str>) -> Result<()> {
     let mut cmd = std::process::Command::new(brew);
     cmd.arg("upgrade");
@@ -704,7 +692,6 @@ pub fn brew_upgrade(brew: &str, name: Option<&str>) -> Result<()> {
 }
 
 /// Run `brew search <term>` and return the list of matching package names.
-#[allow(dead_code)]
 pub fn brew_search(brew: &str, term: &str) -> Result<Vec<String>> {
     let out = std::process::Command::new(brew)
         .args(["search", term])

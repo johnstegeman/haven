@@ -1,0 +1,175 @@
+feature: pkg-outdated-upgrade-search
+prd: ./prd-pkg-outdated-upgrade-search.md
+created_at: "2026-06-11T00:00:00Z"
+updated_at: "2026-06-11T00:00:00Z"
+
+tasks:
+  - id: task-001
+    title: "Add Outdated/Upgrade/Search variants to PkgAction clap enum"
+    description: |
+      Add `PkgAction::Outdated`, `PkgAction::Upgrade { name: Option<String> }`, and
+      `PkgAction::Search { term: String }` to the clap enum in `src/main.rs`. Wire
+      each variant to a stub dispatch call in the `pkg` command handler in
+      `commands/pkg.rs` — the stubs can return `todo!()` or an unimplemented error
+      for now. Also add a disambiguation note to `haven upgrade` (binary self-update)
+      help text to clarify it is distinct from `haven pkg upgrade`.
+    status: pending
+    dependencies: []
+    acceptance_criteria:
+      - "`haven pkg outdated --help`, `haven pkg upgrade --help`, and `haven pkg search --help` all render without error"
+      - "`haven upgrade --help` text clearly states it is the binary self-update, not a package upgrade"
+      - "Dispatch arms exist in `commands/pkg.rs` for all three new variants"
+      - "`cargo clippy` passes"
+
+  - id: task-002
+    title: "Implement brew_outdated and brew_upgrade in homebrew.rs"
+    description: |
+      Add `brew_outdated(brew: &str) -> Result<Vec<OutdatedPackage>>` that runs
+      `brew outdated --json=v2` and parses the JSON to a list of (name, current, latest)
+      tuples. Add `brew_upgrade(brew: &str, name: Option<&str>) -> Result<()>` that
+      runs `brew upgrade [name]`. Both functions must tolerate a missing binary by
+      returning a well-typed error (not panic). Define `OutdatedPackage` struct in a
+      shared location (homebrew.rs or a new types module) for use by the command layer.
+    status: pending
+    dependencies: []
+    acceptance_criteria:
+      - "`brew_outdated` parses `brew outdated --json=v2` JSON correctly"
+      - "`brew_upgrade` passes the package name when given, or upgrades all when `None`"
+      - "Missing `brew` binary returns an error, not a panic"
+      - "`cargo clippy` passes"
+
+  - id: task-003
+    title: "Implement mise_outdated and mise_search in mise.rs"
+    description: |
+      Add `mise_outdated(mise: &str, config: &Path) -> Result<Vec<OutdatedPackage>>`
+      that runs `mise outdated` with `MISE_CONFIG_FILE` set and parses the output to
+      a list of (tool, current, latest). Add `mise_search(mise: &str, term: &str) ->
+      Result<Vec<String>>` that queries the mise registry — verify the correct
+      subcommand (`mise registry` filtered, or equivalent) against the installed
+      mise version. Both must tolerate a missing binary gracefully.
+    status: pending
+    dependencies: []
+    acceptance_criteria:
+      - "`mise_outdated` runs `mise outdated` with `MISE_CONFIG_FILE` set and parses the output"
+      - "`mise_search` queries the mise registry and returns a filtered list matching the term"
+      - "Missing `mise` binary returns an error, not a panic"
+      - "`cargo clippy` passes"
+
+  - id: task-004
+    title: "Implement mise_upgrade with config pin-rewrite in mise.rs"
+    description: |
+      Add `mise_upgrade(mise: &str, config: &Path, name: Option<&str>) -> Result<()>`
+      that bumps tool(s) AND rewrites the pinned version in the targeted
+      `mise/mise*.toml`. First verify whether `mise upgrade --bump` (or `--bump
+      --path <file>`) achieves the pin-rewrite natively; if so, prefer that. Fallback:
+      resolve the new version, rewrite `[tools]` via `toml_edit` helpers already used
+      in the codebase, then call `install_tools`. After upgrading, assert (read back
+      the config file) that the pin actually changed to confirm the rewrite worked.
+    status: pending
+    dependencies:
+      - task-003
+    acceptance_criteria:
+      - "`mise_upgrade` upgrades the specified tool (or all tools when `name` is `None`)"
+      - "The pinned version in the target `mise/mise*.toml` config file is rewritten to the new version after upgrade"
+      - "A post-upgrade read of the config file confirms the pin changed"
+      - "Missing `mise` binary returns an error, not a panic"
+      - "`cargo clippy` passes"
+
+  - id: task-005
+    title: "Implement pkg::outdated command in commands/pkg.rs"
+    description: |
+      Implement the `PkgAction::Outdated` dispatch in `commands/pkg.rs`. Fan out to
+      every allowed backend using `allowed_backends()`. For each backend, call the
+      corresponding `brew_outdated` or `mise_outdated` function. Print results grouped
+      by backend with a header per group. When a backend binary is missing, print a
+      note ("brew not available — skipping") instead of aborting. The command must
+      succeed even when one or more backends are unavailable.
+    status: pending
+    dependencies:
+      - task-001
+      - task-002
+      - task-003
+    acceptance_criteria:
+      - "`haven pkg outdated` prints upgradable packages grouped by backend"
+      - "A missing backend binary prints a skip note and does not abort the command"
+      - "Output clearly labels which backend each result comes from"
+      - "`cargo clippy` passes"
+
+  - id: task-006
+    title: "Implement pkg::upgrade command in commands/pkg.rs"
+    description: |
+      Implement the `PkgAction::Upgrade { name }` dispatch in `commands/pkg.rs`.
+      Fan out to every allowed backend. For brew, call `brew_upgrade(name)` — no
+      config mutation. For mise, call `mise_upgrade(config, name)` which rewrites
+      the pin in the targeted `mise/mise*.toml`. When no name is given, upgrade all
+      packages across all allowed backends. Degrade gracefully when a backend binary
+      is missing. After a mise upgrade, confirm the config file was updated.
+    status: pending
+    dependencies:
+      - task-001
+      - task-002
+      - task-004
+    acceptance_criteria:
+      - "`haven pkg upgrade <tool>` upgrades the named tool across allowed backends"
+      - "After `haven pkg upgrade <tool>` for a mise tool, the pin in `mise/mise*.toml` is updated"
+      - "`haven pkg upgrade` (no arg) upgrades all packages across all allowed backends"
+      - "Missing backend binary prints a skip note and does not abort"
+      - "`cargo clippy` passes"
+
+  - id: task-007
+    title: "Implement pkg::search command in commands/pkg.rs"
+    description: |
+      Implement the `PkgAction::Search { term }` dispatch in `commands/pkg.rs`. Fan
+      out to every allowed backend calling `brew_search(term)` and `mise_search(term)`.
+      Print results grouped by backend. Each result line includes a copy-pasteable
+      install hint, e.g. `haven pkg install <name>` or `haven pkg install <name>
+      --mise`. Degrade gracefully when a backend binary is missing.
+    status: pending
+    dependencies:
+      - task-001
+      - task-002
+      - task-003
+    acceptance_criteria:
+      - "`haven pkg search <term>` prints matching packages grouped by backend"
+      - "Each result includes a copy-pasteable `haven pkg install` hint"
+      - "Missing backend binary prints a skip note and does not abort"
+      - "`cargo clippy` passes"
+
+  - id: task-008
+    title: "Add tests: pin-rewrite, output parsing, binary-missing paths"
+    description: |
+      Add integration/unit tests for the three new commands. Required coverage: (1)
+      mise pin-rewrite test — write a minimal `mise.toml` with a pinned tool version,
+      run a simulated upgrade, and assert the version in the file changed; (2) output-
+      parsing tests for `brew_outdated` and `mise_outdated` against fixture strings;
+      (3) binary-missing test — point the binary path at a nonexistent file and assert
+      the command prints a skip note and exits successfully (not a panic). Follow the
+      existing test patterns in `tests/integration.rs`.
+    status: pending
+    dependencies:
+      - task-005
+      - task-006
+      - task-007
+    acceptance_criteria:
+      - "Test verifies that `mise_upgrade` rewrites the pinned version in the config file"
+      - "Tests for `brew_outdated` and `mise_outdated` output parsing pass with fixture input"
+      - "Test for missing binary path confirms command exits successfully with a skip note"
+      - "`cargo test` passes"
+
+  - id: task-009
+    title: "Update docs for haven pkg outdated/upgrade/search"
+    description: |
+      Update `CLAUDE.md` and any user-facing docs in `docs/` to document the three
+      new `haven pkg` verbs. Add entries for `haven pkg outdated`, `haven pkg upgrade
+      [name]`, and `haven pkg search <term>`. Note that `haven upgrade` (binary self-
+      update) is distinct from `haven pkg upgrade`. Update `CHANGELOG.md` with a
+      summary of the new commands.
+    status: pending
+    dependencies:
+      - task-005
+      - task-006
+      - task-007
+    acceptance_criteria:
+      - "`CLAUDE.md` documents all three new `haven pkg` subcommands"
+      - "Docs note the distinction between `haven upgrade` and `haven pkg upgrade`"
+      - "`CHANGELOG.md` has an entry for the new commands"

@@ -13,7 +13,7 @@ tasks:
       returns the list (defaulting to `["brew", "mise"]` when empty/absent) and errors on
       unknown backend names. Add `default_backend()` which returns the first entry of the
       resolved list.
-    status: pending
+    status: completed
     dependencies: []
     acceptance_criteria:
       - "`[packages] backends = [\"mise\",\"brew\"]` in haven.toml parses to the correct Vec"
@@ -21,7 +21,7 @@ tasks:
       - "`default_backend()` returns `\"brew\"` from the default list"
       - "Unknown backend name in the list returns an error naming the offending value"
       - "`cargo clippy --all-targets` passes with no new warnings"
-    completed_at: null
+    completed_at: "2026-06-11T00:00:00Z"
 
   - id: task-002
     title: "Create src/commands/pkg.rs with resolve_backend, install, uninstall"

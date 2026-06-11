@@ -45,7 +45,7 @@ tasks:
       and `all_misefiles(repo_root)` helpers mirroring their Brewfile counterparts. Register
       the new module in `src/commands/mod.rs`. Handle mise-not-installed by returning a clear
       error with a hint, never panicking.
-    status: pending
+    status: completed
     dependencies:
       - task-001
     acceptance_criteria:
@@ -56,7 +56,7 @@ tasks:
       - "`all_misefiles` returns all files matching `mise/mise*.toml` under the repo root"
       - "Absent mise binary returns a clear error message with install hint"
       - "`cargo clippy --all-targets` passes with no new warnings"
-    completed_at: null
+    completed_at: "2026-06-11T00:00:00Z"
 
   - id: task-003
     title: "Wire mise backend into commands/pkg.rs; replace stubs; add dual-backend uninstall"

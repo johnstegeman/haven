@@ -722,7 +722,7 @@ machines — the formula is automatically added to or removed from the Brewfile(
 </tr>
 <tr>
 <td><code>--module &lt;m&gt;</code></td>
-<td>Record in this module's <code>brew/Brewfile.&lt;m&gt;</code>. Default: master <code>brew/Brewfile</code>.</td>
+<td>Record in this module's <code>brew/Brewfile.&lt;m&gt;</code> or <code>mise/mise.&lt;m&gt;.toml</code>. Default: master <code>brew/Brewfile</code> or <code>mise/mise.toml</code>.</td>
 </tr>
 <tr>
 <td><code>--brew</code></td>
@@ -730,10 +730,13 @@ machines — the formula is automatically added to or removed from the Brewfile(
 </tr>
 <tr>
 <td><code>--mise</code></td>
-<td>Force mise backend (not yet available).</td>
+<td>Force mise backend. Writes <code>mise/mise[.&lt;module&gt;].toml</code>; supports <code>name@version</code> syntax.</td>
 </tr>
 </tbody>
 </table>
+<p><strong>Mise tool-spec syntax:</strong> <code>name@version</code> pins a specific version (e.g. <code>node@22</code>); a bare
+<code>name</code> defaults to <code>"latest"</code>. Mise configs are written to <code>mise/mise.toml</code> (master) or
+<code>mise/mise.&lt;module&gt;.toml</code> when <code>--module</code> is given.</p>
 <h3 id="haven-pkg-uninstall"><code>haven pkg uninstall</code><a class="headerlink" href="#haven-pkg-uninstall" title="Permanent link">&para;</a></h3>
 <pre><code>haven pkg uninstall &lt;name&gt; [--cask] [--brew] [--mise]
 </code></pre>
@@ -747,7 +750,7 @@ machines — the formula is automatically added to or removed from the Brewfile(
 <tbody>
 <tr>
 <td><code>name</code></td>
-<td>Formula or cask name.</td>
+<td>Formula, cask, or mise tool name.</td>
 </tr>
 <tr>
 <td><code>--cask</code></td>
@@ -759,11 +762,13 @@ machines — the formula is automatically added to or removed from the Brewfile(
 </tr>
 <tr>
 <td><code>--mise</code></td>
-<td>Force mise backend (not yet available).</td>
+<td>Force mise backend. Removes the tool only from mise configs.</td>
 </tr>
 </tbody>
 </table>
-<p>Removes the formula from <strong>all</strong> Brewfiles in the repo, then runs <code>brew uninstall</code>.</p>
+<p>Removes the formula from <strong>all</strong> Brewfiles in the repo, then runs <code>brew uninstall</code>.
+When both <code>brew</code> and <code>mise</code> are listed in <code>[packages] backends</code> and no explicit backend
+flag is passed, uninstall removes the tool from both backends.</p>
 <hr />
 <h2 id="haven-import"><code>haven import</code><a class="headerlink" href="#haven-import" title="Permanent link">&para;</a></h2>
 <p>Import dotfiles from another dotfile manager (one-time migration).</p>

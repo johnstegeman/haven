@@ -197,6 +197,10 @@
               <ul class="nav flex-column">
               </ul>
             </li>
+            <li class="nav-item" data-bs-level="2"><a href="#havenlocaltoml" class="nav-link">haven.local.toml</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
             <li class="nav-item" data-bs-level="2"><a href="#modulesnametoml" class="nav-link">modules/&lt;name&gt;.toml</a>
               <ul class="nav flex-column">
               </ul>
@@ -231,6 +235,16 @@
 <h1 id="configuration-reference">Configuration Reference<a class="headerlink" href="#configuration-reference" title="Permanent link">&para;</a></h1>
 <h2 id="haventoml"><code>haven.toml</code><a class="headerlink" href="#haventoml" title="Permanent link">&para;</a></h2>
 <p>The top-level configuration file at the repo root. All sections are optional.</p>
+<h2 id="havenlocaltoml"><code>haven.local.toml</code><a class="headerlink" href="#havenlocaltoml" title="Permanent link">&para;</a></h2>
+<p>An optional, <strong>gitignored</strong> override file at the repo root for per-machine customization.
+If present, its <code>[data]</code> keys are merged over those in <code>haven.toml</code> — local keys win.</p>
+<pre><code class="language-toml"># haven.local.toml  ← add to .gitignore, never commit
+
+[data]
+work_email  = &quot;alice@acme.com&quot;      # overrides the shared value
+local_thing = &quot;only on this machine&quot;
+</code></pre>
+<p>All other sections (<code>[profile.*]</code>, <code>[security]</code>, etc.) are ignored in this file — only <code>[data]</code> is merged.</p>
 <pre><code class="language-toml"># haven.toml
 
 [profile.default]

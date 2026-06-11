@@ -91,3 +91,53 @@ tasks:
       - '`cargo test` passes (unit tests)'
       - '`cargo test --test integration` passes with no changes to test output'
     completed_at: "2026-06-11T03:00:00Z"
+
+  - id: task-005
+    title: 'Fix print_dry_run_entry: remove dead src_rel and use exhaustive match'
+    description: |
+      Two related issues in `src/commands/apply.rs`'s `print_dry_run_entry` function.
+      First, a dead `src_rel` variable is computed and then suppressed with `let _ = src_rel`
+      — delete it and use only one approach for the file name. Second, `print_dry_run_entry`
+      still uses `if matches!(entry.kind, EntryKind::ExternalDir)` / `if matches!(ExternalFile)`
+      fall-through guards rather than an exhaustive `match entry.kind`. If a new EntryKind
+      variant is added, the dry-run path would silently treat it as a plain file. Refactor to
+      `match entry.kind { ExternalDir => ..., ExternalFile => ..., Symlink => ...,
+      PlainFile => ... }` with explicit arms so the compiler enforces exhaustiveness. Run
+      `cargo build` and `cargo test` and verify they pass.
+    status: pending
+    dependencies:
+      - task-004
+    acceptance_criteria:
+      - 'No dead `src_rel` variable or `let _ = src_rel` suppressor in apply.rs'
+      - '`print_dry_run_entry` uses exhaustive `match entry.kind` covering all 4 variants'
+      - '`cargo build` and `cargo test` pass'
+    completed_at: null
+    source: review
+
+  - id: task-006
+    title: 'Fix weakened test assertions in source.rs'
+    description: |
+      Two unit tests in `src/source.rs` had their assertions silently weakened during the
+      migration. (1) `path_extfile_simple`: the old assertion `assert!(!e.dirs.iter().any(|d|
+      d.flags.extfile))` verified extfile does not propagate to dir components; the new
+      assertion `assert!(!e.dirs.iter().any(|d| d.exact))` is trivially true and says nothing
+      about extfile propagation. Replace with a meaningful assertion (e.g. `assert_eq!(e.dirs.len(),
+      2)`) or a comment documenting that the invariant is now type-enforced (SourceDir has no
+      extfile concept). (2) `path_exact_dir_sets_flag_on_sourcedir`: the old assertion
+      `assert!(!e.flags.exact)` verified exact_ on a dir does not contaminate the file entry;
+      the new `assert!(!e.create_only)` tests a completely different property. Replace with
+      `assert_eq!(e.kind, EntryKind::PlainFile)` or a comment noting the invariant is
+      guaranteed by the type (SourceEntry has no `exact` field). Also remove the tautological
+      `assert_ne!(e.kind, EntryKind::Symlink)` in `path_extdir_plain` (which immediately
+      follows `assert_eq!(e.kind, EntryKind::ExternalDir)` — one value cannot be two variants).
+      Run `cargo test` and verify all tests pass.
+    status: pending
+    dependencies:
+      - task-004
+    acceptance_criteria:
+      - '`path_extfile_simple` assertion documents or type-enforces the no-extfile-on-dir invariant'
+      - '`path_exact_dir_sets_flag_on_sourcedir` assertion correctly tests that exact_ on dir does not affect the file entry kind'
+      - 'Tautological `assert_ne!` in `path_extdir_plain` removed'
+      - '`cargo test` passes'
+    completed_at: null
+    source: review

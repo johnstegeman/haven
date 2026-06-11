@@ -13,3 +13,6 @@ Files: ~src/commands/status.rs, ~src/commands/diff.rs, ~src/commands/list.rs, ~.
 ## TASK-004 — 2026-06-11T03:00:00Z
 Removed flags: FileFlags field from SourceEntry. FileFlags now fully internal to source.rs. Also made FileFlags and decode_component fully private (no pub(crate)). 621 unit tests and 191 integration tests pass.
 Files: ~src/source.rs, ~.plans/tasks-replace-fileflags-with-entrykind-enum.yml, ~.plans/progress-replace-fileflags-with-entrykind-enum.txt
+
+## REVIEW — 2026-06-11T04:00:00Z
+Added 2 review tasks (task-005..task-006).

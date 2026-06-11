@@ -20,3 +20,7 @@ Added 2 review tasks (task-005..task-006).
 ## TASK-005 — 2026-06-11T05:00:00Z
 Fixed print_dry_run_entry: removed dead src_rel, converted to exhaustive match entry.kind.
 Files: ~src/commands/apply.rs, ~.plans/tasks-replace-fileflags-with-entrykind-enum.yml, ~.plans/progress-replace-fileflags-with-entrykind-enum.txt
+
+## TASK-006 — 2026-06-11T06:00:00Z
+Restored meaningful test assertions in path_extfile_simple and path_exact_dir_sets_flag_on_sourcedir; removed tautological assert_ne in path_extdir_plain.
+Files: ~src/source.rs, ~.plans/tasks-replace-fileflags-with-entrykind-enum.yml, ~.plans/progress-replace-fileflags-with-entrykind-enum.txt

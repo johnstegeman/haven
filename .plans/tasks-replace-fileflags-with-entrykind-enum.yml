@@ -131,7 +131,7 @@ tasks:
       `assert_ne!(e.kind, EntryKind::Symlink)` in `path_extdir_plain` (which immediately
       follows `assert_eq!(e.kind, EntryKind::ExternalDir)` — one value cannot be two variants).
       Run `cargo test` and verify all tests pass.
-    status: in_progress
+    status: completed
     dependencies:
       - task-004
     acceptance_criteria:
@@ -139,5 +139,5 @@ tasks:
       - '`path_exact_dir_sets_flag_on_sourcedir` assertion correctly tests that exact_ on dir does not affect the file entry kind'
       - 'Tautological `assert_ne!` in `path_extdir_plain` removed'
       - '`cargo test` passes'
-    completed_at: null
+    completed_at: "2026-06-11T06:00:00Z"
     source: review

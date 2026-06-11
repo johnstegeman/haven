@@ -569,7 +569,6 @@ mod tests {
         let e = decode("dot_tmux/plugins/extdir_tpm");
         assert_eq!(e.dest_tilde, "~/.tmux/plugins/tpm");
         assert_eq!(e.kind, EntryKind::ExternalDir);
-        assert_ne!(e.kind, EntryKind::Symlink);
         assert_eq!(e.dirs.len(), 2);
         assert_eq!(e.dirs[0].dest_tilde, "~/.tmux");
         assert_eq!(e.dirs[1].dest_tilde, "~/.tmux/plugins");
@@ -687,7 +686,9 @@ mod tests {
         let e = decode("exact_dot_config/fish/config.fish");
         assert_eq!(e.dest_tilde, "~/.config/fish/config.fish");
         assert!(e.dirs[0].exact, "expected exact dir flag on ~/.config");
-        assert!(!e.create_only, "file itself should not have create_only");
+        // exact_ on a dir must not contaminate the file entry's kind — SourceEntry has no
+        // `exact` field, so the file cannot accidentally become an ExternalDir or Symlink.
+        assert_eq!(e.kind, EntryKind::PlainFile, "exact_ on dir must not affect file kind");
     }
 
     #[test]
@@ -723,7 +724,9 @@ mod tests {
         let e = decode("dot_local/bin/extfile_gh");
         assert_eq!(e.dest_tilde, "~/.local/bin/gh");
         assert_eq!(e.kind, EntryKind::ExternalFile);
-        assert!(!e.dirs.iter().any(|d| d.exact));
+        // extfile semantics apply only to the file entry; SourceDir has no extfile concept,
+        // so the invariant is type-enforced. Verify the two expected parent dirs are present.
+        assert_eq!(e.dirs.len(), 2); // dot_local and bin — neither has extfile semantics
     }
 
     #[test]

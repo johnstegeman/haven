@@ -447,4 +447,72 @@ mod tests {
         let tools = parse_mise_tools(&path).unwrap();
         assert!(tools.is_empty());
     }
+
+    // parse_mise_outdated_json tests
+
+    #[test]
+    fn parse_mise_outdated_json_multiple_tools() {
+        let json = r#"{
+            "node": {"current": "20.0.0", "latest": "22.0.0", "source": "mise.toml"},
+            "python": {"current": "3.11.0", "latest": "3.12.0", "source": "mise.toml"}
+        }"#;
+        let pkgs = parse_mise_outdated_json(json).unwrap();
+        assert_eq!(pkgs.len(), 2);
+
+        let node = pkgs.iter().find(|p| p.name == "node").unwrap();
+        assert_eq!(node.current_version, "20.0.0");
+        assert_eq!(node.latest_version, "22.0.0");
+
+        let python = pkgs.iter().find(|p| p.name == "python").unwrap();
+        assert_eq!(python.current_version, "3.11.0");
+        assert_eq!(python.latest_version, "3.12.0");
+    }
+
+    #[test]
+    fn parse_mise_outdated_json_empty_object() {
+        let json = r#"{}"#;
+        let pkgs = parse_mise_outdated_json(json).unwrap();
+        assert!(pkgs.is_empty());
+    }
+
+    #[test]
+    fn parse_mise_outdated_json_missing_fields_defaults_to_question_mark() {
+        let json = r#"{"node": {}}"#;
+        let pkgs = parse_mise_outdated_json(json).unwrap();
+        assert_eq!(pkgs.len(), 1);
+        assert_eq!(pkgs[0].name, "node");
+        assert_eq!(pkgs[0].current_version, "?");
+        assert_eq!(pkgs[0].latest_version, "?");
+    }
+
+    /// Verifies that `mise_upgrade` rewrites the pinned version in a mise.toml.
+    ///
+    /// Requires `mise` to be installed and available in PATH, and needs network
+    /// access to resolve tool versions.  Skipped in CI and offline environments.
+    #[test]
+    #[ignore = "requires mise binary and network access to resolve latest version"]
+    fn mise_upgrade_rewrites_pinned_version() {
+        let dir = TempDir::new().unwrap();
+        let config_path = dir.path().join("mise.toml");
+        std::fs::write(&config_path, "[tools]\nnode = \"20.0.0\"\n").unwrap();
+
+        let Some(mise_bin) = super::mise_path() else {
+            return; // mise not installed — skip
+        };
+        let mise_str = mise_bin.to_string_lossy();
+
+        mise_upgrade(&mise_str, &config_path, Some("node")).unwrap();
+
+        let tools = parse_mise_tools(&config_path).unwrap();
+        let node_version = tools
+            .iter()
+            .find(|(k, _)| k == "node")
+            .map(|(_, v)| v.as_str())
+            .unwrap_or("20.0.0");
+
+        assert_ne!(
+            node_version, "20.0.0",
+            "expected the pinned version to be bumped from 20.0.0, got: {node_version}"
+        );
+    }
 }

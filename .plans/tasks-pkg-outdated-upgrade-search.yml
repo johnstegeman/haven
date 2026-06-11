@@ -152,7 +152,8 @@ tasks:
       (3) binary-missing test — point the binary path at a nonexistent file and assert
       the command prints a skip note and exits successfully (not a panic). Follow the
       existing test patterns in `tests/integration.rs`.
-    status: pending
+    status: completed
+    completed_at: "2026-06-11T24:00:00Z"
     dependencies:
       - task-005
       - task-006

@@ -1346,6 +1346,65 @@ mod tests {
         assert_eq!(result, "\n# Comment\nbrew \"nvim\"\ncask \"notion\"\n");
     }
 
+    // parse_brew_outdated_json tests
+
+    #[test]
+    fn parse_brew_outdated_json_formulae_and_casks() {
+        let json = r#"{
+            "formulae": [
+                {
+                    "name": "ripgrep",
+                    "installed_versions": ["13.0.0", "14.0.0"],
+                    "current_version": "14.1.0"
+                },
+                {
+                    "name": "fd",
+                    "installed_versions": ["8.7.0"],
+                    "current_version": "9.0.0"
+                }
+            ],
+            "casks": [
+                {
+                    "name": "iterm2",
+                    "installed_versions": ["3.4.20"],
+                    "current_version": "3.5.0"
+                }
+            ]
+        }"#;
+
+        let pkgs = parse_brew_outdated_json(json).unwrap();
+        assert_eq!(pkgs.len(), 3);
+
+        let rg = pkgs.iter().find(|p| p.name == "ripgrep").unwrap();
+        assert_eq!(rg.current_version, "14.0.0");
+        assert_eq!(rg.latest_version, "14.1.0");
+
+        let fd = pkgs.iter().find(|p| p.name == "fd").unwrap();
+        assert_eq!(fd.current_version, "8.7.0");
+        assert_eq!(fd.latest_version, "9.0.0");
+
+        let iterm = pkgs.iter().find(|p| p.name == "iterm2").unwrap();
+        assert_eq!(iterm.current_version, "3.4.20");
+        assert_eq!(iterm.latest_version, "3.5.0");
+    }
+
+    #[test]
+    fn parse_brew_outdated_json_empty_arrays() {
+        let json = r#"{"formulae": [], "casks": []}"#;
+        let pkgs = parse_brew_outdated_json(json).unwrap();
+        assert!(pkgs.is_empty());
+    }
+
+    #[test]
+    fn parse_brew_outdated_json_missing_name_skipped() {
+        let json = r#"{
+            "formulae": [{"name": "", "installed_versions": ["1.0"], "current_version": "2.0"}],
+            "casks": []
+        }"#;
+        let pkgs = parse_brew_outdated_json(json).unwrap();
+        assert!(pkgs.is_empty());
+    }
+
     // brewfile_line_matches tests
 
     #[test]

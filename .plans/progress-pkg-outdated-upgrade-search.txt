@@ -30,3 +30,8 @@ Files: ~src/commands/pkg.rs
 Implemented `pkg::outdated` in `src/commands/pkg.rs`. Fans out to all allowed backends; for brew calls `brew_outdated` (binary resolved via `brew_path()`), for mise iterates all `mise/mise*.toml` files calling `mise_outdated` per config. Missing binary prints a skip note and continues; results are printed under `==> brew outdated` / `==> mise outdated` headers with `name  current → latest` format.
 Files: ~src/commands/pkg.rs
 Decisions: Renamed `crate::commands::{brew,mise}` imports to `brew_cmd`/`mise_cmd` to avoid shadowing the `crate::homebrew` and `crate::mise` crates needed by the new implementation. Reused `mise_cmd::all_misefiles` to discover config files consistently with the install/uninstall path.
+
+## TASK-008 — 2026-06-11T24:00:00Z
+Added unit tests for `parse_brew_outdated_json` (in `src/homebrew.rs`) and `parse_mise_outdated_json` (in `src/mise.rs`) using realistic JSON fixture strings. Added three integration tests in `tests/integration.rs` for missing-binary paths: `pkg_outdated`, `pkg_upgrade`, and `pkg_search` all exit 0 with a skip note when PATH is empty. Added a `#[ignore]` test `mise_upgrade_rewrites_pinned_version` that validates the pin-rewrite contract but is skipped without a live `mise` binary and network access.
+Files: ~tests/integration.rs, ~src/homebrew.rs, ~src/mise.rs
+Decisions: The mise pin-rewrite test is marked `#[ignore]` because it requires `mise` to be installed and network access to resolve a newer tool version — unsuitable for offline CI. The test structure is present and documents the contract.

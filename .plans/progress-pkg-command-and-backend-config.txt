@@ -25,3 +25,7 @@ Files: ~tests/integration.rs
 ## TASK-006 — 2026-06-11T00:00:00Z
 Removed duplicate DEFAULT_BACKENDS constant (merged into KNOWN_BACKENDS) and removed three #[allow(dead_code)] attributes from PackagesConfig section.
 Files: ~src/config/haven.rs, ~.plans/tasks-pkg-command-and-backend-config.yml
+
+## TASK-007 — 2026-06-11T00:00:00Z
+Replaced both unreachable bail! arms in install/uninstall with unreachable!() to make the invariant explicit.
+Files: ~src/commands/pkg.rs, ~.plans/tasks-pkg-command-and-backend-config.yml

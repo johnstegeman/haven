@@ -1,0 +1,4 @@
+## TASK-001 — 2026-06-11T00:00:00Z
+Added mise config primitives to src/mise.rs: parse_tool_spec, add_to_misefile, remove_from_misefile, parse_mise_tools, and mise_uninstall, all with unit tests (14 tests).
+Files: ~src/mise.rs
+Decisions: Used toml_edit DocumentMut for format-preserving TOML edits; mise_uninstall ignores exit code (best-effort) by discarding the Result from status().

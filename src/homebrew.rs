@@ -14,8 +14,7 @@ use anyhow::{Context, Result};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
-const BREW_INSTALL_URL: &str =
-    "https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh";
+const BREW_INSTALL_URL: &str = "https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh";
 
 /// Well-known Homebrew binary locations checked when `brew` is not in PATH.
 const BREW_LOCATIONS: &[&str] = &[
@@ -109,7 +108,10 @@ pub fn ensure_brew(dry_run: bool) -> Result<Option<PathBuf>> {
                 }
             );
             // Return the known path directly rather than failing.
-            Ok(BREW_LOCATIONS.iter().map(PathBuf::from).find(|p| p.exists()))
+            Ok(BREW_LOCATIONS
+                .iter()
+                .map(PathBuf::from)
+                .find(|p| p.exists()))
         }
     }
 }
@@ -162,7 +164,6 @@ pub fn bundle_install(brew: &Path, brewfile: &Path) -> Result<()> {
     Ok(())
 }
 
-
 /// Run `brew install [--cask] <name>`.
 pub fn brew_install(brew: &Path, name: &str, cask: bool) -> Result<()> {
     let mut cmd = std::process::Command::new(brew);
@@ -175,7 +176,9 @@ pub fn brew_install(brew: &Path, name: &str, cask: bool) -> Result<()> {
         .stdout(std::process::Stdio::inherit())
         .stderr(std::process::Stdio::inherit());
 
-    let status = cmd.status().with_context(|| format!("Cannot run `brew install {}`", name))?;
+    let status = cmd
+        .status()
+        .with_context(|| format!("Cannot run `brew install {}`", name))?;
     if !status.success() {
         anyhow::bail!("`brew install {}` failed (exit {:?})", name, status.code());
     }
@@ -197,9 +200,15 @@ pub fn brew_uninstall(brew: &Path, name: &str, cask: bool, zap: bool) -> Result<
         .stdout(std::process::Stdio::inherit())
         .stderr(std::process::Stdio::inherit());
 
-    let status = cmd.status().with_context(|| format!("Cannot run `brew uninstall {}`", name))?;
+    let status = cmd
+        .status()
+        .with_context(|| format!("Cannot run `brew uninstall {}`", name))?;
     if !status.success() {
-        anyhow::bail!("`brew uninstall {}` failed (exit {:?})", name, status.code());
+        anyhow::bail!(
+            "`brew uninstall {}` failed (exit {:?})",
+            name,
+            status.code()
+        );
     }
     Ok(())
 }
@@ -234,8 +243,8 @@ fn parse_brewfile(path: &Path) -> Result<BrewfileEntries> {
     if !path.exists() {
         return Ok(entries);
     }
-    let text = std::fs::read_to_string(path)
-        .with_context(|| format!("Cannot read {}", path.display()))?;
+    let text =
+        std::fs::read_to_string(path).with_context(|| format!("Cannot read {}", path.display()))?;
     for line in text.lines() {
         let line = line.trim();
         if line.is_empty() || line.starts_with('#') {
@@ -365,7 +374,10 @@ pub fn brew_list_formula(brew: &Path) -> Result<Vec<String>> {
         .output()
         .context("Failed to run `brew list --formula`")?;
     if !out.status.success() {
-        anyhow::bail!("`brew list --formula` failed (exit {:?})", out.status.code());
+        anyhow::bail!(
+            "`brew list --formula` failed (exit {:?})",
+            out.status.code()
+        );
     }
     Ok(String::from_utf8_lossy(&out.stdout)
         .lines()
@@ -448,13 +460,15 @@ fn brewfile_line_matches(line: &str, kind: &str, name: &str) -> bool {
 /// entries of other kinds and break section-aware sorting).
 pub fn add_to_brewfile(path: &Path, kind: &str, name: &str) -> Result<bool> {
     let existing = if path.exists() {
-        std::fs::read_to_string(path)
-            .with_context(|| format!("Cannot read {}", path.display()))?
+        std::fs::read_to_string(path).with_context(|| format!("Cannot read {}", path.display()))?
     } else {
         String::new()
     };
 
-    if existing.lines().any(|line| brewfile_line_matches(line, kind, name)) {
+    if existing
+        .lines()
+        .any(|line| brewfile_line_matches(line, kind, name))
+    {
         return Ok(false);
     }
 
@@ -523,8 +537,8 @@ fn insert_after_last_of_kind(content: String, kind: &str, new_entry: &str) -> St
 /// Sort key: the short name (last `/`-separated component), lowercased.
 /// E.g. `tap "homebrew/cask-fonts"` sorts under `"cask-fonts"`.
 pub fn sort_brewfile(path: &Path) -> Result<()> {
-    let text = std::fs::read_to_string(path)
-        .with_context(|| format!("Cannot read {}", path.display()))?;
+    let text =
+        std::fs::read_to_string(path).with_context(|| format!("Cannot read {}", path.display()))?;
 
     // Collect formula lines per kind for independent sorting.
     let mut tap_lines: Vec<&str> = Vec::new();
@@ -590,8 +604,8 @@ pub fn remove_from_brewfile(path: &Path, kind: &str, name: &str) -> Result<usize
         return Ok(0);
     }
 
-    let text = std::fs::read_to_string(path)
-        .with_context(|| format!("Cannot read {}", path.display()))?;
+    let text =
+        std::fs::read_to_string(path).with_context(|| format!("Cannot read {}", path.display()))?;
 
     // Split on '\n' rather than .lines() so the trailing "" from a terminal newline
     // is preserved in the output when we rejoin: ["a", ""].join("\n") == "a\n".
@@ -760,7 +774,11 @@ mod tests {
     fn test_sort_brewfile_sorts_cask_entries() {
         let dir = TempDir::new().unwrap();
         let path = dir.path().join("Brewfile");
-        std::fs::write(&path, "cask \"visual-studio-code\"\ncask \"1password\"\ncask \"iterm2\"\n").unwrap();
+        std::fs::write(
+            &path,
+            "cask \"visual-studio-code\"\ncask \"1password\"\ncask \"iterm2\"\n",
+        )
+        .unwrap();
 
         sort_brewfile(&path).unwrap();
 
@@ -774,7 +792,11 @@ mod tests {
     fn test_sort_brewfile_sorts_tap_entries() {
         let dir = TempDir::new().unwrap();
         let path = dir.path().join("Brewfile");
-        std::fs::write(&path, "tap \"homebrew/cask\"\ntap \"homebrew/core\"\ntap \"apple/apple\"\n").unwrap();
+        std::fs::write(
+            &path,
+            "tap \"homebrew/cask\"\ntap \"homebrew/core\"\ntap \"apple/apple\"\n",
+        )
+        .unwrap();
 
         sort_brewfile(&path).unwrap();
 
@@ -805,7 +827,11 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let path = dir.path().join("Brewfile");
         // "homebrew/cask-fonts" short name is "cask-fonts", sorts before "core"
-        std::fs::write(&path, "tap \"homebrew/core\"\ntap \"homebrew/cask-fonts\"\n").unwrap();
+        std::fs::write(
+            &path,
+            "tap \"homebrew/core\"\ntap \"homebrew/cask-fonts\"\n",
+        )
+        .unwrap();
 
         sort_brewfile(&path).unwrap();
 
@@ -826,7 +852,10 @@ mod tests {
         // "Bat", "bat", "Zsh" — case-insensitive, stable for ties
         let result = std::fs::read_to_string(&path).unwrap();
         let first = result.lines().next().unwrap();
-        assert!(first.contains("Bat") || first.contains("bat"), "first entry should be a 'bat' variant, got: {first}");
+        assert!(
+            first.contains("Bat") || first.contains("bat"),
+            "first entry should be a 'bat' variant, got: {first}"
+        );
     }
 
     #[test]
@@ -1207,8 +1236,16 @@ mod tests {
 
     #[test]
     fn test_brewfile_line_matches_tap() {
-        assert!(brewfile_line_matches("tap \"homebrew/brew\"", "tap", "homebrew/brew"));
-        assert!(!brewfile_line_matches("brew \"homebrew/brew\"", "tap", "homebrew/brew"));
+        assert!(brewfile_line_matches(
+            "tap \"homebrew/brew\"",
+            "tap",
+            "homebrew/brew"
+        ));
+        assert!(!brewfile_line_matches(
+            "brew \"homebrew/brew\"",
+            "tap",
+            "homebrew/brew"
+        ));
     }
 
     #[test]
@@ -1241,6 +1278,10 @@ mod tests {
     fn test_brewfile_line_matches_different_kinds() {
         assert!(!brewfile_line_matches("brew \"neovim\"", "cask", "neovim"));
         assert!(!brewfile_line_matches("cask \"notion\"", "brew", "notion"));
-        assert!(!brewfile_line_matches("tap \"homebrew\"", "brew", "homebrew"));
+        assert!(!brewfile_line_matches(
+            "tap \"homebrew\"",
+            "brew",
+            "homebrew"
+        ));
     }
 }

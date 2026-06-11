@@ -18,11 +18,16 @@ use crate::homebrew;
 // ─── Public entry points ──────────────────────────────────────────────────────
 
 /// `haven pkg install <name> [--cask] [--module <module>]` (brew backend)
-pub fn install(repo_root: &Path, name: &str, cask: bool, module_filter: Option<&str>) -> Result<()> {
+pub fn install(
+    repo_root: &Path,
+    name: &str,
+    cask: bool,
+    module_filter: Option<&str>,
+) -> Result<()> {
     let kind = if cask { "cask" } else { "brew" };
 
-    let brew = homebrew::brew_path()
-        .context("Homebrew not found. Install it from https://brew.sh")?;
+    let brew =
+        homebrew::brew_path().context("Homebrew not found. Install it from https://brew.sh")?;
 
     let brewfile = resolve_install_target(repo_root, module_filter)?;
     let brewfile_rel = brewfile
@@ -45,7 +50,10 @@ pub fn install(repo_root: &Path, name: &str, cask: bool, module_filter: Option<&
             homebrew::sort_brewfile(&brewfile)?;
         }
     } else {
-        println!("  ~ {} \"{}\" already in {}  (skipped)", kind, name, brewfile_rel);
+        println!(
+            "  ~ {} \"{}\" already in {}  (skipped)",
+            kind, name, brewfile_rel
+        );
     }
 
     // Run brew install.
@@ -59,8 +67,8 @@ pub fn install(repo_root: &Path, name: &str, cask: bool, module_filter: Option<&
 pub fn uninstall(repo_root: &Path, name: &str, cask: bool) -> Result<()> {
     let kind = if cask { "cask" } else { "brew" };
 
-    let brew = homebrew::brew_path()
-        .context("Homebrew not found. Install it from https://brew.sh")?;
+    let brew =
+        homebrew::brew_path().context("Homebrew not found. Install it from https://brew.sh")?;
 
     // Remove from every Brewfile under brew/.
     let brewfiles = all_brewfiles_with_sort(repo_root)?;
@@ -165,10 +173,7 @@ fn all_brewfiles(repo_root: &Path) -> Result<Vec<PathBuf>> {
         if !path.is_file() {
             continue;
         }
-        let name = path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("");
+        let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
         if name == "Brewfile" || name.starts_with("Brewfile.") {
             result.push(path);
         }
@@ -257,7 +262,10 @@ fn resolve_module_brewfile(repo_root: &Path, module_name: &str) -> Result<PathBu
     // Ensure module config points to this Brewfile.
     let mut config = ModuleConfig::load(repo_root, module_name)?;
     if config.homebrew.as_ref().map(|h| h.brewfile.as_str()) != Some(&rel) {
-        config.homebrew = Some(HomebrewConfig { brewfile: rel.clone(), sort: false });
+        config.homebrew = Some(HomebrewConfig {
+            brewfile: rel.clone(),
+            sort: false,
+        });
         config
             .save(repo_root, module_name)
             .with_context(|| format!("Cannot update modules/{}.toml", module_name))?;

@@ -17,7 +17,7 @@ tasks:
       `mise uninstall <name>` best-effort (absent tool is not an error; returns Ok(())
       when exit code is non-zero for a missing tool). Include unit tests for all config
       primitives directly in the file (no binary required).
-    status: pending
+    status: completed
     dependencies: []
     acceptance_criteria:
       - "`parse_tool_spec(\"node@22\")` returns `(\"node\", \"22\")`"
@@ -29,7 +29,7 @@ tasks:
       - "`parse_mise_tools` returns all tools from an existing config"
       - "`mise_uninstall` does not return an error when the tool is not installed (best-effort)"
       - "All unit tests pass with `cargo test --lib`"
-    completed_at: null
+    completed_at: "2026-06-11T00:00:00Z"
 
   - id: task-002
     title: "Create src/commands/mise.rs mirroring commands/brew.rs structure"

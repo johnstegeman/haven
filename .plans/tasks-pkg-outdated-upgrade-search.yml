@@ -249,7 +249,8 @@ tasks:
       - `src/commands/pkg.rs`: change to `use crate::packages::OutdatedPackage`
       Delete the `OutdatedPackage` definition from `commands/pkg.rs`. Result: clean
       dependency arrows — backends → packages, command layer → packages + backends.
-    status: pending
+    status: completed
+    completed_at: "2026-06-11T28:00:00Z"
     source: review
     dependencies: []
     acceptance_criteria:

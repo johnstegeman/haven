@@ -15,7 +15,7 @@ use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 use toml_edit::{DocumentMut, Item, Table, Value};
 
-use crate::commands::pkg::OutdatedPackage;
+use crate::packages::OutdatedPackage;
 
 /// Find the `mise` binary. Checks PATH first, then `~/.local/bin/mise`.
 pub fn mise_path() -> Option<PathBuf> {

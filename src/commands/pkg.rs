@@ -7,17 +7,6 @@ use crate::config::haven::HavenConfig;
 use crate::homebrew;
 use crate::mise as mise_lib;
 
-/// A package that has an available upgrade.
-///
-/// Used by both the brew and mise backends so the command layer can display
-/// results uniformly.
-#[derive(Debug, Clone)]
-pub struct OutdatedPackage {
-    pub name: String,
-    pub current_version: String,
-    pub latest_version: String,
-}
-
 pub fn resolve_backend(
     brew_flag: bool,
     mise_flag: bool,

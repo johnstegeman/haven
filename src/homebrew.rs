@@ -14,7 +14,7 @@ use anyhow::{Context, Result};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
-use crate::commands::pkg::OutdatedPackage;
+use crate::packages::OutdatedPackage;
 
 const BREW_INSTALL_URL: &str = "https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh";
 

@@ -53,3 +53,7 @@ Files: ~src/commands/pkg.rs
 
 ## REVIEW (round 2) — 2026-06-11T00:00:00Z
 Added 1 review task (task-012).
+
+## TASK-012 — 2026-06-11T28:00:00Z
+Created src/packages.rs with OutdatedPackage; updated 3 import sites; command layer no longer has circular dep with backend modules.
+Files: +src/packages.rs, ~src/main.rs, ~src/homebrew.rs, ~src/mise.rs, ~src/commands/pkg.rs

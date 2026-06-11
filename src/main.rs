@@ -16,6 +16,7 @@ mod ignore;
 mod lock;
 mod mise;
 mod onepassword;
+mod packages;
 mod skill_backend;
 mod skill_backend_agentskills;
 mod skill_backend_factory;

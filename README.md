@@ -41,7 +41,7 @@ working environment — `haven init gh:me/my-env --apply`. That's the bar I set 
 
 The other thing that bothered me: when I run `brew install` or install a new Claude
 skill, my dotfiles repo doesn't know. It drifts. I have to manually update my
-Brewfile and commit it. With haven, `haven brew install ripgrep` runs the install
+Brewfile and commit it. With haven, `haven pkg install ripgrep` runs the install
 *and* adds it to your Brewfile in one step. The repo stays in sync with reality.
 
 Finally, I wanted the ability to share a complete, versioned AI development environment
@@ -61,7 +61,7 @@ in one place.
 | Thing | How |
 |-------|-----|
 | Dotfiles | Copied (or symlinked) to their destinations; flags encoded in the source filename |
-| Homebrew packages | Brewfile-driven; `haven brew install` keeps Brewfiles in sync |
+| Homebrew packages | Brewfile-driven; `haven pkg install` keeps Brewfiles in sync |
 | Language runtimes | Via [mise](https://mise.jdx.dev/) config files |
 | Claude Code skills | Declared in `ai/skills/<name>/skill.toml`, fetched from `gh:owner/repo[@ref]`, pinned in `haven.lock` |
 | Secrets | Read from 1Password at apply time via `{{ op(path="...") }}` templates |
@@ -118,8 +118,8 @@ haven apply --dest ~/staging         # apply to a staging directory (for testing
 haven status                         # show drift; C = you edited, M = source changed
 haven diff                    # show file-level diff between source and live
 haven source-path             # print the path to the haven repo
-haven brew install <formula>  # brew install + update Brewfile
-haven brew uninstall <formula># brew uninstall + remove from Brewfile
+haven pkg install <formula>   # brew install + update Brewfile
+haven pkg uninstall <formula> # brew uninstall + remove from Brewfile
 haven security-scan           # scan tracked files for secrets and credentials
 haven completions fish        # generate fish shell completions
 haven import --from chezmoi   # migrate from chezmoi

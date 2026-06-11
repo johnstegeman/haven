@@ -6,20 +6,20 @@ haven manages Homebrew packages and mise language runtimes alongside your dotfil
 
 ### Installing packages
 
-Use `haven brew install` instead of bare `brew install` — it runs the install *and* updates your Brewfile so the package is tracked:
+Use `haven pkg install` instead of bare `brew install` — it runs the install *and* updates your Brewfile so the package is tracked (brew backend, the default):
 
 ```sh
-haven brew install ripgrep
-haven brew install bat
-haven brew install iterm2 --cask          # GUI apps and fonts
-haven brew install ripgrep --module shell  # add to a specific module's Brewfile
+haven pkg install ripgrep
+haven pkg install bat
+haven pkg install iterm2 --cask          # GUI apps and fonts
+haven pkg install ripgrep --module shell  # add to a specific module's Brewfile
 ```
 
 ### Uninstalling packages
 
 ```sh
-haven brew uninstall ripgrep
-haven brew uninstall iterm2 --cask
+haven pkg uninstall ripgrep
+haven pkg uninstall iterm2 --cask
 ```
 
 Removes the formula from **all** Brewfiles in the repo, then runs `brew uninstall`.
@@ -28,8 +28,8 @@ Removes the formula from **all** Brewfiles in the repo, then runs `brew uninstal
 
 | Path | Used when |
 |------|-----------|
-| `brew/Brewfile` | `haven brew install` with no `--module` |
-| `brew/Brewfile.<name>` | `haven brew install --module <name>` |
+| `brew/Brewfile` | `haven pkg install` with no `--module` |
+| `brew/Brewfile.<name>` | `haven pkg install --module <name>` |
 
 You can also write Brewfiles directly:
 

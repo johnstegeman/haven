@@ -106,7 +106,7 @@ pub fn run(opts: &ListOptions<'_>) -> Result<()> {
 
             if !printed_header && opts.show_brews && filter_lc.is_none() {
                 println!("[brew]");
-                println!("  (none — run `haven brew install <package>` to track packages)");
+                println!("  (none — run `haven pkg install <package>` to track packages)");
             }
         }
     }

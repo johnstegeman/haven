@@ -4317,3 +4317,176 @@ fn apply_outcome_exit_code_0_on_overwrite() {
         .args(["apply", "--files", "--on-conflict=overwrite"])
         .assert().success(); // exit code 0
 }
+
+// ─── pkg backend resolution and brew dispatch ────────────────────────────────
+
+/// Create a mock brew binary that exits 0 for `install` and `uninstall`
+/// and does nothing else. Returns the TempDir holding the bin (must stay alive).
+fn make_mock_brew() -> TempDir {
+    let bin_dir = TempDir::new().unwrap();
+    let mock_brew = bin_dir.path().join("brew");
+    fs::write(
+        &mock_brew,
+        "#!/bin/sh\nexit 0\n",
+    )
+    .unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&mock_brew, fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    bin_dir
+}
+
+/// Set up a repo with a haven.toml that has no [packages] section (defaults to brew-first).
+fn setup_pkg_repo_default_backend() -> (TempDir, String) {
+    let repo = TempDir::new().unwrap();
+    cmd(&repo).arg("init").assert().success();
+    fs::write(
+        repo.path().join("haven.toml"),
+        "[profile.default]\nmodules = []\n",
+    )
+    .unwrap();
+    let original_path = std::env::var("PATH").unwrap_or_default();
+    (repo, original_path)
+}
+
+#[test]
+fn pkg_install_brew_default() {
+    let (repo, original_path) = setup_pkg_repo_default_backend();
+    let bin_dir = make_mock_brew();
+    let new_path = format!("{}:{}", bin_dir.path().display(), original_path);
+
+    cmd(&repo)
+        .args(["pkg", "install", "ripgrep"])
+        .env("PATH", &new_path)
+        .assert()
+        .success();
+
+    let brewfile = repo.path().join("brew").join("Brewfile");
+    assert!(brewfile.exists(), "Brewfile should have been created");
+    let content = fs::read_to_string(&brewfile).unwrap();
+    assert!(
+        content.contains("brew \"ripgrep\""),
+        "Brewfile should contain brew \"ripgrep\", got: {content}"
+    );
+}
+
+#[test]
+fn pkg_install_brew_flag_override() {
+    let repo = TempDir::new().unwrap();
+    cmd(&repo).arg("init").assert().success();
+    fs::write(
+        repo.path().join("haven.toml"),
+        "[profile.default]\nmodules = []\n\n[packages]\nbackends = [\"mise\", \"brew\"]\n",
+    )
+    .unwrap();
+
+    let bin_dir = make_mock_brew();
+    let original_path = std::env::var("PATH").unwrap_or_default();
+    let new_path = format!("{}:{}", bin_dir.path().display(), original_path);
+
+    cmd(&repo)
+        .args(["pkg", "install", "ripgrep", "--brew"])
+        .env("PATH", &new_path)
+        .assert()
+        .success();
+
+    let brewfile = repo.path().join("brew").join("Brewfile");
+    assert!(brewfile.exists(), "Brewfile should have been created");
+    let content = fs::read_to_string(&brewfile).unwrap();
+    assert!(
+        content.contains("brew \"ripgrep\""),
+        "Brewfile should contain brew \"ripgrep\", got: {content}"
+    );
+}
+
+#[test]
+fn pkg_mise_default_errors_without_brew_flag() {
+    let repo = TempDir::new().unwrap();
+    cmd(&repo).arg("init").assert().success();
+    fs::write(
+        repo.path().join("haven.toml"),
+        "[profile.default]\nmodules = []\n\n[packages]\nbackends = [\"mise\", \"brew\"]\n",
+    )
+    .unwrap();
+
+    cmd(&repo)
+        .args(["pkg", "install", "ripgrep"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("not yet available"));
+
+    assert!(
+        !repo.path().join("brew").join("Brewfile").exists(),
+        "Brewfile must not be written when mise is the default backend"
+    );
+}
+
+#[test]
+fn pkg_mise_not_yet_available() {
+    let (repo, _) = setup_pkg_repo_default_backend();
+
+    cmd(&repo)
+        .args(["pkg", "install", "ripgrep", "--mise"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("not yet available"));
+
+    assert!(
+        !repo.path().join("brew").join("Brewfile").exists(),
+        "Brewfile must not be written when --mise flag is used"
+    );
+}
+
+#[test]
+fn pkg_unknown_backend() {
+    let repo = TempDir::new().unwrap();
+    cmd(&repo).arg("init").assert().success();
+    fs::write(
+        repo.path().join("haven.toml"),
+        "[profile.default]\nmodules = []\n\n[packages]\nbackends = [\"unknown_backend\"]\n",
+    )
+    .unwrap();
+
+    cmd(&repo)
+        .args(["pkg", "install", "ripgrep"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("unknown_backend"));
+}
+
+#[test]
+fn pkg_uninstall() {
+    let repo = TempDir::new().unwrap();
+    cmd(&repo).arg("init").assert().success();
+    fs::write(
+        repo.path().join("haven.toml"),
+        "[profile.default]\nmodules = []\n",
+    )
+    .unwrap();
+
+    let brew_dir = repo.path().join("brew");
+    fs::create_dir_all(&brew_dir).unwrap();
+    fs::write(
+        brew_dir.join("Brewfile"),
+        "brew \"ripgrep\"\n",
+    )
+    .unwrap();
+
+    let bin_dir = make_mock_brew();
+    let original_path = std::env::var("PATH").unwrap_or_default();
+    let new_path = format!("{}:{}", bin_dir.path().display(), original_path);
+
+    cmd(&repo)
+        .args(["pkg", "uninstall", "ripgrep"])
+        .env("PATH", &new_path)
+        .assert()
+        .success();
+
+    let brewfile = repo.path().join("brew").join("Brewfile");
+    assert!(
+        !brewfile.exists(),
+        "Brewfile should have been removed when last entry is uninstalled"
+    );
+}

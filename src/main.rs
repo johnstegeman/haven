@@ -191,37 +191,52 @@ enum AiAction {
 }
 
 #[derive(Subcommand)]
-enum BrewAction {
-    /// Install a formula and record it in a Brewfile in your haven repo.
+enum PkgAction {
+    /// Install a package and record it in your haven repo.
     ///
     /// Examples:
-    ///   haven brew install ripgrep
-    ///   haven brew install iterm2 --cask
-    ///   haven brew install ripgrep --module packages
+    ///   haven pkg install ripgrep
+    ///   haven pkg install iterm2 --cask
+    ///   haven pkg install ripgrep --module packages
     Install {
-        /// Formula or cask name (e.g. `ripgrep`, `iterm2`).
+        /// Package name (e.g. `ripgrep`, `iterm2`).
         name: String,
 
-        /// Install as a cask (GUI apps, fonts, etc.).
+        /// Use the Homebrew backend explicitly.
+        #[arg(long)]
+        brew: bool,
+
+        /// Use the mise backend explicitly (not yet available).
+        #[arg(long)]
+        mise: bool,
+
+        /// Install as a cask (Homebrew only; implies --brew).
         #[arg(long)]
         cask: bool,
 
-        /// Module whose Brewfile to update. Auto-detected when there is exactly
-        /// one Brewfile in the repo; required when there are several.
+        /// Module whose Brewfile to update (Homebrew only).
         #[arg(long)]
         module: Option<String>,
     },
 
-    /// Uninstall a formula and remove it from all Brewfiles in your haven repo.
+    /// Uninstall a package and remove it from your haven repo.
     ///
     /// Examples:
-    ///   haven brew uninstall ripgrep
-    ///   haven brew uninstall iterm2 --cask
+    ///   haven pkg uninstall ripgrep
+    ///   haven pkg uninstall iterm2 --cask
     Uninstall {
-        /// Formula or cask name.
+        /// Package name.
         name: String,
 
-        /// Uninstall as a cask.
+        /// Use the Homebrew backend explicitly.
+        #[arg(long)]
+        brew: bool,
+
+        /// Use the mise backend explicitly (not yet available).
+        #[arg(long)]
+        mise: bool,
+
+        /// Uninstall as a cask (Homebrew only; implies --brew).
         #[arg(long)]
         cask: bool,
     },
@@ -651,19 +666,18 @@ enum Commands {
         verbose: bool,
     },
 
-    /// Run `brew install`/`uninstall` and keep your haven Brewfiles in sync.
+    /// Install and uninstall packages, keeping your haven repo in sync.
     ///
-    /// Use these commands instead of bare `brew install` when you want the
-    /// change to persist across machines — the formula is automatically added
-    /// to (or removed from) the Brewfile(s) in your haven repo.
+    /// Uses a pluggable backend (Homebrew by default). Configure allowed
+    /// backends in `[packages] backends` in haven.toml.
     ///
     /// Examples:
-    ///   haven brew install ripgrep
-    ///   haven brew install iterm2 --cask
-    ///   haven brew uninstall ripgrep
-    Brew {
+    ///   haven pkg install ripgrep
+    ///   haven pkg install iterm2 --cask
+    ///   haven pkg uninstall ripgrep
+    Pkg {
         #[command(subcommand)]
-        action: BrewAction,
+        action: PkgAction,
     },
 
     /// Manage AI agent skills across platforms.
@@ -1296,14 +1310,17 @@ fn run() -> Result<()> {
             })?;
         }
 
-        Commands::Brew { action } => match action {
-            BrewAction::Install { name, cask, module } => {
-                commands::brew::install(&repo, name, *cask, module.as_deref())?;
+        Commands::Pkg { action } => {
+            let cfg = HavenConfig::load(&repo)?;
+            match action {
+                PkgAction::Install { name, brew, mise, cask, module } => {
+                    commands::pkg::install(&repo, name, *brew, *mise, *cask, module.as_deref(), &cfg)?;
+                }
+                PkgAction::Uninstall { name, brew, mise, cask } => {
+                    commands::pkg::uninstall(&repo, name, *brew, *mise, *cask, &cfg)?;
+                }
             }
-            BrewAction::Uninstall { name, cask } => {
-                commands::brew::uninstall(&repo, name, *cask)?;
-            }
-        },
+        }
 
         Commands::Ai { action } => match action {
             AiAction::Discover => {

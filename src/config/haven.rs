@@ -21,6 +21,10 @@ pub struct HavenConfig {
     #[serde(default)]
     pub security: SecurityConfig,
 
+    /// Package backend configuration.
+    #[serde(default)]
+    pub packages: PackagesConfig,
+
     /// Custom template variables available in all `.tmpl` files.
     ///
     /// ```toml
@@ -45,6 +49,50 @@ pub struct SecurityConfig {
     /// Paths to exclude from security scanning (glob patterns matched against dest_tilde).
     #[serde(default)]
     pub allow: Vec<String>,
+}
+
+const KNOWN_BACKENDS: &[&str] = &["brew", "mise"];
+
+/// Package backend settings in `haven.toml`.
+///
+/// ```toml
+/// [packages]
+/// backends = ["mise", "brew"]
+/// ```
+#[derive(Debug, Deserialize, Serialize, Default)]
+pub struct PackagesConfig {
+    /// Ordered list of allowed backends. First entry becomes the default.
+    /// Valid values: `"brew"`, `"mise"`. Defaults to `["brew", "mise"]`.
+    #[serde(default)]
+    pub backends: Vec<String>,
+}
+
+impl PackagesConfig {
+    /// Returns the resolved ordered list of allowed backends.
+    ///
+    /// If the configured list is empty, returns the built-in default `["brew", "mise"]`.
+    /// Errors if any entry is not a known backend name.
+    pub fn allowed_backends(&self) -> Result<Vec<String>> {
+        if self.backends.is_empty() {
+            return Ok(KNOWN_BACKENDS.iter().map(|s| s.to_string()).collect());
+        }
+        for b in &self.backends {
+            if !KNOWN_BACKENDS.contains(&b.as_str()) {
+                bail!(
+                    "unknown package backend '{}' in [packages] backends (valid: {})",
+                    b,
+                    KNOWN_BACKENDS.join(", ")
+                );
+            }
+        }
+        Ok(self.backends.clone())
+    }
+
+    /// Returns the default backend (first in the resolved allowed list).
+    pub fn default_backend(&self) -> Result<String> {
+        let backends = self.allowed_backends()?;
+        Ok(backends.into_iter().next().unwrap())
+    }
 }
 
 /// VCS settings in `haven.toml`.

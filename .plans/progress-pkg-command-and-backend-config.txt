@@ -1,0 +1,31 @@
+## TASK-001 — 2026-06-11T00:00:00Z
+Added `PackagesConfig` to `HavenConfig` with `allowed_backends()` and `default_backend()` accessors; defaults to `["brew", "mise"]` when absent; validates against known backend names.
+Files: ~src/config/haven.rs, ~.plans/tasks-pkg-command-and-backend-config.yml
+Decisions: Used `#[allow(dead_code)]` on constants and impl block to suppress dead-code lint until task-002 consumes these methods.
+
+## TASK-002 — 2026-06-11T00:00:00Z
+Created `src/commands/pkg.rs` with `resolve_backend` (flags + config → backend string, validated against `allowed_backends()`), `install`, and `uninstall` dispatching to `brew::*` or bailing with "not yet available" for mise; registered the module in `src/commands/mod.rs`.
+Files: +src/commands/pkg.rs, ~src/commands/mod.rs, ~.plans/tasks-pkg-command-and-backend-config.yml
+
+## TASK-003 — 2026-06-11T00:00:00Z
+Replaced `BrewAction` enum and `Commands::Brew` with `PkgAction` enum and `Commands::Pkg` in `src/main.rs`; added `--brew` and `--mise` flags to both `Install` and `Uninstall` variants; wired dispatch through `HavenConfig::load` to `commands::pkg::install`/`uninstall`. `haven brew` is removed from the CLI; `haven pkg` is the replacement.
+Files: ~src/main.rs, ~.plans/tasks-pkg-command-and-backend-config.yml
+
+## TASK-004 — 2026-06-11T00:00:00Z
+Replaced all user-facing `haven brew` references with `haven pkg` across docs, source code, README, CHANGELOG, and CLAUDE.md; added `[packages]` config section and `haven pkg` command documentation to CLAUDE.md.
+Files: ~CLAUDE.md, ~README.md, ~CHANGELOG.md, ~CHEZMOI_TODO.md, ~src/commands/brew.rs, ~src/commands/list.rs, ~src/commands/init.rs, ~docs/COMMANDS.md, ~docs/concepts.md, ~docs/guide.md, ~docs/guides/packages.md, ~docs/index.md, ~docs/from-chezmoi.md, ~docs/getting-started/quickstart.md, ~docs/reference/commands.md, ~docs/for-chezmoi-users/commands.md, ~docs/for-chezmoi-users/gaps.md, ~docs/releases/v0.1.0.md, ~.plans/tasks-pkg-command-and-backend-config.yml
+
+## REVIEW — 2026-06-11T00:00:00Z
+Added 2 review tasks (task-006..task-007).
+
+## TASK-005 — 2026-06-11T00:00:00Z
+Added 6 integration tests covering pkg backend resolution: default brew backend adds to Brewfile, --brew overrides mise-default to brew, mise-default without --brew errors with "not yet available", --mise flag errors without touching the Brewfile, unknown backend name in config is rejected, and uninstall removes the formula from the Brewfile. Tests use a mock brew binary on PATH to avoid real Homebrew invocations.
+Files: ~tests/integration.rs
+
+## TASK-006 — 2026-06-11T00:00:00Z
+Removed duplicate DEFAULT_BACKENDS constant (merged into KNOWN_BACKENDS) and removed three #[allow(dead_code)] attributes from PackagesConfig section.
+Files: ~src/config/haven.rs, ~.plans/tasks-pkg-command-and-backend-config.yml
+
+## TASK-007 — 2026-06-11T00:00:00Z
+Replaced both unreachable bail! arms in install/uninstall with unreachable!() to make the invariant explicit.
+Files: ~src/commands/pkg.rs, ~.plans/tasks-pkg-command-and-backend-config.yml

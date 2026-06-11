@@ -256,21 +256,21 @@ packages is out of scope. haven tracks both in the same repo.
 ### Brewfiles
 
 haven Brewfiles live at `brew/Brewfile` (master) and `brew/Brewfile.<module>`
-(per-module). Create them manually or use `haven brew install` to add packages
+(per-module). Create them manually or use `haven pkg install` (brew backend) to add packages
 and keep them in sync automatically:
 
 ```sh
 # Add a formula to the master Brewfile
-haven brew install ripgrep
+haven pkg install ripgrep
 
 # Add a formula to a named module's Brewfile
-haven brew install ripgrep --module shell
+haven pkg install ripgrep --module shell
 
 # Add a cask
-haven brew install iterm2 --cask
+haven pkg install iterm2 --cask
 
 # Remove a package from all Brewfiles
-haven brew uninstall ripgrep
+haven pkg uninstall ripgrep
 ```
 
 Or write the Brewfile directly:

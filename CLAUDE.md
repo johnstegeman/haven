@@ -40,7 +40,7 @@ main.rs                     # CLI entry point (clap); all subcommand definitions
 commands/
   apply.rs                  # Core pipeline — see below
   init.rs, add.rs, remove.rs, status.rs, diff.rs, list.rs
-  brew.rs, ai.rs, import.rs, security_scan.rs, unmanaged.rs, upgrade.rs
+  brew.rs, pkg.rs, ai.rs, import.rs, security_scan.rs, unmanaged.rs, upgrade.rs
 config/
   haven.rs                  # HavenConfig: haven.toml + haven.local.toml merge
   module.rs                 # ModuleConfig: modules/<name>.toml
@@ -161,6 +161,9 @@ modules = ["secrets"]
 [data]
 work_email = "alice@corp.com"    # {{ data.work_email }} in templates
 
+[packages]
+backends = ["brew", "mise"]      # first entry is the default; omit for ["brew","mise"]
+
 [vcs]
 backend = "jj"
 ```
@@ -188,6 +191,19 @@ source    = "gh:anthropics/skills/pdf-processing@v1.0"
 platforms = "all"                # or "cross-client" or ["claude-code"]
 deploy    = "symlink"            # or "copy"
 ```
+
+## Package Management (`haven pkg`)
+
+`haven pkg` is the unified package command. It replaces the former `haven brew`.
+
+```
+haven pkg install <name> [--cask] [--module <m>] [--brew] [--mise]
+haven pkg uninstall <name> [--cask] [--brew] [--mise]
+```
+
+Backend resolution order: explicit `--brew`/`--mise` flag → `[packages] backends[0]` in haven.toml → `"brew"` (hard default).
+
+`--cask` always implies the brew backend. Forcing a backend not listed in `allowed_backends()` is an error. The mise backend is wired but not yet functional (returns a clean "not yet available" error).
 
 ## Key Data Structures
 

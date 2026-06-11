@@ -1,0 +1,147 @@
+feature: pkg-command-and-backend-config
+prd: ./prd-pkg-command-and-backend-config.md
+created_at: "2026-06-11T00:00:00Z"
+updated_at: "2026-06-11T00:00:00Z"
+
+tasks:
+  - id: task-001
+    title: "Add PackagesConfig to HavenConfig with backend accessors"
+    description: |
+      Add a new `PackagesConfig` struct to `src/config/haven.rs` and integrate it into
+      `HavenConfig` with `#[serde(default)]` so existing `haven.toml` files parse without
+      changes. The struct holds `backends: Vec<String>`. Add `allowed_backends()` which
+      returns the list (defaulting to `["brew", "mise"]` when empty/absent) and errors on
+      unknown backend names. Add `default_backend()` which returns the first entry of the
+      resolved list.
+    status: completed
+    dependencies: []
+    acceptance_criteria:
+      - "`[packages] backends = [\"mise\",\"brew\"]` in haven.toml parses to the correct Vec"
+      - "Absent `[packages]` section defaults `allowed_backends()` to `[\"brew\", \"mise\"]`"
+      - "`default_backend()` returns `\"brew\"` from the default list"
+      - "Unknown backend name in the list returns an error naming the offending value"
+      - "`cargo clippy --all-targets` passes with no new warnings"
+    completed_at: "2026-06-11T00:00:00Z"
+
+  - id: task-002
+    title: "Create src/commands/pkg.rs with resolve_backend, install, uninstall"
+    description: |
+      Create `src/commands/pkg.rs` with a `resolve_backend(flags, cfg)` function that
+      resolves the active backend from CLI flags (`--cask` implies brew, `--brew`/`--mise`
+      force that backend, else use `default_backend()`). Forcing or defaulting to a backend
+      not in `allowed_backends()` is a clear error. `pkg::install` and `pkg::uninstall`
+      dispatch to `commands::brew::install` and `commands::brew::uninstall` for the brew
+      backend, and return a clean "mise backend not yet available" error for the mise backend
+      without mutating any state.
+    status: completed
+    dependencies:
+      - task-001
+    acceptance_criteria:
+      - "`resolve_backend` with no flags and default config returns `\"brew\"`"
+      - "`--cask` flag resolves to brew backend"
+      - "`--mise` flag (or mise as default) returns a \"not yet available\" error, no state change"
+      - "`pkg::install` with brew backend calls `commands::brew::install` with identical args"
+      - "`pkg::uninstall` with brew backend calls `commands::brew::uninstall` with identical args"
+      - "Forcing a backend not in `allowed_backends()` returns a clear error"
+    completed_at: "2026-06-11T00:00:00Z"
+
+  - id: task-003
+    title: "Add Pkg/PkgAction CLI variants to main.rs and remove Brew/BrewAction"
+    description: |
+      In `src/main.rs`, add a `Pkg { #[command(subcommand)] action: PkgAction }` variant to
+      the `Commands` enum with `PkgAction::Install { name, brew, mise, cask, module }` and
+      `PkgAction::Uninstall { name, brew, mise, cask, module }` (nested-subcommand style,
+      mirroring the existing `BrewAction` structure but adding `--brew` and `--mise` flags).
+      Wire the dispatch to `commands::pkg::install` and `commands::pkg::uninstall`. Then
+      remove the `Brew` variant from `Commands`, remove `BrewAction`, and remove the
+      `Commands::Brew` dispatch arm. Register `commands::pkg` in `src/main.rs` mod declarations.
+    status: completed
+    dependencies:
+      - task-002
+    acceptance_criteria:
+      - "`haven pkg install ripgrep` dispatches to pkg::install correctly"
+      - "`haven pkg install iterm2 --cask` works identically to old `haven brew install iterm2 --cask`"
+      - "`haven pkg uninstall ripgrep` dispatches to pkg::uninstall correctly"
+      - "`haven brew` subcommand no longer exists (removed from help output and dispatch)"
+      - "`haven pkg install X --mise` prints a clean error and exits non-zero without mutating files"
+      - "`cargo build` succeeds with no compile errors"
+    completed_at: "2026-06-11T00:00:00Z"
+
+  - id: task-004
+    title: "Update all references to 'haven brew' across codebase"
+    description: |
+      Search for every reference to `haven brew` in tests (`tests/integration.rs`), docs
+      (`docs/`), `CLAUDE.md`, shell completions, and any other files. Replace `haven brew`
+      with `haven pkg` in all user-facing strings, doc comments, integration test invocations,
+      and completion scripts. Also update the CLAUDE.md project instructions to document
+      the `[packages]` config section and the `pkg` command.
+    status: completed
+    dependencies:
+      - task-003
+    acceptance_criteria:
+      - "`grep -r 'haven brew' .` returns no results (excluding git history)"
+      - "All integration tests that previously called `haven brew` now call `haven pkg`"
+      - "CLAUDE.md documents `[packages] backends` and the `pkg` command"
+      - "`cargo test --test integration` passes"
+    completed_at: "2026-06-11T00:00:00Z"
+
+  - id: task-005
+    title: "Add integration tests for pkg backend resolution and brew dispatch"
+    description: |
+      Add integration tests to `tests/integration.rs` covering: (1) backend resolution — that
+      `[packages] backends = [\"mise\",\"brew\"]` sets mise as the default and `--brew` overrides
+      it to brew; (2) the `--mise` flag returns a clean "not yet available" error and makes no
+      Brewfile changes; (3) unknown backend name in `[packages]` config is rejected; (4)
+      `haven pkg install` and `haven pkg uninstall` produce the same Brewfile mutations as the
+      old `haven brew` tests did (migrate existing brew install/uninstall test cases).
+    status: completed
+    dependencies:
+      - task-004
+    acceptance_criteria:
+      - "Integration test verifies `[packages] backends = [\"mise\",\"brew\"]` makes mise the default"
+      - "Integration test verifies `--brew` flag overrides to brew when mise is default"
+      - "Integration test verifies `--mise` flag exits non-zero with clean error, no Brewfile written"
+      - "Integration test verifies unknown backend name in config produces an error"
+      - "`cargo test --test integration` passes for all new and migrated tests"
+    completed_at: "2026-06-11T00:00:00Z"
+
+  - id: task-006
+    title: "Merge duplicate constants and remove #[allow(dead_code)] in haven.rs"
+    description: |
+      `src/config/haven.rs` has two identical constants `KNOWN_BACKENDS` and `DEFAULT_BACKENDS`,
+      both equal to `&["brew", "mise"]`. They will silently diverge if someone updates one and
+      forgets the other. Merge them into a single `KNOWN_BACKENDS` constant and update
+      `allowed_backends()` to use it for both validation and the default list. Also remove the
+      three `#[allow(dead_code)]` attributes (on the two constants and on the `impl PackagesConfig`
+      block) — they were added during task-001 development before task-002 called the methods, and
+      are now suppressing a live lint signal unnecessarily.
+    status: completed
+    dependencies:
+      - task-005
+    acceptance_criteria:
+      - "Only one `KNOWN_BACKENDS` constant exists in `src/config/haven.rs`; `DEFAULT_BACKENDS` is gone"
+      - "No `#[allow(dead_code)]` annotations remain in the `PackagesConfig` section"
+      - "`cargo clippy --all-targets` passes cleanly with no new warnings"
+      - "`cargo test --test integration` passes"
+    completed_at: "2026-06-11T00:00:00Z"
+    source: review
+
+  - id: task-007
+    title: "Replace unreachable bail! arms with unreachable!() in pkg.rs"
+    description: |
+      `src/commands/pkg.rs` has `other => bail!("unhandled backend '{}'", other)` in both
+      `install` and `uninstall`. These arms can never fire because `resolve_backend()` already
+      validates the returned backend is in `KNOWN_BACKENDS`, and both match arms cover all known
+      backends. Using `bail!` here duplicates the invariant enforcement that `resolve_backend()`
+      already owns, and signals to readers that this is reachable runtime behavior. Replace both
+      with `other => unreachable!("backend '{}' passed resolve_backend but has no handler", other)`
+      to make the invariant explicit at the call site.
+    status: completed
+    dependencies:
+      - task-005
+    acceptance_criteria:
+      - "Both `other => bail!(...)` arms in `src/commands/pkg.rs` are replaced with `unreachable!(...)`"
+      - "`cargo clippy --all-targets` passes cleanly"
+      - "`cargo test --test integration` passes"
+    completed_at: "2026-06-11T00:00:00Z"
+    source: review

@@ -15,7 +15,7 @@ haven status                       # see what's drifted
 | Thing | How |
 |-------|-----|
 | **Dotfiles** | Copied (or symlinked) to their destinations; flags encoded in the source filename |
-| **Homebrew packages** | Brewfile-driven; `haven brew install` keeps Brewfiles in sync |
+| **Homebrew packages** | Brewfile-driven; `haven pkg install` keeps Brewfiles in sync |
 | **Language runtimes** | Via [mise](https://mise.jdx.dev/) config files |
 | **AI skills** | Declared in `ai/skills/<name>/skill.toml`, fetched from GitHub, pinned in `haven.lock` |
 | **Secrets** | Read from 1Password at apply time via `{{ op(path="...") }}` templates |
@@ -35,7 +35,7 @@ There's a bootstrap paradox baked into every dotfile manager: to be productive o
 haven init gh:me/my-env --apply
 ```
 
-haven also keeps your repo in sync with reality. `haven brew install ripgrep` runs the install *and* adds it to your Brewfile. No manual commits after every `brew install`.
+haven also keeps your repo in sync with reality. `haven pkg install ripgrep` runs the install *and* adds it to your Brewfile. No manual commits after every `brew install`.
 
 ---
 

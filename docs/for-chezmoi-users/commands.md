@@ -50,8 +50,8 @@ Quick reference mapping chezmoi commands to their haven equivalents.
 These don't have chezmoi equivalents:
 
 ```sh
-haven brew install ripgrep     # install + add to Brewfile
-haven brew uninstall ripgrep   # uninstall + remove from Brewfiles
+haven pkg install ripgrep      # install + add to Brewfile
+haven pkg uninstall ripgrep    # uninstall + remove from Brewfiles
 haven apply --profile work     # apply a named profile
 haven ai add gh:owner/repo     # add an AI skill
 haven apply --ai               # deploy AI skills

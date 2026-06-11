@@ -202,7 +202,7 @@ fn run_scaffold(repo_root: &Path) -> Result<()> {
     // Files are tracked by placing them in source/ with magic-name encoding,
     // so no [[files]] section is needed.
     let shell_toml = r#"# Shell module — brew packages and AI tools for this machine.
-# Add Homebrew packages via: haven brew install <name> --module shell
+# Add Homebrew packages via: haven pkg install <name> --module shell
 # Add AI skills/commands:
 #
 # [ai]
@@ -229,7 +229,7 @@ fn run_scaffold(repo_root: &Path) -> Result<()> {
     println!();
     println!("Next steps:");
     println!("  haven add ~/.zshrc              # start tracking a dotfile");
-    println!("  haven brew install ripgrep      # track a Homebrew package");
+    println!("  haven pkg install ripgrep       # track a Homebrew package");
     println!("  haven apply                     # apply config to this machine");
     Ok(())
 }

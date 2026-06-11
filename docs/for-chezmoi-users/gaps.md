@@ -27,7 +27,7 @@ These are the reasons to use haven if you're a chezmoi user:
 
 | Feature | Description |
 |---------|-------------|
-| **Homebrew management** | `haven brew install` installs and tracks in Brewfile simultaneously. Module-scoped Brewfiles. `--remove-unreferenced-brews` to clean up drift. |
+| **Homebrew management** | `haven pkg install` installs and tracks in Brewfile simultaneously. Module-scoped Brewfiles. `--remove-unreferenced-brews` to clean up drift. |
 | **mise integration** | Language runtimes declared per-module, installed on `haven apply`. |
 | **AI skill management** | `haven ai add/fetch/update/remove` manages Claude Code and other agent skills with SHA-pinned supply chain protection. |
 | **Profiles** | Named module sets in `haven.toml`. `haven init gh:you/repo --apply --profile work` on new machines. |

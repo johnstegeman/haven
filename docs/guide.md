@@ -333,22 +333,22 @@ The `brewfile` field points to a Homebrew Brewfile relative to the repo root.
 On apply, haven runs `brew bundle install --file=<path>`.
 If Homebrew is not installed, this section is skipped with a warning.
 
-Use `haven brew install` and `haven brew uninstall` instead of bare `brew`
+Use `haven pkg install` and `haven pkg uninstall` instead of bare `brew`
 commands to keep your Brewfiles automatically in sync:
 
 ```
-haven brew install ripgrep                   # → brew/Brewfile (master)
-haven brew install ripgrep --module shell    # → brew/Brewfile.shell
-haven brew install iterm2 --cask             # cask entry
-haven brew uninstall ripgrep                 # removes from ALL Brewfiles
+haven pkg install ripgrep                   # → brew/Brewfile (master)
+haven pkg install ripgrep --module shell    # → brew/Brewfile.shell
+haven pkg install iterm2 --cask             # cask entry
+haven pkg uninstall ripgrep                 # removes from ALL Brewfiles
 ```
 
 **Brewfile layout:**
 
 | Path | Used when |
 |------|-----------|
-| `brew/Brewfile` | `haven brew install` with no `--module` |
-| `brew/Brewfile.<name>` | `haven brew install --module <name>` |
+| `brew/Brewfile` | `haven pkg install` with no `--module` |
+| `brew/Brewfile.<name>` | `haven pkg install --module <name>` |
 
 ### Mise
 

@@ -75,7 +75,7 @@ tasks:
       with `haven pkg` in all user-facing strings, doc comments, integration test invocations,
       and completion scripts. Also update the CLAUDE.md project instructions to document
       the `[packages]` config section and the `pkg` command.
-    status: pending
+    status: completed
     dependencies:
       - task-003
     acceptance_criteria:
@@ -83,7 +83,7 @@ tasks:
       - "All integration tests that previously called `haven brew` now call `haven pkg`"
       - "CLAUDE.md documents `[packages] backends` and the `pkg` command"
       - "`cargo test --test integration` passes"
-    completed_at: null
+    completed_at: "2026-06-11T00:00:00Z"
 
   - id: task-005
     title: "Add integration tests for pkg backend resolution and brew dispatch"

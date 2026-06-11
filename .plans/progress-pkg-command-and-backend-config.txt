@@ -10,3 +10,7 @@ Files: +src/commands/pkg.rs, ~src/commands/mod.rs, ~.plans/tasks-pkg-command-and
 ## TASK-003 — 2026-06-11T00:00:00Z
 Replaced `BrewAction` enum and `Commands::Brew` with `PkgAction` enum and `Commands::Pkg` in `src/main.rs`; added `--brew` and `--mise` flags to both `Install` and `Uninstall` variants; wired dispatch through `HavenConfig::load` to `commands::pkg::install`/`uninstall`. `haven brew` is removed from the CLI; `haven pkg` is the replacement.
 Files: ~src/main.rs, ~.plans/tasks-pkg-command-and-backend-config.yml
+
+## TASK-004 — 2026-06-11T00:00:00Z
+Replaced all user-facing `haven brew` references with `haven pkg` across docs, source code, README, CHANGELOG, and CLAUDE.md; added `[packages]` config section and `haven pkg` command documentation to CLAUDE.md.
+Files: ~CLAUDE.md, ~README.md, ~CHANGELOG.md, ~CHEZMOI_TODO.md, ~src/commands/brew.rs, ~src/commands/list.rs, ~src/commands/init.rs, ~docs/COMMANDS.md, ~docs/concepts.md, ~docs/guide.md, ~docs/guides/packages.md, ~docs/index.md, ~docs/from-chezmoi.md, ~docs/getting-started/quickstart.md, ~docs/reference/commands.md, ~docs/for-chezmoi-users/commands.md, ~docs/for-chezmoi-users/gaps.md, ~docs/releases/v0.1.0.md, ~.plans/tasks-pkg-command-and-backend-config.yml

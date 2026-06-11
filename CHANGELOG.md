@@ -216,8 +216,8 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - **Brewfile auto-sort** — set `[homebrew] sort = true` in any module config to
-  keep the Brewfile sorted alphabetically after every `haven brew install` or
-  `haven brew uninstall`. Each kind (`tap`, `brew`, `cask`) is sorted
+  keep the Brewfile sorted alphabetically after every `haven pkg install` or
+  `haven pkg uninstall`. Each kind (`tap`, `brew`, `cask`) is sorted
   independently; blank lines and comments are preserved in place.
 - **`haven apply` Brewfile summary** — the apply summary now reports how many
   Brewfiles were run: `Applied N file(s), M Brewfile(s) across K module(s)`.
@@ -282,7 +282,7 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `haven apply --remove-unreferenced-brews` no longer report tap formulae (e.g.
   `qmk/qmk/qmk`) as extra when their short name (`qmk`) is declared in a
   Brewfile. Matching is now done by short name in both directions.
-- **`haven brew install`** — when there is no master `brew/Brewfile` but exactly
+- **`haven pkg install`** — when there is no master `brew/Brewfile` but exactly
   one module Brewfile exists, it is used automatically. If multiple module
   Brewfiles exist and `--module` is not given, haven errors with a clear hint.
 - **`haven init`** — scaffold always appends a `[profile.default]` section to
@@ -491,7 +491,7 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **`haven diff`** — show file-level diff between `source/` and live files.
   `--stat`, `--color`, `--profile`, `--module` flags. Exit 1 on drift.
 - **`haven status`** — concise drift summary with `✓ M ? !` markers.
-- **`haven brew install/uninstall`** — run brew operations and keep Brewfiles
+- **`haven pkg install/uninstall`** — run brew operations and keep Brewfiles
   in sync in one step.
 - **`haven import --from chezmoi`** — migrate from chezmoi. Handles `dot_`,
   `private_`, `executable_`, `symlink_` prefixes; converts Go templates to

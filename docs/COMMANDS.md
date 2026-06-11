@@ -16,8 +16,8 @@ haven diff  [--profile <p>] [--module <m>]
             [--stat] [--color always|never|auto]
 haven status [--profile <p>] [--files] [--brews] [--ai]
 haven source-path
-haven brew install <name> [--cask] [--module <m>]
-haven brew uninstall <name> [--cask]
+haven pkg install <name> [--cask] [--module <m>] [--brew] [--mise]
+haven pkg uninstall <name> [--cask] [--brew] [--mise]
 haven import --from chezmoi [--source <dir>] [--dry-run]
              [--include-ignored-files]
 haven ai discover
@@ -303,35 +303,39 @@ haven status [--profile <p>] [--files] [--brews] [--ai]
 
 ---
 
-## `haven brew`
+## `haven pkg`
 
-Run `brew install`/`uninstall` and keep Brewfiles in sync.
+Install or uninstall packages via the configured backend (default: brew).
 
 Use these instead of bare `brew install` when you want changes to persist across
 machines — the formula is automatically added to or removed from the Brewfile(s).
 
-### `haven brew install`
+### `haven pkg install`
 
 ```
-haven brew install <name> [--cask] [--module <m>]
+haven pkg install <name> [--cask] [--module <m>] [--brew] [--mise]
 ```
 
 | Argument/Option | Description |
 |-----------------|-------------|
 | `name` | Formula or cask name (e.g. `ripgrep`, `iterm2`). |
-| `--cask` | Install as a cask (GUI apps, fonts, etc.). |
+| `--cask` | Install as a cask (GUI apps, fonts, etc.). Implies brew backend. |
 | `--module <m>` | Record in this module's `brew/Brewfile.<m>`. Default: master `brew/Brewfile`. |
+| `--brew` | Force brew backend. |
+| `--mise` | Force mise backend (not yet available). |
 
-### `haven brew uninstall`
+### `haven pkg uninstall`
 
 ```
-haven brew uninstall <name> [--cask]
+haven pkg uninstall <name> [--cask] [--brew] [--mise]
 ```
 
 | Argument/Option | Description |
 |-----------------|-------------|
 | `name` | Formula or cask name. |
-| `--cask` | Uninstall as a cask. |
+| `--cask` | Uninstall as a cask. Implies brew backend. |
+| `--brew` | Force brew backend. |
+| `--mise` | Force mise backend (not yet available). |
 
 Removes the formula from **all** Brewfiles in the repo, then runs `brew uninstall`.
 

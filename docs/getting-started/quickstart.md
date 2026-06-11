@@ -86,9 +86,9 @@ git push -u origin main
 Instead of bare `brew install`, use haven so your Brewfile stays in sync:
 
 ```sh
-haven brew install ripgrep
-haven brew install bat
-haven brew install iterm2 --cask
+haven pkg install ripgrep
+haven pkg install bat
+haven pkg install iterm2 --cask
 ```
 
 ## What next?

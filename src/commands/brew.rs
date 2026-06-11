@@ -1,4 +1,4 @@
-/// `haven brew install` / `haven brew uninstall`
+/// Brew backend implementation for `haven pkg install` / `haven pkg uninstall`
 ///
 /// Runs the real `brew` command and keeps your haven Brewfiles in sync.
 ///
@@ -17,7 +17,7 @@ use crate::homebrew;
 
 // ─── Public entry points ──────────────────────────────────────────────────────
 
-/// `haven brew install <name> [--cask] [--module <module>]`
+/// `haven pkg install <name> [--cask] [--module <module>]` (brew backend)
 pub fn install(repo_root: &Path, name: &str, cask: bool, module_filter: Option<&str>) -> Result<()> {
     let kind = if cask { "cask" } else { "brew" };
 
@@ -55,7 +55,7 @@ pub fn install(repo_root: &Path, name: &str, cask: bool, module_filter: Option<&
     Ok(())
 }
 
-/// `haven brew uninstall <name> [--cask]`
+/// `haven pkg uninstall <name> [--cask]` (brew backend)
 pub fn uninstall(repo_root: &Path, name: &str, cask: bool) -> Result<()> {
     let kind = if cask { "cask" } else { "brew" };
 

@@ -265,7 +265,7 @@ For completeness — features that are haven-specific and have no chezmoi equiva
 | `haven-manifest.json` | Package manifest for `haven bootstrap gh:owner/repo` |
 | `haven.lock` | SHA pinning for fetched GitHub sources |
 | `gh:owner/repo@ref` source format | Shorthand for GitHub sources in AI and externals |
-| `haven brew install` | `brew install` + auto-update Brewfile in one command |
+| `haven pkg install` | `brew install` + auto-update Brewfile in one command |
 | `--dest` staging flag | Apply to a staging directory for testing without touching real home |
 | Auto-generated CLAUDE.md | Regenerates `~/.claude/CLAUDE.md` listing installed skills after every apply |
 

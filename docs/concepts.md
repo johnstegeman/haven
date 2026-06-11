@@ -76,7 +76,7 @@ brew/
 └── Brewfile.work         ← packages for the "work" module
 ```
 
-Use `haven brew install` to install a package *and* record it in the Brewfile in one step. On `haven apply --brews`, haven runs `brew bundle install` for every active module's Brewfile.
+Use `haven pkg install` to install a package *and* record it in the Brewfile in one step. On `haven apply --brews`, haven runs `brew bundle install` for every active module's Brewfile.
 
 ### `modules/` — module definitions
 

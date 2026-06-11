@@ -16,8 +16,8 @@ haven diff  [--profile <p>] [--module <m>]
             [--stat] [--color always|never|auto]
 haven status [--profile <p>] [--files] [--brews] [--ai]
 haven source-path
-haven brew install <name> [--cask] [--module <m>]
-haven brew uninstall <name> [--cask]
+haven pkg install <name> [--cask] [--module <m>] [--brew] [--mise]
+haven pkg uninstall <name> [--cask] [--brew] [--mise]
 haven import --from chezmoi [--source <dir>] [--dry-run]
              [--include-ignored-files]
 haven ai discover
@@ -199,25 +199,27 @@ haven data
 
 ---
 
-## `haven brew install`
+## `haven pkg install`
 
-Install a Homebrew formula or cask and record it in a Brewfile.
+Install a package and record it in a Brewfile (brew backend) or runtime config (mise backend).
 
 ```sh
-haven brew install <name> [--cask] [--module <m>]
+haven pkg install <name> [--cask] [--module <m>] [--brew] [--mise]
 ```
 
 | Option | Description |
 |--------|-------------|
-| `--cask` | Install as a cask. |
+| `--cask` | Install as a cask. Implies brew backend. |
 | `--module <m>` | Record in this module's Brewfile. Default: master `brew/Brewfile`. |
+| `--brew` | Force brew backend. |
+| `--mise` | Force mise backend (not yet available). |
 
-## `haven brew uninstall`
+## `haven pkg uninstall`
 
-Uninstall a formula or cask and remove it from all Brewfiles.
+Uninstall a package and remove it from all Brewfiles (brew backend).
 
 ```sh
-haven brew uninstall <name> [--cask]
+haven pkg uninstall <name> [--cask] [--brew] [--mise]
 ```
 
 ---

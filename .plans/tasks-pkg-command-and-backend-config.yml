@@ -55,7 +55,7 @@ tasks:
       Wire the dispatch to `commands::pkg::install` and `commands::pkg::uninstall`. Then
       remove the `Brew` variant from `Commands`, remove `BrewAction`, and remove the
       `Commands::Brew` dispatch arm. Register `commands::pkg` in `src/main.rs` mod declarations.
-    status: pending
+    status: completed
     dependencies:
       - task-002
     acceptance_criteria:
@@ -65,7 +65,7 @@ tasks:
       - "`haven brew` subcommand no longer exists (removed from help output and dispatch)"
       - "`haven pkg install X --mise` prints a clean error and exits non-zero without mutating files"
       - "`cargo build` succeeds with no compile errors"
-    completed_at: null
+    completed_at: "2026-06-11T00:00:00Z"
 
   - id: task-004
     title: "Update all references to 'haven brew' across codebase"

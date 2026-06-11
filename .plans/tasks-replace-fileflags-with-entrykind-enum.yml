@@ -1,0 +1,93 @@
+feature: replace-fileflags-with-entrykind-enum
+prd: ./prd-replace-fileflags-with-entrykind-enum.md
+created_at: "2026-06-11T00:00:00Z"
+updated_at: "2026-06-11T00:00:00Z"
+
+tasks:
+  - id: task-001
+    title: 'Add EntryKind enum and dual-field SourceEntry in source.rs'
+    description: |
+      Add the new public `EntryKind` enum (`PlainFile`, `Symlink`, `ExternalDir`,
+      `ExternalFile`) to `src/source.rs`. Add `kind: EntryKind`, `private: bool`,
+      `executable: bool`, `template: bool`, and `create_only: bool` as new fields
+      on `SourceEntry` (keeping the existing `flags: FileFlags` field temporarily
+      for backward compatibility). Simplify `SourceDir` to use `private: bool` and
+      `exact: bool` directly instead of `flags: FileFlags`. Update `decode_path` to
+      populate the new `kind` and modifier fields from the decoded `FileFlags`. Make
+      `FileFlags` non-public (remove `pub`). Update all unit tests in `source.rs`
+      to assert on `e.kind` and `e.<modifier>` instead of `e.flags.*`. Run
+      `cargo test` and verify all tests pass.
+    status: pending
+    dependencies: []
+    acceptance_criteria:
+      - '`EntryKind` enum is public with variants PlainFile, Symlink, ExternalDir, ExternalFile'
+      - '`SourceEntry` has both the new `kind` + modifier fields AND still compiles with old callers using `flags`'
+      - '`SourceDir` uses `private: bool` and `exact: bool` instead of `flags: FileFlags`'
+      - '`FileFlags` is no longer `pub` in source.rs'
+      - 'All unit tests in `src/source.rs` updated and passing (`cargo test`)'
+    completed_at: null
+
+  - id: task-002
+    title: 'Migrate apply.rs to use EntryKind and modifier fields'
+    description: |
+      Update `src/commands/apply.rs` to use `entry.kind` and `entry.<modifier>` instead
+      of `entry.flags.*`. Replace the cascading `if entry.flags.extdir / extfile / symlink`
+      chain in `apply_entry` with `match entry.kind { EntryKind::ExternalDir => ...,
+      EntryKind::ExternalFile => ..., EntryKind::Symlink => ..., EntryKind::PlainFile => ... }`.
+      Update `collect_exact_dirs` to use `matches!(entry.kind, EntryKind::ExternalDir)` and
+      `dir.private` / `dir.exact`. Update `print_dry_run_entry` to match on `entry.kind` for
+      the kind tags. Update the state-cleanup guard (~line 308) to use
+      `matches!(entry.kind, EntryKind::PlainFile) && !entry.create_only`. Run `cargo build`
+      and `cargo test` and verify they pass.
+    status: pending
+    dependencies:
+      - task-001
+    acceptance_criteria:
+      - 'Zero `entry.flags.*` or `dir.flags.*` accesses remain in apply.rs'
+      - '`apply_entry` uses exhaustive `match entry.kind`'
+      - '`cargo build` and `cargo test` pass'
+    completed_at: null
+
+  - id: task-003
+    title: 'Migrate status.rs, diff.rs, and list.rs to use EntryKind'
+    description: |
+      Update `src/commands/status.rs`, `src/commands/diff.rs`, and `src/commands/list.rs`
+      to use `entry.kind` and `entry.<modifier>` instead of `entry.flags.*`. In status.rs,
+      replace the `if entry.flags.extdir / symlink / template` chain with `match entry.kind`
+      and update the C-marker guard to `matches!(entry.kind, EntryKind::PlainFile) &&
+      !entry.create_only`. In diff.rs, replace the `if entry.flags.extdir / extfile / symlink
+      / template` chain with `match entry.kind`. In list.rs, replace the 8 sequential
+      if-flag-push-tag blocks with a `match entry.kind` for the kind tag and modifier checks
+      for the rest; remove the `entry.flags.exact` check (it was always false on files). Run
+      `cargo build` and `cargo test` and verify they pass.
+    status: pending
+    dependencies:
+      - task-001
+    acceptance_criteria:
+      - 'Zero `entry.flags.*` accesses remain in status.rs, diff.rs, or list.rs'
+      - 'status.rs uses `match entry.kind` for drift routing'
+      - 'diff.rs uses `match entry.kind` for drift routing'
+      - 'list.rs no longer has an `exact` tag branch for file entries'
+      - '`cargo build` and `cargo test` pass'
+    completed_at: null
+
+  - id: task-004
+    title: 'Remove FileFlags from SourceEntry and public API'
+    description: |
+      Now that all callers are migrated (tasks 002 and 003), remove the `flags: FileFlags`
+      field from `SourceEntry`. `FileFlags` is already private to `source.rs`; it is now
+      used only as an internal intermediate inside `decode_component` and `decode_path`.
+      Verify that `FileFlags` is truly private (no `pub`) and that nothing outside
+      `source.rs` references it. Run `cargo build`, `cargo test`, and
+      `cargo test --test integration` and verify all pass with zero changes to test output.
+    status: pending
+    dependencies:
+      - task-002
+      - task-003
+    acceptance_criteria:
+      - '`SourceEntry` has no `flags` field'
+      - '`FileFlags` is not accessible outside `src/source.rs`'
+      - '`cargo build` passes with zero errors'
+      - '`cargo test` passes (unit tests)'
+      - '`cargo test --test integration` passes with no changes to test output'
+    completed_at: null

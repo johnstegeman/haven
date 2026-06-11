@@ -233,3 +233,27 @@ tasks:
     acceptance_criteria:
       - "All six binary-resolution blocks use `let-else` syntax instead of `match`"
       - "`cargo build` and `cargo clippy -- -D warnings` pass"
+
+  - id: task-012
+    title: "Move OutdatedPackage to src/packages.rs to break circular dep"
+    description: |
+      After task-010, `OutdatedPackage` lives in `src/commands/pkg.rs`, but both
+      `homebrew.rs` and `mise.rs` now import it from `crate::commands::pkg`. This
+      creates a backwards dependency: backend library modules import from the command
+      layer. Backend modules should not depend on the command layer — the arrows should
+      point the other direction. The fix: create a minimal `src/packages.rs` with just
+      the `OutdatedPackage` struct definition. Register it as a module in `src/main.rs`
+      (add `mod packages;`). Update all three import sites to use `crate::packages::OutdatedPackage`:
+      - `src/homebrew.rs`: change `use crate::commands::pkg::OutdatedPackage`
+      - `src/mise.rs`: change `use crate::commands::pkg::OutdatedPackage`
+      - `src/commands/pkg.rs`: change to `use crate::packages::OutdatedPackage`
+      Delete the `OutdatedPackage` definition from `commands/pkg.rs`. Result: clean
+      dependency arrows — backends → packages, command layer → packages + backends.
+    status: pending
+    source: review
+    dependencies: []
+    acceptance_criteria:
+      - "`src/packages.rs` exists and defines `OutdatedPackage`"
+      - "`homebrew.rs` and `mise.rs` no longer import from `crate::commands::pkg`"
+      - "`commands/pkg.rs` no longer defines `OutdatedPackage` — it imports from `crate::packages`"
+      - "`cargo build` and `cargo clippy -- -D warnings` pass"

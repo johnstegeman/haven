@@ -225,7 +225,8 @@ tasks:
         };
       Apply the same transformation to all three mise variants. This prevents the pattern
       from being copy-pasted again if a third backend is added.
-    status: pending
+    status: completed
+    completed_at: "2026-06-11T27:00:00Z"
     source: review
     dependencies:
       - task-010

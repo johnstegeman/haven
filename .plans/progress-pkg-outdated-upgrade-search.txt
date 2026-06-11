@@ -46,3 +46,7 @@ Files: ~CLAUDE.md, ~CHANGELOG.md, ~docs/reference/commands.md, ~docs/COMMANDS.md
 ## TASK-010 — 2026-06-11T26:00:00Z
 Moved OutdatedPackage from homebrew.rs to commands/pkg.rs; updated homebrew.rs and mise.rs imports; removed 6 spurious #[allow(dead_code)] attributes.
 Files: ~src/homebrew.rs, ~src/mise.rs, ~src/commands/pkg.rs
+
+## TASK-011 — 2026-06-11T27:00:00Z
+Replaced 6 binary-resolution match blocks with let-else in commands/pkg.rs.
+Files: ~src/commands/pkg.rs

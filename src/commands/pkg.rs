@@ -108,12 +108,9 @@ pub fn outdated(repo_root: &Path, cfg: &HavenConfig) -> Result<()> {
     for backend in &allowed {
         match backend.as_str() {
             "brew" => {
-                let brew = match homebrew::brew_path() {
-                    Some(p) => p,
-                    None => {
-                        println!("brew not available — skipping");
-                        continue;
-                    }
+                let Some(brew) = homebrew::brew_path() else {
+                    println!("brew not available — skipping");
+                    continue;
                 };
                 let brew_str = brew.to_string_lossy();
                 match homebrew::brew_outdated(&brew_str) {
@@ -131,12 +128,9 @@ pub fn outdated(repo_root: &Path, cfg: &HavenConfig) -> Result<()> {
                 }
             }
             "mise" => {
-                let mise_bin = match mise_lib::mise_path() {
-                    Some(p) => p,
-                    None => {
-                        println!("mise not available — skipping");
-                        continue;
-                    }
+                let Some(mise_bin) = mise_lib::mise_path() else {
+                    println!("mise not available — skipping");
+                    continue;
                 };
                 let mise_str = mise_bin.to_string_lossy();
                 let misefiles = mise_cmd::all_misefiles(repo_root)?;
@@ -180,12 +174,9 @@ pub fn upgrade(repo_root: &Path, name: Option<&str>, cfg: &HavenConfig) -> Resul
     for backend in &allowed {
         match backend.as_str() {
             "brew" => {
-                let brew = match homebrew::brew_path() {
-                    Some(p) => p,
-                    None => {
-                        println!("brew not available — skipping");
-                        continue;
-                    }
+                let Some(brew) = homebrew::brew_path() else {
+                    println!("brew not available — skipping");
+                    continue;
                 };
                 let brew_str = brew.to_string_lossy();
                 match homebrew::brew_upgrade(&brew_str, name) {
@@ -194,12 +185,9 @@ pub fn upgrade(repo_root: &Path, name: Option<&str>, cfg: &HavenConfig) -> Resul
                 }
             }
             "mise" => {
-                let mise_bin = match mise_lib::mise_path() {
-                    Some(p) => p,
-                    None => {
-                        println!("mise not available — skipping");
-                        continue;
-                    }
+                let Some(mise_bin) = mise_lib::mise_path() else {
+                    println!("mise not available — skipping");
+                    continue;
                 };
                 let mise_str = mise_bin.to_string_lossy();
                 let misefiles = mise_cmd::all_misefiles(repo_root)?;
@@ -233,12 +221,9 @@ pub fn search(_repo_root: &Path, term: &str, cfg: &HavenConfig) -> Result<()> {
     for backend in &allowed {
         match backend.as_str() {
             "brew" => {
-                let brew = match homebrew::brew_path() {
-                    Some(p) => p,
-                    None => {
-                        println!("brew not available — skipping");
-                        continue;
-                    }
+                let Some(brew) = homebrew::brew_path() else {
+                    println!("brew not available — skipping");
+                    continue;
                 };
                 let brew_str = brew.to_string_lossy();
                 match homebrew::brew_search(&brew_str, term) {
@@ -256,12 +241,9 @@ pub fn search(_repo_root: &Path, term: &str, cfg: &HavenConfig) -> Result<()> {
                 }
             }
             "mise" => {
-                let mise_bin = match mise_lib::mise_path() {
-                    Some(p) => p,
-                    None => {
-                        println!("mise not available — skipping");
-                        continue;
-                    }
+                let Some(mise_bin) = mise_lib::mise_path() else {
+                    println!("mise not available — skipping");
+                    continue;
                 };
                 let mise_str = mise_bin.to_string_lossy();
                 match mise_lib::mise_search(&mise_str, term) {

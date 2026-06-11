@@ -68,7 +68,8 @@ tasks:
       resolve the new version, rewrite `[tools]` via `toml_edit` helpers already used
       in the codebase, then call `install_tools`. After upgrading, assert (read back
       the config file) that the pin actually changed to confirm the rewrite worked.
-    status: pending
+    status: completed
+    completed_at: "2026-06-11T20:30:00Z"
     dependencies:
       - task-003
     acceptance_criteria:

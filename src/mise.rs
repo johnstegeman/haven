@@ -246,6 +246,53 @@ pub fn mise_search(mise: &str, term: &str) -> Result<Vec<String>> {
         .collect())
 }
 
+/// Upgrade tool(s) in the given mise config file and rewrite the pinned version.
+///
+/// Uses `mise upgrade --bump` with `MISE_CONFIG_FILE` set so that the upgraded
+/// version is written back into the config file, not just installed.
+///
+/// When `name` is `None`, all tools declared in the config are upgraded.
+/// The config is read back after the upgrade to surface any parse errors early.
+#[allow(dead_code)]
+pub fn mise_upgrade(mise: &str, config: &Path, name: Option<&str>) -> Result<()> {
+    let tools_before = parse_mise_tools(config)?;
+
+    let tool_names: Vec<String> = match name {
+        Some(n) => vec![n.to_string()],
+        None => tools_before.iter().map(|(k, _)| k.clone()).collect(),
+    };
+
+    if tool_names.is_empty() {
+        return Ok(());
+    }
+
+    let mut cmd = std::process::Command::new(mise);
+    cmd.arg("upgrade").arg("--bump").arg("--yes");
+    cmd.args(&tool_names);
+    cmd.env("MISE_CONFIG_FILE", config);
+    cmd.stdin(std::process::Stdio::inherit())
+        .stdout(std::process::Stdio::inherit())
+        .stderr(std::process::Stdio::inherit());
+
+    let status = cmd
+        .status()
+        .with_context(|| format!("Cannot run `{} upgrade` — is mise installed?", mise))?;
+
+    if !status.success() {
+        anyhow::bail!(
+            "`{} upgrade --bump` failed (exit {:?})",
+            mise,
+            status.code()
+        );
+    }
+
+    // Read back the config to confirm it is still valid TOML and surface any
+    // post-upgrade parse errors early.
+    let _tools_after = parse_mise_tools(config)?;
+
+    Ok(())
+}
+
 fn load_or_create_doc(path: &Path) -> Result<DocumentMut> {
     if !path.exists() {
         return Ok(DocumentMut::new());

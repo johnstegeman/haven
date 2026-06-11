@@ -3,3 +3,4 @@
 .gstack/
 .claude/settings.local.json
 .claude/**
+haven.local.toml

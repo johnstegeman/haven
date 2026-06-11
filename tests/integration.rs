@@ -1277,6 +1277,47 @@ fn status_ai_flag_shows_only_ai_section() {
 }
 
 #[test]
+fn local_toml_data_overrides_shared_data() {
+    // haven.local.toml [data] keys should override those in haven.toml and add new ones.
+    let repo = TempDir::new().unwrap();
+    let home = TempDir::new().unwrap();
+    cmd(&repo).arg("init").assert().success();
+
+    // Template that reads two data variables.
+    fs::write(
+        repo.path().join("source").join("dot_cfg.tmpl"),
+        "email={{ data.email }}\nextra={{ data.extra }}\n",
+    )
+    .unwrap();
+
+    // Shared config: sets email and extra.
+    fs::write(
+        repo.path().join("haven.toml"),
+        "[profile.default]\nmodules = []\n\n[data]\nemail = \"shared@example.com\"\nextra = \"base\"\n",
+    )
+    .unwrap();
+
+    // Local override: overrides email, leaves extra alone.
+    fs::write(
+        repo.path().join("haven.local.toml"),
+        "[data]\nemail = \"local@example.com\"\n",
+    )
+    .unwrap();
+
+    cmd_home(&repo, &home).arg("apply").assert().success();
+
+    let content = fs::read_to_string(home.path().join(".cfg")).unwrap();
+    assert!(
+        content.contains("email=local@example.com"),
+        "local override should win, got: {content}"
+    );
+    assert!(
+        content.contains("extra=base"),
+        "non-overridden key should come from haven.toml, got: {content}"
+    );
+}
+
+#[test]
 fn apply_fails_on_malformed_template() {
     let repo = TempDir::new().unwrap();
     let home = TempDir::new().unwrap();

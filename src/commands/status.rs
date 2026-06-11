@@ -52,6 +52,7 @@ pub fn run(opts: &StatusOptions<'_>) -> Result<()> {
         let source_dir = opts.repo_root.join("source");
         let ignore = IgnoreList::load(opts.repo_root, &template_ctx);
         let entries = source::scan(&source_dir, &ignore)?;
+        source::warn_duplicate_destinations(&entries);
 
         let mut file_drift: Vec<(String, String)> = Vec::new();
         for entry in &entries {

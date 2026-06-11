@@ -4,6 +4,21 @@
 
 The top-level configuration file at the repo root. All sections are optional.
 
+## `haven.local.toml`
+
+An optional, **gitignored** override file at the repo root for per-machine customization.
+If present, its `[data]` keys are merged over those in `haven.toml` — local keys win.
+
+```toml
+# haven.local.toml  ← add to .gitignore, never commit
+
+[data]
+work_email  = "alice@acme.com"      # overrides the shared value
+local_thing = "only on this machine"
+```
+
+All other sections (`[profile.*]`, `[security]`, etc.) are ignored in this file — only `[data]` is merged.
+
 ```toml
 # haven.toml
 

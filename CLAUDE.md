@@ -284,3 +284,17 @@ The repo itself uses jj. Always use `jj` commands for VCS operations in this pro
 - **Adding a new command**: add variant to clap enum in `main.rs`, create `commands/<name>.rs`, wire up dispatch
 - **Adding config to haven.toml**: add field to `HavenConfig` in `config/haven.rs` (serde default so existing files parse fine)
 - **Adding a new platform**: add entry to `src/data/platforms.toml`
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues (`github.com/johnstegeman/haven`). See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context repo — one `CONTEXT.md` + `docs/adr/` at the root. See `docs/agents/domain.md`.

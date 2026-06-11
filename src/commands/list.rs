@@ -8,7 +8,7 @@ use std::path::Path;
 
 use crate::config::{sort_modules, HavenConfig, ModuleConfig};
 use crate::ignore::IgnoreList;
-use crate::source;
+use crate::source::{self, EntryKind};
 use crate::template::TemplateContext;
 
 pub struct ListOptions<'a> {
@@ -59,29 +59,23 @@ pub fn run(opts: &ListOptions<'_>) -> Result<()> {
             }
             for entry in &matched {
                 let mut tags: Vec<&str> = Vec::new();
-                if entry.flags.template {
+                match entry.kind {
+                    EntryKind::Symlink => tags.push("symlink"),
+                    EntryKind::ExternalDir => tags.push("extdir"),
+                    EntryKind::ExternalFile => tags.push("extfile"),
+                    EntryKind::PlainFile => {}
+                }
+                if entry.template {
                     tags.push("template");
                 }
-                if entry.flags.symlink {
-                    tags.push("symlink");
-                }
-                if entry.flags.private {
+                if entry.private {
                     tags.push("private");
                 }
-                if entry.flags.executable {
+                if entry.executable {
                     tags.push("executable");
                 }
-                if entry.flags.extdir {
-                    tags.push("extdir");
-                }
-                if entry.flags.extfile {
-                    tags.push("extfile");
-                }
-                if entry.flags.create_only {
+                if entry.create_only {
                     tags.push("create-only");
-                }
-                if entry.flags.exact {
-                    tags.push("exact");
                 }
 
                 let indent = if none_specified { "" } else { "  " };

@@ -32,7 +32,7 @@ use crate::ignore::IgnoreList;
 use crate::skill_backend::{DeploymentTarget, ResolvedSkill, SkillMetadata};
 use crate::skill_backend_factory::create_backend;
 use crate::skill_cache::SkillCache;
-use crate::source::{scan, scan_scripts, ScriptExecWhen, SourceEntry};
+use crate::source::{scan, scan_scripts, EntryKind, ScriptExecWhen, SourceEntry};
 use crate::state::{AiDeployedEntry, AppliedFileEntry, ModuleState, State};
 use crate::template::TemplateContext;
 use crate::vcs::{self, MigrateOutcome, VcsBackend};
@@ -306,9 +306,7 @@ pub fn run(opts: &ApplyOptions<'_>) -> Result<ApplyOutcome> {
     if opts.apply_files && !opts.dry_run {
         let tracked: HashSet<&str> = entries
             .iter()
-            .filter(|e| {
-                !e.flags.extdir && !e.flags.extfile && !e.flags.symlink && !e.flags.create_only
-            })
+            .filter(|e| matches!(e.kind, EntryKind::PlainFile) && !e.create_only)
             .map(|e| e.dest_tilde.as_str())
             .collect();
         state
@@ -597,12 +595,12 @@ fn collect_exact_dirs(
     let mut exact_dirs: HashMap<PathBuf, HashSet<String>> = HashMap::new();
 
     for entry in entries {
-        if entry.flags.extdir {
+        if matches!(entry.kind, EntryKind::ExternalDir) {
             continue;
         }
 
         for (idx, dir) in entry.dirs.iter().enumerate() {
-            if !dir.flags.exact {
+            if !dir.exact {
                 continue;
             }
 
@@ -691,253 +689,269 @@ fn apply_entry(
         if !dir_path.exists() {
             std::fs::create_dir_all(&dir_path)
                 .with_context(|| format!("Cannot create directory {}", dir_path.display()))?;
-            if dir.flags.private {
+            if dir.private {
                 apply_permissions(&dir_path, true, false)
                     .with_context(|| format!("Cannot set permissions on {}", dir_path.display()))?;
             }
         }
     }
 
-    if entry.flags.extdir {
-        let content = parse_extdir_content(&entry.src)
-            .with_context(|| format!("Bad extdir marker: {}", entry.src.display()))?;
-        if content.kind != "git" {
-            anyhow::bail!(
-                "extdir type '{}' is not supported (only 'git'): {}",
-                content.kind,
-                entry.src.display()
-            );
-        }
-        apply_vcs_external(
-            &content.url,
-            content.ref_name.as_deref(),
-            &dest,
-            opts,
-            &mut run_state.jj_migrate_all,
-        )?;
-        println!("  ✓ {}", dest.display());
-        return Ok(true);
-    }
-
-    if entry.flags.extfile {
-        let content = parse_extfile_content(&entry.src)
-            .with_context(|| format!("Bad extfile marker: {}", entry.src.display()))?;
-        apply_extfile_entry(&content, &dest, opts.backup_dir)?;
-        // chmod +x when executable_ prefix is set.
-        if entry.flags.executable && content.kind == "file" {
-            apply_permissions(&dest, false, true)
-                .with_context(|| format!("Cannot set permissions on {}", dest.display()))?;
-        }
-        println!("  ✓ {}", dest.display());
-        return Ok(true);
-    }
-
-    if entry.flags.symlink {
-        if entry.flags.private || entry.flags.executable {
-            eprintln!(
-                "warning: private/executable flags are ignored for symlink entries ({})",
-                entry.dest_tilde
-            );
-        }
-        // For symlink+template: render the file content to get the target path.
-        let link_target = if entry.flags.template {
-            let source_text = std::fs::read_to_string(&entry.src)
-                .with_context(|| format!("Cannot read template {}", entry.src.display()))?;
-            let rendered = crate::template::render(&source_text, template_ctx)
-                .with_context(|| format!("Cannot render template '{}'", entry.src.display()))?;
-            PathBuf::from(rendered.trim())
-        } else {
-            entry.src.clone()
-        };
-        // Skip silently when the symlink already points to the right target,
-        // matching the behaviour of regular files that are already up-to-date.
-        let already_correct = dest.is_symlink()
-            && std::fs::read_link(&dest)
-                .map(|t| t == link_target)
-                .unwrap_or(false);
-        if already_correct {
-            return Ok(false);
-        }
-        let backup = apply_symlink(&link_target, &dest, opts.backup_dir).with_context(|| {
-            format!("Cannot link {} → {}", dest.display(), link_target.display())
-        })?;
-        if let Some(b) = backup {
-            println!("  backed up {} → {}", dest.display(), b.display());
-        }
-        println!("  ✓ {} ⟶ {}", dest.display(), link_target.display());
-        return Ok(true);
-    }
-
-    // create_only: seed-only file — excluded from hash tracking (apply never
-    // overwrites them, so a C marker in status would be misleading).
-    if entry.flags.create_only && dest.exists() {
-        println!(
-            "  ~ {} (create_only — already exists, not overwritten)",
-            dest.display()
-        );
-        return Ok(false);
-    }
-
-    // Render template or read source content.
-    // Some(_) for templates, None for plain copies
-    let new_content: Option<String> = if entry.flags.template {
-        let source_text = std::fs::read_to_string(&entry.src)
-            .with_context(|| format!("Cannot read template {}", entry.src.display()))?;
-        let rendered = crate::template::render(&source_text, template_ctx)
-            .with_context(|| format!("Cannot render template '{}'", entry.src.display()))?;
-        Some(rendered)
-    } else {
-        None
-    };
-
-    // ── Conflict detection ────────────────────────────────────────────────────
-    // Path A: no prior hash in state — use existing idempotency logic.
-    // Path B: prior hash exists — check whether dest was edited since last apply.
-    if dest.exists() && !dest.is_symlink() {
-        let prior = run_state
-            .state
-            .applied_files
-            .get(&entry.dest_tilde)
-            .cloned();
-        match prior {
-            None => {
-                // Path A: no prior hash. Check idempotency with files_equal / string compare.
-                let already_matches = match &new_content {
-                    Some(rendered) => std::fs::read_to_string(&dest)
-                        .map(|existing| existing == *rendered)
-                        .unwrap_or(false),
-                    None => files_equal(&entry.src, &dest),
-                };
-                if already_matches {
-                    // Seed the hash so conflict detection is active from next apply.
-                    let hash = match &new_content {
-                        Some(rendered) => sha256_of_str(rendered),
-                        None => {
-                            let bytes = std::fs::read(&dest).unwrap_or_default();
-                            sha256_of_bytes(&bytes)
-                        }
-                    };
-                    run_state
-                        .state
-                        .applied_files
-                        .insert(entry.dest_tilde.clone(), AppliedFileEntry { sha256: hash });
-                    // Re-apply permissions in case they drifted, then silently return.
-                    if entry.flags.private || entry.flags.executable {
-                        apply_permissions(&dest, entry.flags.private, entry.flags.executable)
-                            .with_context(|| {
-                                format!("Cannot set permissions on {}", dest.display())
-                            })?;
-                    }
-                    return Ok(false);
-                }
-                // Path A fall-through: dest differs from source — write it (no prompt).
+    match entry.kind {
+        EntryKind::ExternalDir => {
+            let content = parse_extdir_content(&entry.src)
+                .with_context(|| format!("Bad extdir marker: {}", entry.src.display()))?;
+            if content.kind != "git" {
+                anyhow::bail!(
+                    "extdir type '{}' is not supported (only 'git'): {}",
+                    content.kind,
+                    entry.src.display()
+                );
             }
-            Some(prior_entry) => {
-                // Path B: prior hash exists. Read dest bytes to detect user edit.
-                let dest_bytes = std::fs::read(&dest)
-                    .with_context(|| format!("Cannot read {}", dest.display()))?;
-                // Strip the haven-managed section (if any) before hashing, so that
-                // haven appending its own section to a file (e.g. CLAUDE.md) is not
-                // mistaken for a user edit.  This mirrors what status.rs does.
-                let dest_hash = match std::str::from_utf8(&dest_bytes) {
-                    Ok(text) => {
-                        let stripped = crate::claude_md::strip_haven_section(text);
-                        sha256_of_bytes(stripped.as_bytes())
-                    }
-                    Err(_) => sha256_of_bytes(&dest_bytes),
-                };
+            apply_vcs_external(
+                &content.url,
+                content.ref_name.as_deref(),
+                &dest,
+                opts,
+                &mut run_state.jj_migrate_all,
+            )?;
+            println!("  ✓ {}", dest.display());
+            Ok(true)
+        }
 
-                if dest_hash != prior_entry.sha256 {
-                    // User edited dest since last apply — resolve conflict.
-                    let action =
-                        resolve_conflict(entry, opts, run_state, &dest, &dest_bytes, &new_content)?;
-                    match action {
-                        ConflictAction::Skip => {
-                            run_state.had_conflict_skips = true;
-                            println!("  ~ {} (skipped — keeping your version)", dest.display());
+        EntryKind::ExternalFile => {
+            let content = parse_extfile_content(&entry.src)
+                .with_context(|| format!("Bad extfile marker: {}", entry.src.display()))?;
+            apply_extfile_entry(&content, &dest, opts.backup_dir)?;
+            if entry.executable && content.kind == "file" {
+                apply_permissions(&dest, false, true)
+                    .with_context(|| format!("Cannot set permissions on {}", dest.display()))?;
+            }
+            println!("  ✓ {}", dest.display());
+            Ok(true)
+        }
+
+        EntryKind::Symlink => {
+            if entry.private || entry.executable {
+                eprintln!(
+                    "warning: private/executable flags are ignored for symlink entries ({})",
+                    entry.dest_tilde
+                );
+            }
+            let link_target = if entry.template {
+                let source_text = std::fs::read_to_string(&entry.src)
+                    .with_context(|| format!("Cannot read template {}", entry.src.display()))?;
+                let rendered = crate::template::render(&source_text, template_ctx)
+                    .with_context(|| format!("Cannot render template '{}'", entry.src.display()))?;
+                PathBuf::from(rendered.trim())
+            } else {
+                entry.src.clone()
+            };
+            let already_correct = dest.is_symlink()
+                && std::fs::read_link(&dest)
+                    .map(|t| t == link_target)
+                    .unwrap_or(false);
+            if already_correct {
+                return Ok(false);
+            }
+            let backup =
+                apply_symlink(&link_target, &dest, opts.backup_dir).with_context(|| {
+                    format!("Cannot link {} → {}", dest.display(), link_target.display())
+                })?;
+            if let Some(b) = backup {
+                println!("  backed up {} → {}", dest.display(), b.display());
+            }
+            println!("  ✓ {} ⟶ {}", dest.display(), link_target.display());
+            Ok(true)
+        }
+
+        EntryKind::PlainFile => {
+            // create_only: seed-only file — excluded from hash tracking (apply never
+            // overwrites them, so a C marker in status would be misleading).
+            if entry.create_only && dest.exists() {
+                println!(
+                    "  ~ {} (create_only — already exists, not overwritten)",
+                    dest.display()
+                );
+                return Ok(false);
+            }
+
+            // Render template or read source content.
+            // Some(_) for templates, None for plain copies
+            let new_content: Option<String> = if entry.template {
+                let source_text = std::fs::read_to_string(&entry.src)
+                    .with_context(|| format!("Cannot read template {}", entry.src.display()))?;
+                let rendered = crate::template::render(&source_text, template_ctx)
+                    .with_context(|| {
+                        format!("Cannot render template '{}'", entry.src.display())
+                    })?;
+                Some(rendered)
+            } else {
+                None
+            };
+
+            // ── Conflict detection ────────────────────────────────────────────────────
+            // Path A: no prior hash in state — use existing idempotency logic.
+            // Path B: prior hash exists — check whether dest was edited since last apply.
+            if dest.exists() && !dest.is_symlink() {
+                let prior = run_state
+                    .state
+                    .applied_files
+                    .get(&entry.dest_tilde)
+                    .cloned();
+                match prior {
+                    None => {
+                        // Path A: no prior hash. Check idempotency with files_equal / string compare.
+                        let already_matches = match &new_content {
+                            Some(rendered) => std::fs::read_to_string(&dest)
+                                .map(|existing| existing == *rendered)
+                                .unwrap_or(false),
+                            None => files_equal(&entry.src, &dest),
+                        };
+                        if already_matches {
+                            // Seed the hash so conflict detection is active from next apply.
+                            let hash = match &new_content {
+                                Some(rendered) => sha256_of_str(rendered),
+                                None => {
+                                    let bytes = std::fs::read(&dest).unwrap_or_default();
+                                    sha256_of_bytes(&bytes)
+                                }
+                            };
+                            run_state.state.applied_files.insert(
+                                entry.dest_tilde.clone(),
+                                AppliedFileEntry { sha256: hash },
+                            );
+                            // Re-apply permissions in case they drifted, then silently return.
+                            if entry.private || entry.executable {
+                                apply_permissions(&dest, entry.private, entry.executable)
+                                    .with_context(|| {
+                                        format!("Cannot set permissions on {}", dest.display())
+                                    })?;
+                            }
                             return Ok(false);
                         }
-                        ConflictAction::Overwrite => {
-                            // Fall through to the write path below.
-                        }
+                        // Path A fall-through: dest differs from source — write it (no prompt).
                     }
-                } else {
-                    // dest unchanged since last apply. Check if source changed.
-                    let source_matches = match &new_content {
-                        Some(rendered) => match std::str::from_utf8(&dest_bytes) {
-                            Ok(text) => crate::claude_md::strip_haven_section(text) == *rendered,
-                            Err(_) => false,
-                        },
-                        None => {
-                            let src_bytes = std::fs::read(&entry.src)
-                                .with_context(|| format!("Cannot read {}", entry.src.display()))?;
-                            // Strip the haven section from dest before comparing so that
-                            // haven-appended content doesn't make a plain file look changed.
-                            match std::str::from_utf8(&dest_bytes) {
-                                Ok(text) => {
-                                    crate::claude_md::strip_haven_section(text).as_bytes()
-                                        == src_bytes.as_slice()
-                                }
-                                Err(_) => dest_bytes == src_bytes,
+                    Some(prior_entry) => {
+                        // Path B: prior hash exists. Read dest bytes to detect user edit.
+                        let dest_bytes = std::fs::read(&dest)
+                            .with_context(|| format!("Cannot read {}", dest.display()))?;
+                        // Strip the haven-managed section (if any) before hashing, so that
+                        // haven appending its own section to a file (e.g. CLAUDE.md) is not
+                        // mistaken for a user edit.  This mirrors what status.rs does.
+                        let dest_hash = match std::str::from_utf8(&dest_bytes) {
+                            Ok(text) => {
+                                let stripped = crate::claude_md::strip_haven_section(text);
+                                sha256_of_bytes(stripped.as_bytes())
                             }
+                            Err(_) => sha256_of_bytes(&dest_bytes),
+                        };
+
+                        if dest_hash != prior_entry.sha256 {
+                            // User edited dest since last apply — resolve conflict.
+                            let action = resolve_conflict(
+                                entry,
+                                opts,
+                                run_state,
+                                &dest,
+                                &dest_bytes,
+                                &new_content,
+                            )?;
+                            match action {
+                                ConflictAction::Skip => {
+                                    run_state.had_conflict_skips = true;
+                                    println!(
+                                        "  ~ {} (skipped — keeping your version)",
+                                        dest.display()
+                                    );
+                                    return Ok(false);
+                                }
+                                ConflictAction::Overwrite => {
+                                    // Fall through to the write path below.
+                                }
+                            }
+                        } else {
+                            // dest unchanged since last apply. Check if source changed.
+                            let source_matches = match &new_content {
+                                Some(rendered) => match std::str::from_utf8(&dest_bytes) {
+                                    Ok(text) => {
+                                        crate::claude_md::strip_haven_section(text) == *rendered
+                                    }
+                                    Err(_) => false,
+                                },
+                                None => {
+                                    let src_bytes = std::fs::read(&entry.src).with_context(
+                                        || format!("Cannot read {}", entry.src.display()),
+                                    )?;
+                                    // Strip the haven section from dest before comparing so that
+                                    // haven-appended content doesn't make a plain file look changed.
+                                    match std::str::from_utf8(&dest_bytes) {
+                                        Ok(text) => {
+                                            crate::claude_md::strip_haven_section(text).as_bytes()
+                                                == src_bytes.as_slice()
+                                        }
+                                        Err(_) => dest_bytes == src_bytes,
+                                    }
+                                }
+                            };
+                            if source_matches {
+                                // Still identical — no write needed.
+                                if entry.private || entry.executable {
+                                    apply_permissions(&dest, entry.private, entry.executable)
+                                        .with_context(|| {
+                                            format!("Cannot set permissions on {}", dest.display())
+                                        })?;
+                                }
+                                return Ok(false);
+                            }
+                            // Source changed, dest unchanged — write silently (no prompt).
                         }
-                    };
-                    if source_matches {
-                        // Still identical — no write needed.
-                        if entry.flags.private || entry.flags.executable {
-                            apply_permissions(&dest, entry.flags.private, entry.flags.executable)
-                                .with_context(|| {
-                                format!("Cannot set permissions on {}", dest.display())
-                            })?;
-                        }
-                        return Ok(false);
                     }
-                    // Source changed, dest unchanged — write silently (no prompt).
                 }
             }
+
+            // ── Write ─────────────────────────────────────────────────────────────────
+
+            // Back up existing file before overwriting.
+            if dest.exists() {
+                let backup = backup_file(&dest, opts.backup_dir)
+                    .with_context(|| format!("Cannot back up {}", dest.display()))?;
+                println!("  backed up {} → {}", dest.display(), backup.display());
+            }
+
+            let written_hash = match &new_content {
+                Some(rendered) => {
+                    write_to_dest(rendered, &dest).with_context(|| {
+                        format!("Cannot write rendered file to {}", dest.display())
+                    })?;
+                    sha256_of_str(rendered)
+                }
+                None => {
+                    let src_bytes = std::fs::read(&entry.src)
+                        .with_context(|| format!("Cannot read {}", entry.src.display()))?;
+                    copy_to_dest(&entry.src, &dest).with_context(|| {
+                        format!("Cannot copy {} → {}", entry.src.display(), dest.display())
+                    })?;
+                    sha256_of_bytes(&src_bytes)
+                }
+            };
+
+            // Record hash so conflict detection fires on the next apply.
+            run_state.state.applied_files.insert(
+                entry.dest_tilde.clone(),
+                AppliedFileEntry {
+                    sha256: written_hash,
+                },
+            );
+
+            if entry.private || entry.executable {
+                apply_permissions(&dest, entry.private, entry.executable)
+                    .with_context(|| format!("Cannot set permissions on {}", dest.display()))?;
+            }
+
+            println!("  ✓ {}", dest.display());
+            Ok(true)
         }
     }
-
-    // ── Write ─────────────────────────────────────────────────────────────────
-
-    // Back up existing file before overwriting.
-    if dest.exists() {
-        let backup = backup_file(&dest, opts.backup_dir)
-            .with_context(|| format!("Cannot back up {}", dest.display()))?;
-        println!("  backed up {} → {}", dest.display(), backup.display());
-    }
-
-    let written_hash = match &new_content {
-        Some(rendered) => {
-            write_to_dest(rendered, &dest)
-                .with_context(|| format!("Cannot write rendered file to {}", dest.display()))?;
-            sha256_of_str(rendered)
-        }
-        None => {
-            let src_bytes = std::fs::read(&entry.src)
-                .with_context(|| format!("Cannot read {}", entry.src.display()))?;
-            copy_to_dest(&entry.src, &dest).with_context(|| {
-                format!("Cannot copy {} → {}", entry.src.display(), dest.display())
-            })?;
-            sha256_of_bytes(&src_bytes)
-        }
-    };
-
-    // Record hash so conflict detection fires on the next apply.
-    run_state.state.applied_files.insert(
-        entry.dest_tilde.clone(),
-        AppliedFileEntry {
-            sha256: written_hash,
-        },
-    );
-
-    if entry.flags.private || entry.flags.executable {
-        apply_permissions(&dest, entry.flags.private, entry.flags.executable)
-            .with_context(|| format!("Cannot set permissions on {}", dest.display()))?;
-    }
-
-    println!("  ✓ {}", dest.display());
-    Ok(true)
 }
 
 // ─── Conflict resolution ──────────────────────────────────────────────────────
@@ -1068,83 +1082,80 @@ fn print_dry_run_entry(entry: &SourceEntry, dest_root: &Path) {
         Err(_) => PathBuf::from(&entry.dest_tilde),
     };
 
-    if entry.flags.extdir {
-        match parse_extdir_content(&entry.src) {
-            Ok(content) => {
-                let ref_hint = content.ref_name.as_deref().unwrap_or("default branch");
-                println!(
-                    "  [extdir] clone {} → {}  ({})",
-                    content.url,
-                    dest.display(),
-                    ref_hint
-                );
-            }
-            Err(_) => {
-                println!("  [extdir] {}  (marker unreadable)", dest.display());
-            }
-        }
-        return;
-    }
-
-    if entry.flags.extfile {
-        match parse_extfile_content(&entry.src) {
-            Ok(content) => {
-                let ref_hint = content.ref_name.as_deref().unwrap_or("latest");
-                let type_hint = if content.kind == "archive" {
-                    "extract"
-                } else {
-                    "download"
-                };
-                println!(
-                    "  [extfile] {} {} → {}  ({})",
-                    type_hint,
-                    content.url,
-                    dest.display(),
-                    ref_hint
-                );
-            }
-            Err(_) => {
-                println!("  [extfile] {}  (marker unreadable)", dest.display());
+    match entry.kind {
+        EntryKind::ExternalDir => {
+            match parse_extdir_content(&entry.src) {
+                Ok(content) => {
+                    let ref_hint = content.ref_name.as_deref().unwrap_or("default branch");
+                    println!(
+                        "  [extdir] clone {} → {}  ({})",
+                        content.url,
+                        dest.display(),
+                        ref_hint
+                    );
+                }
+                Err(_) => {
+                    println!("  [extdir] {}  (marker unreadable)", dest.display());
+                }
             }
         }
-        return;
+        EntryKind::ExternalFile => {
+            match parse_extfile_content(&entry.src) {
+                Ok(content) => {
+                    let ref_hint = content.ref_name.as_deref().unwrap_or("latest");
+                    let type_hint = if content.kind == "archive" {
+                        "extract"
+                    } else {
+                        "download"
+                    };
+                    println!(
+                        "  [extfile] {} {} → {}  ({})",
+                        type_hint,
+                        content.url,
+                        dest.display(),
+                        ref_hint
+                    );
+                }
+                Err(_) => {
+                    println!("  [extfile] {}  (marker unreadable)", dest.display());
+                }
+            }
+        }
+        EntryKind::Symlink | EntryKind::PlainFile => {
+            let mut tags: Vec<&str> = Vec::new();
+            if entry.template {
+                tags.push("template");
+            }
+            if entry.private {
+                tags.push("private");
+            }
+            if entry.executable {
+                tags.push("executable");
+            }
+            if matches!(entry.kind, EntryKind::Symlink) {
+                tags.push("symlink");
+            }
+            if entry.create_only {
+                tags.push("create_only");
+            }
+            let annotation = if tags.is_empty() {
+                String::new()
+            } else {
+                format!("  ({})", tags.join(", "))
+            };
+            println!(
+                "  source/{} → {}{}",
+                entry
+                    .src
+                    .components()
+                    .next_back()
+                    .map(|c| c.as_os_str().to_string_lossy().into_owned())
+                    .unwrap_or_default(),
+                dest.display(),
+                annotation,
+            );
+        }
     }
-
-    let mut tags: Vec<&str> = Vec::new();
-    if entry.flags.template {
-        tags.push("template");
-    }
-    if entry.flags.private {
-        tags.push("private");
-    }
-    if entry.flags.executable {
-        tags.push("executable");
-    }
-    if entry.flags.symlink {
-        tags.push("symlink");
-    }
-    if entry.flags.create_only {
-        tags.push("create_only");
-    }
-    let annotation = if tags.is_empty() {
-        String::new()
-    } else {
-        format!("  ({})", tags.join(", "))
-    };
-    let src_rel = entry.src.file_name().unwrap_or(entry.src.as_os_str());
-    println!(
-        "  source/{} → {}{}",
-        entry
-            .src
-            .components()
-            .next_back()
-            .map(|c| c.as_os_str().to_string_lossy().into_owned())
-            .unwrap_or_default(),
-        dest.display(),
-        annotation,
-    );
-    // Print as the encoded relative path for clarity
-    let _ = src_rel; // suppress warning
 }
 
 // ─── Script execution ─────────────────────────────────────────────────────────

@@ -1,0 +1,143 @@
+feature: replace-fileflags-with-entrykind-enum
+prd: ./prd-replace-fileflags-with-entrykind-enum.md
+created_at: "2026-06-11T00:00:00Z"
+updated_at: "2026-06-11T00:00:00Z"
+
+tasks:
+  - id: task-001
+    title: 'Add EntryKind enum and dual-field SourceEntry in source.rs'
+    description: |
+      Add the new public `EntryKind` enum (`PlainFile`, `Symlink`, `ExternalDir`,
+      `ExternalFile`) to `src/source.rs`. Add `kind: EntryKind`, `private: bool`,
+      `executable: bool`, `template: bool`, and `create_only: bool` as new fields
+      on `SourceEntry` (keeping the existing `flags: FileFlags` field temporarily
+      for backward compatibility). Simplify `SourceDir` to use `private: bool` and
+      `exact: bool` directly instead of `flags: FileFlags`. Update `decode_path` to
+      populate the new `kind` and modifier fields from the decoded `FileFlags`. Make
+      `FileFlags` non-public (remove `pub`). Update all unit tests in `source.rs`
+      to assert on `e.kind` and `e.<modifier>` instead of `e.flags.*`. Run
+      `cargo test` and verify all tests pass.
+    status: completed
+    dependencies: []
+    acceptance_criteria:
+      - '`EntryKind` enum is public with variants PlainFile, Symlink, ExternalDir, ExternalFile'
+      - '`SourceEntry` has both the new `kind` + modifier fields AND still compiles with old callers using `flags`'
+      - '`SourceDir` uses `private: bool` and `exact: bool` instead of `flags: FileFlags`'
+      - '`FileFlags` is no longer `pub` in source.rs'
+      - 'All unit tests in `src/source.rs` updated and passing (`cargo test`)'
+    completed_at: "2026-06-11T00:30:00Z"
+
+  - id: task-002
+    title: 'Migrate apply.rs to use EntryKind and modifier fields'
+    description: |
+      Update `src/commands/apply.rs` to use `entry.kind` and `entry.<modifier>` instead
+      of `entry.flags.*`. Replace the cascading `if entry.flags.extdir / extfile / symlink`
+      chain in `apply_entry` with `match entry.kind { EntryKind::ExternalDir => ...,
+      EntryKind::ExternalFile => ..., EntryKind::Symlink => ..., EntryKind::PlainFile => ... }`.
+      Update `collect_exact_dirs` to use `matches!(entry.kind, EntryKind::ExternalDir)` and
+      `dir.private` / `dir.exact`. Update `print_dry_run_entry` to match on `entry.kind` for
+      the kind tags. Update the state-cleanup guard (~line 308) to use
+      `matches!(entry.kind, EntryKind::PlainFile) && !entry.create_only`. Run `cargo build`
+      and `cargo test` and verify they pass.
+    status: completed
+    dependencies:
+      - task-001
+    acceptance_criteria:
+      - 'Zero `entry.flags.*` or `dir.flags.*` accesses remain in apply.rs'
+      - '`apply_entry` uses exhaustive `match entry.kind`'
+      - '`cargo build` and `cargo test` pass'
+    completed_at: "2026-06-11T01:00:00Z"
+
+  - id: task-003
+    title: 'Migrate status.rs, diff.rs, and list.rs to use EntryKind'
+    description: |
+      Update `src/commands/status.rs`, `src/commands/diff.rs`, and `src/commands/list.rs`
+      to use `entry.kind` and `entry.<modifier>` instead of `entry.flags.*`. In status.rs,
+      replace the `if entry.flags.extdir / symlink / template` chain with `match entry.kind`
+      and update the C-marker guard to `matches!(entry.kind, EntryKind::PlainFile) &&
+      !entry.create_only`. In diff.rs, replace the `if entry.flags.extdir / extfile / symlink
+      / template` chain with `match entry.kind`. In list.rs, replace the 8 sequential
+      if-flag-push-tag blocks with a `match entry.kind` for the kind tag and modifier checks
+      for the rest; remove the `entry.flags.exact` check (it was always false on files). Run
+      `cargo build` and `cargo test` and verify they pass.
+    status: completed
+    dependencies:
+      - task-001
+    acceptance_criteria:
+      - 'Zero `entry.flags.*` accesses remain in status.rs, diff.rs, or list.rs'
+      - 'status.rs uses `match entry.kind` for drift routing'
+      - 'diff.rs uses `match entry.kind` for drift routing'
+      - 'list.rs no longer has an `exact` tag branch for file entries'
+      - '`cargo build` and `cargo test` pass'
+    completed_at: "2026-06-11T02:00:00Z"
+
+  - id: task-004
+    title: 'Remove FileFlags from SourceEntry and public API'
+    description: |
+      Now that all callers are migrated (tasks 002 and 003), remove the `flags: FileFlags`
+      field from `SourceEntry`. `FileFlags` is already private to `source.rs`; it is now
+      used only as an internal intermediate inside `decode_component` and `decode_path`.
+      Verify that `FileFlags` is truly private (no `pub`) and that nothing outside
+      `source.rs` references it. Run `cargo build`, `cargo test`, and
+      `cargo test --test integration` and verify all pass with zero changes to test output.
+    status: completed
+    dependencies:
+      - task-002
+      - task-003
+    acceptance_criteria:
+      - '`SourceEntry` has no `flags` field'
+      - '`FileFlags` is not accessible outside `src/source.rs`'
+      - '`cargo build` passes with zero errors'
+      - '`cargo test` passes (unit tests)'
+      - '`cargo test --test integration` passes with no changes to test output'
+    completed_at: "2026-06-11T03:00:00Z"
+
+  - id: task-005
+    title: 'Fix print_dry_run_entry: remove dead src_rel and use exhaustive match'
+    description: |
+      Two related issues in `src/commands/apply.rs`'s `print_dry_run_entry` function.
+      First, a dead `src_rel` variable is computed and then suppressed with `let _ = src_rel`
+      — delete it and use only one approach for the file name. Second, `print_dry_run_entry`
+      still uses `if matches!(entry.kind, EntryKind::ExternalDir)` / `if matches!(ExternalFile)`
+      fall-through guards rather than an exhaustive `match entry.kind`. If a new EntryKind
+      variant is added, the dry-run path would silently treat it as a plain file. Refactor to
+      `match entry.kind { ExternalDir => ..., ExternalFile => ..., Symlink => ...,
+      PlainFile => ... }` with explicit arms so the compiler enforces exhaustiveness. Run
+      `cargo build` and `cargo test` and verify they pass.
+    status: completed
+    dependencies:
+      - task-004
+    acceptance_criteria:
+      - 'No dead `src_rel` variable or `let _ = src_rel` suppressor in apply.rs'
+      - '`print_dry_run_entry` uses exhaustive `match entry.kind` covering all 4 variants'
+      - '`cargo build` and `cargo test` pass'
+    completed_at: "2026-06-11T05:00:00Z"
+    source: review
+
+  - id: task-006
+    title: 'Fix weakened test assertions in source.rs'
+    description: |
+      Two unit tests in `src/source.rs` had their assertions silently weakened during the
+      migration. (1) `path_extfile_simple`: the old assertion `assert!(!e.dirs.iter().any(|d|
+      d.flags.extfile))` verified extfile does not propagate to dir components; the new
+      assertion `assert!(!e.dirs.iter().any(|d| d.exact))` is trivially true and says nothing
+      about extfile propagation. Replace with a meaningful assertion (e.g. `assert_eq!(e.dirs.len(),
+      2)`) or a comment documenting that the invariant is now type-enforced (SourceDir has no
+      extfile concept). (2) `path_exact_dir_sets_flag_on_sourcedir`: the old assertion
+      `assert!(!e.flags.exact)` verified exact_ on a dir does not contaminate the file entry;
+      the new `assert!(!e.create_only)` tests a completely different property. Replace with
+      `assert_eq!(e.kind, EntryKind::PlainFile)` or a comment noting the invariant is
+      guaranteed by the type (SourceEntry has no `exact` field). Also remove the tautological
+      `assert_ne!(e.kind, EntryKind::Symlink)` in `path_extdir_plain` (which immediately
+      follows `assert_eq!(e.kind, EntryKind::ExternalDir)` — one value cannot be two variants).
+      Run `cargo test` and verify all tests pass.
+    status: completed
+    dependencies:
+      - task-004
+    acceptance_criteria:
+      - '`path_extfile_simple` assertion documents or type-enforces the no-extfile-on-dir invariant'
+      - '`path_exact_dir_sets_flag_on_sourcedir` assertion correctly tests that exact_ on dir does not affect the file entry kind'
+      - 'Tautological `assert_ne!` in `path_extdir_plain` removed'
+      - '`cargo test` passes'
+    completed_at: "2026-06-11T06:00:00Z"
+    source: review

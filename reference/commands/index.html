@@ -237,11 +237,11 @@
               <ul class="nav flex-column">
               </ul>
             </li>
-            <li class="nav-item" data-bs-level="2"><a href="#haven-brew-install" class="nav-link">haven brew install</a>
+            <li class="nav-item" data-bs-level="2"><a href="#haven-pkg-install" class="nav-link">haven pkg install</a>
               <ul class="nav flex-column">
               </ul>
             </li>
-            <li class="nav-item" data-bs-level="2"><a href="#haven-brew-uninstall" class="nav-link">haven brew uninstall</a>
+            <li class="nav-item" data-bs-level="2"><a href="#haven-pkg-uninstall" class="nav-link">haven pkg uninstall</a>
               <ul class="nav flex-column">
               </ul>
             </li>
@@ -323,8 +323,8 @@ haven diff  [--profile &lt;p&gt;] [--module &lt;m&gt;]
             [--stat] [--color always|never|auto]
 haven status [--profile &lt;p&gt;] [--files] [--brews] [--ai]
 haven source-path
-haven brew install &lt;name&gt; [--cask] [--module &lt;m&gt;]
-haven brew uninstall &lt;name&gt; [--cask]
+haven pkg install &lt;name&gt; [--cask] [--module &lt;m&gt;] [--brew] [--mise]
+haven pkg uninstall &lt;name&gt; [--cask] [--brew] [--mise]
 haven import --from chezmoi [--source &lt;dir&gt;] [--dry-run]
              [--include-ignored-files]
 haven ai discover
@@ -602,9 +602,9 @@ $EDITOR $(haven source-path)/haven.toml
 <pre><code class="language-sh">haven data
 </code></pre>
 <hr />
-<h2 id="haven-brew-install"><code>haven brew install</code><a class="headerlink" href="#haven-brew-install" title="Permanent link">&para;</a></h2>
-<p>Install a Homebrew formula or cask and record it in a Brewfile.</p>
-<pre><code class="language-sh">haven brew install &lt;name&gt; [--cask] [--module &lt;m&gt;]
+<h2 id="haven-pkg-install"><code>haven pkg install</code><a class="headerlink" href="#haven-pkg-install" title="Permanent link">&para;</a></h2>
+<p>Install a package and record it in a Brewfile (brew backend) or runtime config (mise backend).</p>
+<pre><code class="language-sh">haven pkg install &lt;name&gt; [--cask] [--module &lt;m&gt;] [--brew] [--mise]
 </code></pre>
 <table>
 <thead>
@@ -616,17 +616,25 @@ $EDITOR $(haven source-path)/haven.toml
 <tbody>
 <tr>
 <td><code>--cask</code></td>
-<td>Install as a cask.</td>
+<td>Install as a cask. Implies brew backend.</td>
 </tr>
 <tr>
 <td><code>--module &lt;m&gt;</code></td>
 <td>Record in this module's Brewfile. Default: master <code>brew/Brewfile</code>.</td>
 </tr>
+<tr>
+<td><code>--brew</code></td>
+<td>Force brew backend.</td>
+</tr>
+<tr>
+<td><code>--mise</code></td>
+<td>Force mise backend (not yet available).</td>
+</tr>
 </tbody>
 </table>
-<h2 id="haven-brew-uninstall"><code>haven brew uninstall</code><a class="headerlink" href="#haven-brew-uninstall" title="Permanent link">&para;</a></h2>
-<p>Uninstall a formula or cask and remove it from all Brewfiles.</p>
-<pre><code class="language-sh">haven brew uninstall &lt;name&gt; [--cask]
+<h2 id="haven-pkg-uninstall"><code>haven pkg uninstall</code><a class="headerlink" href="#haven-pkg-uninstall" title="Permanent link">&para;</a></h2>
+<p>Uninstall a package and remove it from all Brewfiles (brew backend).</p>
+<pre><code class="language-sh">haven pkg uninstall &lt;name&gt; [--cask] [--brew] [--mise]
 </code></pre>
 <hr />
 <h2 id="haven-import"><code>haven import</code><a class="headerlink" href="#haven-import" title="Permanent link">&para;</a></h2>

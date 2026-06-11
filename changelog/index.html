@@ -476,8 +476,8 @@ Versioning: <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a
 <h3 id="added_6">Added<a class="headerlink" href="#added_6" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Brewfile auto-sort</strong> — set <code>[homebrew] sort = true</code> in any module config to
-  keep the Brewfile sorted alphabetically after every <code>haven brew install</code> or
-  <code>haven brew uninstall</code>. Each kind (<code>tap</code>, <code>brew</code>, <code>cask</code>) is sorted
+  keep the Brewfile sorted alphabetically after every <code>haven pkg install</code> or
+  <code>haven pkg uninstall</code>. Each kind (<code>tap</code>, <code>brew</code>, <code>cask</code>) is sorted
   independently; blank lines and comments are preserved in place.</li>
 <li><strong><code>haven apply</code> Brewfile summary</strong> — the apply summary now reports how many
   Brewfiles were run: <code>Applied N file(s), M Brewfile(s) across K module(s)</code>.</li>
@@ -540,7 +540,7 @@ Versioning: <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a
   <code>haven apply --remove-unreferenced-brews</code> no longer report tap formulae (e.g.
   <code>qmk/qmk/qmk</code>) as extra when their short name (<code>qmk</code>) is declared in a
   Brewfile. Matching is now done by short name in both directions.</li>
-<li><strong><code>haven brew install</code></strong> — when there is no master <code>brew/Brewfile</code> but exactly
+<li><strong><code>haven pkg install</code></strong> — when there is no master <code>brew/Brewfile</code> but exactly
   one module Brewfile exists, it is used automatically. If multiple module
   Brewfiles exist and <code>--module</code> is not given, haven errors with a clear hint.</li>
 <li><strong><code>haven init</code></strong> — scaffold always appends a <code>[profile.default]</code> section to
@@ -771,7 +771,7 @@ Versioning: <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a
 <li><strong><code>haven diff</code></strong> — show file-level diff between <code>source/</code> and live files.
   <code>--stat</code>, <code>--color</code>, <code>--profile</code>, <code>--module</code> flags. Exit 1 on drift.</li>
 <li><strong><code>haven status</code></strong> — concise drift summary with <code>✓ M ? !</code> markers.</li>
-<li><strong><code>haven brew install/uninstall</code></strong> — run brew operations and keep Brewfiles
+<li><strong><code>haven pkg install/uninstall</code></strong> — run brew operations and keep Brewfiles
   in sync in one step.</li>
 <li><strong><code>haven import --from chezmoi</code></strong> — migrate from chezmoi. Handles <code>dot_</code>,
   <code>private_</code>, <code>executable_</code>, <code>symlink_</code> prefixes; converts Go templates to

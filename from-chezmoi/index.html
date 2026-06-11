@@ -770,19 +770,19 @@ using chezmoi for that file while managing the rest with haven.</p>
 packages is out of scope. haven tracks both in the same repo.</p>
 <h3 id="brewfiles">Brewfiles<a class="headerlink" href="#brewfiles" title="Permanent link">&para;</a></h3>
 <p>haven Brewfiles live at <code>brew/Brewfile</code> (master) and <code>brew/Brewfile.&lt;module&gt;</code>
-(per-module). Create them manually or use <code>haven brew install</code> to add packages
+(per-module). Create them manually or use <code>haven pkg install</code> (brew backend) to add packages
 and keep them in sync automatically:</p>
 <pre><code class="language-sh"># Add a formula to the master Brewfile
-haven brew install ripgrep
+haven pkg install ripgrep
 
 # Add a formula to a named module's Brewfile
-haven brew install ripgrep --module shell
+haven pkg install ripgrep --module shell
 
 # Add a cask
-haven brew install iterm2 --cask
+haven pkg install iterm2 --cask
 
 # Remove a package from all Brewfiles
-haven brew uninstall ripgrep
+haven pkg uninstall ripgrep
 </code></pre>
 <p>Or write the Brewfile directly:</p>
 <pre><code class="language-sh"># brew/Brewfile.shell

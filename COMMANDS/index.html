@@ -227,7 +227,7 @@
               <ul class="nav flex-column">
               </ul>
             </li>
-            <li class="nav-item" data-bs-level="2"><a href="#haven-brew" class="nav-link">haven brew</a>
+            <li class="nav-item" data-bs-level="2"><a href="#haven-pkg" class="nav-link">haven pkg</a>
               <ul class="nav flex-column">
               </ul>
             </li>
@@ -285,8 +285,8 @@ haven diff  [--profile &lt;p&gt;] [--module &lt;m&gt;]
             [--stat] [--color always|never|auto]
 haven status [--profile &lt;p&gt;] [--files] [--brews] [--ai]
 haven source-path
-haven brew install &lt;name&gt; [--cask] [--module &lt;m&gt;]
-haven brew uninstall &lt;name&gt; [--cask]
+haven pkg install &lt;name&gt; [--cask] [--module &lt;m&gt;] [--brew] [--mise]
+haven pkg uninstall &lt;name&gt; [--cask] [--brew] [--mise]
 haven import --from chezmoi [--source &lt;dir&gt;] [--dry-run]
              [--include-ignored-files]
 haven ai discover
@@ -697,12 +697,12 @@ inspect only specific sections.</p>
 </tbody>
 </table>
 <hr />
-<h2 id="haven-brew"><code>haven brew</code><a class="headerlink" href="#haven-brew" title="Permanent link">&para;</a></h2>
-<p>Run <code>brew install</code>/<code>uninstall</code> and keep Brewfiles in sync.</p>
+<h2 id="haven-pkg"><code>haven pkg</code><a class="headerlink" href="#haven-pkg" title="Permanent link">&para;</a></h2>
+<p>Install or uninstall packages via the configured backend (default: brew).</p>
 <p>Use these instead of bare <code>brew install</code> when you want changes to persist across
 machines — the formula is automatically added to or removed from the Brewfile(s).</p>
-<h3 id="haven-brew-install"><code>haven brew install</code><a class="headerlink" href="#haven-brew-install" title="Permanent link">&para;</a></h3>
-<pre><code>haven brew install &lt;name&gt; [--cask] [--module &lt;m&gt;]
+<h3 id="haven-pkg-install"><code>haven pkg install</code><a class="headerlink" href="#haven-pkg-install" title="Permanent link">&para;</a></h3>
+<pre><code>haven pkg install &lt;name&gt; [--cask] [--module &lt;m&gt;] [--brew] [--mise]
 </code></pre>
 <table>
 <thead>
@@ -718,16 +718,24 @@ machines — the formula is automatically added to or removed from the Brewfile(
 </tr>
 <tr>
 <td><code>--cask</code></td>
-<td>Install as a cask (GUI apps, fonts, etc.).</td>
+<td>Install as a cask (GUI apps, fonts, etc.). Implies brew backend.</td>
 </tr>
 <tr>
 <td><code>--module &lt;m&gt;</code></td>
 <td>Record in this module's <code>brew/Brewfile.&lt;m&gt;</code>. Default: master <code>brew/Brewfile</code>.</td>
 </tr>
+<tr>
+<td><code>--brew</code></td>
+<td>Force brew backend.</td>
+</tr>
+<tr>
+<td><code>--mise</code></td>
+<td>Force mise backend (not yet available).</td>
+</tr>
 </tbody>
 </table>
-<h3 id="haven-brew-uninstall"><code>haven brew uninstall</code><a class="headerlink" href="#haven-brew-uninstall" title="Permanent link">&para;</a></h3>
-<pre><code>haven brew uninstall &lt;name&gt; [--cask]
+<h3 id="haven-pkg-uninstall"><code>haven pkg uninstall</code><a class="headerlink" href="#haven-pkg-uninstall" title="Permanent link">&para;</a></h3>
+<pre><code>haven pkg uninstall &lt;name&gt; [--cask] [--brew] [--mise]
 </code></pre>
 <table>
 <thead>
@@ -743,7 +751,15 @@ machines — the formula is automatically added to or removed from the Brewfile(
 </tr>
 <tr>
 <td><code>--cask</code></td>
-<td>Uninstall as a cask.</td>
+<td>Uninstall as a cask. Implies brew backend.</td>
+</tr>
+<tr>
+<td><code>--brew</code></td>
+<td>Force brew backend.</td>
+</tr>
+<tr>
+<td><code>--mise</code></td>
+<td>Force mise backend (not yet available).</td>
 </tr>
 </tbody>
 </table>

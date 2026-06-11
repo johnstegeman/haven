@@ -224,15 +224,15 @@
 <p>haven manages Homebrew packages and mise language runtimes alongside your dotfiles, keeping everything in sync in a single repo.</p>
 <h2 id="homebrew">Homebrew<a class="headerlink" href="#homebrew" title="Permanent link">&para;</a></h2>
 <h3 id="installing-packages">Installing packages<a class="headerlink" href="#installing-packages" title="Permanent link">&para;</a></h3>
-<p>Use <code>haven brew install</code> instead of bare <code>brew install</code> — it runs the install <em>and</em> updates your Brewfile so the package is tracked:</p>
-<pre><code class="language-sh">haven brew install ripgrep
-haven brew install bat
-haven brew install iterm2 --cask          # GUI apps and fonts
-haven brew install ripgrep --module shell  # add to a specific module's Brewfile
+<p>Use <code>haven pkg install</code> instead of bare <code>brew install</code> — it runs the install <em>and</em> updates your Brewfile so the package is tracked (brew backend, the default):</p>
+<pre><code class="language-sh">haven pkg install ripgrep
+haven pkg install bat
+haven pkg install iterm2 --cask          # GUI apps and fonts
+haven pkg install ripgrep --module shell  # add to a specific module's Brewfile
 </code></pre>
 <h3 id="uninstalling-packages">Uninstalling packages<a class="headerlink" href="#uninstalling-packages" title="Permanent link">&para;</a></h3>
-<pre><code class="language-sh">haven brew uninstall ripgrep
-haven brew uninstall iterm2 --cask
+<pre><code class="language-sh">haven pkg uninstall ripgrep
+haven pkg uninstall iterm2 --cask
 </code></pre>
 <p>Removes the formula from <strong>all</strong> Brewfiles in the repo, then runs <code>brew uninstall</code>.</p>
 <h3 id="brewfile-layout">Brewfile layout<a class="headerlink" href="#brewfile-layout" title="Permanent link">&para;</a></h3>
@@ -246,11 +246,11 @@ haven brew uninstall iterm2 --cask
 <tbody>
 <tr>
 <td><code>brew/Brewfile</code></td>
-<td><code>haven brew install</code> with no <code>--module</code></td>
+<td><code>haven pkg install</code> with no <code>--module</code></td>
 </tr>
 <tr>
 <td><code>brew/Brewfile.&lt;name&gt;</code></td>
-<td><code>haven brew install --module &lt;name&gt;</code></td>
+<td><code>haven pkg install --module &lt;name&gt;</code></td>
 </tr>
 </tbody>
 </table>

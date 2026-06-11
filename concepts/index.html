@@ -274,7 +274,7 @@ source/dot_config/extdir_nvim       →  ~/.config/nvim  (cloned from git on app
 ├── Brewfile.shell        ← packages for the &quot;shell&quot; module
 └── Brewfile.work         ← packages for the &quot;work&quot; module
 </code></pre>
-<p>Use <code>haven brew install</code> to install a package <em>and</em> record it in the Brewfile in one step. On <code>haven apply --brews</code>, haven runs <code>brew bundle install</code> for every active module's Brewfile.</p>
+<p>Use <code>haven pkg install</code> to install a package <em>and</em> record it in the Brewfile in one step. On <code>haven apply --brews</code>, haven runs <code>brew bundle install</code> for every active module's Brewfile.</p>
 <h3 id="modules-module-definitions"><code>modules/</code> — module definitions<a class="headerlink" href="#modules-module-definitions" title="Permanent link">&para;</a></h3>
 <p>A module is a named group of related packages. Modules tie a Brewfile (and optional mise config) to a name, so they can be activated per-profile:</p>
 <pre><code class="language-toml"># modules/shell.toml

@@ -315,9 +315,9 @@ variables:</p>
 the reference, not the value — safe to commit.</p>
 <hr />
 <h3 id="homebrew-management">Homebrew management<a class="headerlink" href="#homebrew-management" title="Permanent link">&para;</a></h3>
-<pre><code class="language-sh">haven brew install ripgrep          # brew install + add to Brewfile
-haven brew install iterm2 --cask    # cask support
-haven brew uninstall ripgrep        # brew uninstall + remove from all Brewfiles
+<pre><code class="language-sh">haven pkg install ripgrep           # brew install + add to Brewfile
+haven pkg install iterm2 --cask     # cask support
+haven pkg uninstall ripgrep         # brew uninstall + remove from all Brewfiles
 </code></pre>
 <p><code>haven apply --brews</code> runs <code>brew bundle install</code> for all Brewfiles in the
 active profile. <code>--remove-unreferenced-brews</code> / <code>--interactive</code> prune

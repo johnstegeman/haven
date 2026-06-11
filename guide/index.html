@@ -622,12 +622,12 @@ brewfile = &quot;brew/Brewfile.shell&quot;
 <p>The <code>brewfile</code> field points to a Homebrew Brewfile relative to the repo root.
 On apply, haven runs <code>brew bundle install --file=&lt;path&gt;</code>.
 If Homebrew is not installed, this section is skipped with a warning.</p>
-<p>Use <code>haven brew install</code> and <code>haven brew uninstall</code> instead of bare <code>brew</code>
+<p>Use <code>haven pkg install</code> and <code>haven pkg uninstall</code> instead of bare <code>brew</code>
 commands to keep your Brewfiles automatically in sync:</p>
-<pre><code>haven brew install ripgrep                   # → brew/Brewfile (master)
-haven brew install ripgrep --module shell    # → brew/Brewfile.shell
-haven brew install iterm2 --cask             # cask entry
-haven brew uninstall ripgrep                 # removes from ALL Brewfiles
+<pre><code>haven pkg install ripgrep                   # → brew/Brewfile (master)
+haven pkg install ripgrep --module shell    # → brew/Brewfile.shell
+haven pkg install iterm2 --cask             # cask entry
+haven pkg uninstall ripgrep                 # removes from ALL Brewfiles
 </code></pre>
 <p><strong>Brewfile layout:</strong></p>
 <table>
@@ -640,11 +640,11 @@ haven brew uninstall ripgrep                 # removes from ALL Brewfiles
 <tbody>
 <tr>
 <td><code>brew/Brewfile</code></td>
-<td><code>haven brew install</code> with no <code>--module</code></td>
+<td><code>haven pkg install</code> with no <code>--module</code></td>
 </tr>
 <tr>
 <td><code>brew/Brewfile.&lt;name&gt;</code></td>
-<td><code>haven brew install --module &lt;name&gt;</code></td>
+<td><code>haven pkg install --module &lt;name&gt;</code></td>
 </tr>
 </tbody>
 </table>

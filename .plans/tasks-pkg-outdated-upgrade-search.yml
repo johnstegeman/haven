@@ -109,7 +109,8 @@ tasks:
       the pin in the targeted `mise/mise*.toml`. When no name is given, upgrade all
       packages across all allowed backends. Degrade gracefully when a backend binary
       is missing. After a mise upgrade, confirm the config file was updated.
-    status: pending
+    status: completed
+    completed_at: "2026-06-11T22:30:00Z"
     dependencies:
       - task-001
       - task-002

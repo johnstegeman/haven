@@ -18,6 +18,10 @@ Added `mise_upgrade` to `src/mise.rs`. Reads the config tools before upgrade, th
 Files: ~src/mise.rs
 Decisions: Used `mise upgrade --bump` (confirmed available in mise 2026.6.2) which natively rewrites the pinned version in the config file — no toml_edit fallback needed. When `name` is `None`, all tool names are read from the config and passed explicitly to avoid upgrading tools from other (global) config files.
 
+## TASK-006 — 2026-06-11T22:30:00Z
+Implemented `pkg::upgrade` in `src/commands/pkg.rs`, replacing the stub. Fans out to all allowed backends: brew calls `brew_upgrade(name)`, mise iterates all `mise/mise*.toml` files and calls `mise_upgrade(config, name)` (which handles the pin-rewrite). Missing binary prints a skip note and continues; on success, prints confirmation including the config file path for mise.
+Files: ~src/commands/pkg.rs
+
 ## TASK-005 — 2026-06-11T21:30:00Z
 Implemented `pkg::outdated` in `src/commands/pkg.rs`. Fans out to all allowed backends; for brew calls `brew_outdated` (binary resolved via `brew_path()`), for mise iterates all `mise/mise*.toml` files calling `mise_outdated` per config. Missing binary prints a skip note and continues; results are printed under `==> brew outdated` / `==> mise outdated` headers with `name  current → latest` format.
 Files: ~src/commands/pkg.rs

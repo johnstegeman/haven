@@ -163,8 +163,57 @@ pub fn outdated(repo_root: &Path, cfg: &HavenConfig) -> Result<()> {
     Ok(())
 }
 
-pub fn upgrade(_repo_root: &Path, _name: Option<&str>, _cfg: &HavenConfig) -> Result<()> {
-    Err(anyhow::anyhow!("not implemented"))
+pub fn upgrade(repo_root: &Path, name: Option<&str>, cfg: &HavenConfig) -> Result<()> {
+    let allowed = cfg.packages.allowed_backends()?;
+
+    for backend in &allowed {
+        match backend.as_str() {
+            "brew" => {
+                let brew = match homebrew::brew_path() {
+                    Some(p) => p,
+                    None => {
+                        println!("brew not available — skipping");
+                        continue;
+                    }
+                };
+                let brew_str = brew.to_string_lossy();
+                match homebrew::brew_upgrade(&brew_str, name) {
+                    Ok(()) => println!("brew: upgraded {}", name.unwrap_or("all packages")),
+                    Err(e) => eprintln!("brew upgrade failed: {}", e),
+                }
+            }
+            "mise" => {
+                let mise_bin = match mise_lib::mise_path() {
+                    Some(p) => p,
+                    None => {
+                        println!("mise not available — skipping");
+                        continue;
+                    }
+                };
+                let mise_str = mise_bin.to_string_lossy();
+                let misefiles = mise_cmd::all_misefiles(repo_root)?;
+                if misefiles.is_empty() {
+                    println!("mise: no config files found");
+                    continue;
+                }
+                for config_path in &misefiles {
+                    match mise_lib::mise_upgrade(&mise_str, config_path, name) {
+                        Ok(()) => println!(
+                            "mise: upgraded {} (config pin updated: {})",
+                            name.unwrap_or("all tools"),
+                            config_path.display()
+                        ),
+                        Err(e) => {
+                            eprintln!("mise upgrade failed for {}: {}", config_path.display(), e)
+                        }
+                    }
+                }
+            }
+            other => unreachable!("unknown backend '{}'", other),
+        }
+    }
+
+    Ok(())
 }
 
 pub fn search(_repo_root: &Path, _term: &str, _cfg: &HavenConfig) -> Result<()> {

@@ -36,6 +36,9 @@ Added unit tests for `parse_brew_outdated_json` (in `src/homebrew.rs`) and `pars
 Files: ~tests/integration.rs, ~src/homebrew.rs, ~src/mise.rs
 Decisions: The mise pin-rewrite test is marked `#[ignore]` because it requires `mise` to be installed and network access to resolve a newer tool version — unsuitable for offline CI. The test structure is present and documents the contract.
 
+## REVIEW — 2026-06-11T00:00:00Z
+Added 2 review tasks (task-010..task-011).
+
 ## TASK-009 — 2026-06-11T25:00:00Z
 Documented `haven pkg outdated`, `haven pkg upgrade [name]`, and `haven pkg search <term>` in CLAUDE.md, CHANGELOG.md (under [Unreleased]), docs/reference/commands.md, docs/COMMANDS.md, and docs/guides/packages.md. All three files note the distinction between `haven upgrade` (binary self-update) and `haven pkg upgrade` (package upgrade).
 Files: ~CLAUDE.md, ~CHANGELOG.md, ~docs/reference/commands.md, ~docs/COMMANDS.md, ~docs/guides/packages.md

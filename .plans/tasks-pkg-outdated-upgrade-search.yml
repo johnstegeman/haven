@@ -182,3 +182,52 @@ tasks:
       - "`CLAUDE.md` documents all three new `haven pkg` subcommands"
       - "Docs note the distinction between `haven upgrade` and `haven pkg upgrade`"
       - "`CHANGELOG.md` has an entry for the new commands"
+
+  - id: task-010
+    title: "Move OutdatedPackage out of homebrew.rs to a neutral location"
+    description: |
+      `OutdatedPackage` is currently defined in `homebrew.rs` and imported by `mise.rs`
+      via `use crate::homebrew::OutdatedPackage`. This creates a peer-module dependency:
+      `mise.rs` depends on `homebrew.rs` for a shared type. These are sibling backend
+      modules and neither should own the other's shared vocabulary. The fix: move
+      `OutdatedPackage` to `src/commands/pkg.rs` (the only consumer) or a new
+      `src/packages.rs`, and update both `homebrew.rs` and `mise.rs` to import the
+      type from the new location. The dependency arrows should be: backends → shared
+      type, command layer → shared type + backends. Also remove all `#[allow(dead_code)]`
+      attributes from the six public functions (`brew_outdated`, `brew_upgrade`,
+      `brew_search`, `mise_outdated`, `mise_search`, `mise_upgrade`) since they are all
+      called from `commands/pkg.rs` and the attributes are actively misleading.
+    status: pending
+    source: review
+    dependencies: []
+    acceptance_criteria:
+      - "`OutdatedPackage` is no longer defined in `homebrew.rs`"
+      - "`mise.rs` no longer imports from `homebrew.rs`"
+      - "All six public backend functions no longer carry `#[allow(dead_code)]`"
+      - "`cargo build` and `cargo clippy -- -D warnings` pass"
+
+  - id: task-011
+    title: "Replace binary-resolution boilerplate with let-else in commands/pkg.rs"
+    description: |
+      In `commands/pkg.rs`, the binary-resolution pattern appears six times (three times
+      for brew, three times for mise — once each in `outdated`, `upgrade`, `search`):
+        let brew = match homebrew::brew_path() {
+            Some(p) => p,
+            None => { println!("brew not available — skipping"); continue; }
+        };
+        let brew_str = brew.to_string_lossy();
+      Replace all six occurrences with the `let-else` form, which is idiomatic Rust and
+      reduces the block from 7 lines to 3:
+        let Some(brew) = homebrew::brew_path() else {
+            println!("brew not available — skipping");
+            continue;
+        };
+      Apply the same transformation to all three mise variants. This prevents the pattern
+      from being copy-pasted again if a third backend is added.
+    status: pending
+    source: review
+    dependencies:
+      - task-010
+    acceptance_criteria:
+      - "All six binary-resolution blocks use `let-else` syntax instead of `match`"
+      - "`cargo build` and `cargo clippy -- -D warnings` pass"

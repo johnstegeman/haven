@@ -66,11 +66,7 @@ impl SkillBackend for AgentSkillsBackend {
     /// No-op: agent-skills-cli manages its own cache.
     ///
     /// Returns an empty `cached_path` sentinel — safe because `deploy()` never reads it.
-    fn fetch(
-        &self,
-        _source: &SkillSource,
-        _expected_sha: Option<&str>,
-    ) -> Result<FetchResult> {
+    fn fetch(&self, _source: &SkillSource, _expected_sha: Option<&str>) -> Result<FetchResult> {
         Ok(FetchResult {
             cached_path: PathBuf::new(),
             sha: "managed-by-agent-skills".to_string(),
@@ -244,11 +240,11 @@ fn map_source(source_str: &str) -> Result<(String, Option<String>)> {
 fn map_platform_id(platform_id: &str) -> &str {
     match platform_id {
         "claude-code" => "claude",
-        "cursor"      => "cursor",
-        "copilot"     => "copilot",
-        "windsurf"    => "windsurf",
-        "cline"       => "cline",
-        "zed"         => "zed",
+        "cursor" => "cursor",
+        "copilot" => "copilot",
+        "windsurf" => "windsurf",
+        "cline" => "cline",
+        "zed" => "zed",
         other => {
             eprintln!(
                 "warning: agent-skills-cli: unknown platform '{}' — passing as-is",
@@ -288,7 +284,12 @@ fn run_with_timeout(
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .spawn()
-        .with_context(|| format!("Failed to spawn '{}' — is it installed and on PATH?", runner_display))?;
+        .with_context(|| {
+            format!(
+                "Failed to spawn '{}' — is it installed and on PATH?",
+                runner_display
+            )
+        })?;
 
     let start = std::time::Instant::now();
     let poll_interval = Duration::from_millis(100);
@@ -449,7 +450,10 @@ mod tests {
     #[test]
     fn platform_id_unknown_passes_through_as_is() {
         // Unknown IDs fall back to the raw value (warn-and-continue, not hard error).
-        assert_eq!(map_platform_id("some-unknown-platform"), "some-unknown-platform");
+        assert_eq!(
+            map_platform_id("some-unknown-platform"),
+            "some-unknown-platform"
+        );
     }
 
     #[test]
@@ -464,8 +468,11 @@ mod tests {
         ];
         for (haven_id, expected) in &known {
             assert_eq!(
-                map_platform_id(haven_id), *expected,
-                "platform '{}' should map to '{}'", haven_id, expected
+                map_platform_id(haven_id),
+                *expected,
+                "platform '{}' should map to '{}'",
+                haven_id,
+                expected
             );
         }
     }
@@ -474,8 +481,8 @@ mod tests {
 
     #[test]
     fn deploy_errors_when_haven_source_missing() {
-        use std::collections::HashSet;
         use crate::ai_skill::DeployMethod;
+        use std::collections::HashSet;
 
         let backend = AgentSkillsBackend::new(vec!["skills".to_string()], Duration::from_secs(30));
         let skill = ResolvedSkill {
@@ -490,7 +497,8 @@ mod tests {
             deploy_method: DeployMethod::Symlink,
             owned_targets: HashSet::new(),
         };
-        let err = backend.deploy(&skill, &target)
+        let err = backend
+            .deploy(&skill, &target)
             .err()
             .expect("deploy should fail when _haven_source is missing");
         assert!(

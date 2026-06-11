@@ -31,10 +31,9 @@ use crate::template::TemplateContext;
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-pub use crate::claude_md::MARKER_START;
 pub use crate::claude_md::MARKER_END;
-const MANAGED_HEADER: &str =
-    "<!-- managed by haven (haven apply to regenerate) -->";
+pub use crate::claude_md::MARKER_START;
+const MANAGED_HEADER: &str = "<!-- managed by haven (haven apply to regenerate) -->";
 
 // ─── Marker utilities ─────────────────────────────────────────────────────────
 
@@ -70,16 +69,12 @@ pub fn find_markers(content: &str) -> Result<Option<(usize, usize)>> {
             };
             Ok(Some((inner_start, e)))
         }
-        (Some(_), None) => anyhow::bail!(
-            "Found '{}' but no matching '{}'",
-            MARKER_START,
-            MARKER_END
-        ),
-        (None, Some(_)) => anyhow::bail!(
-            "Found '{}' but no matching '{}'",
-            MARKER_END,
-            MARKER_START
-        ),
+        (Some(_), None) => {
+            anyhow::bail!("Found '{}' but no matching '{}'", MARKER_START, MARKER_END)
+        }
+        (None, Some(_)) => {
+            anyhow::bail!("Found '{}' but no matching '{}'", MARKER_END, MARKER_START)
+        }
     }
 }
 
@@ -177,8 +172,7 @@ fn assemble_managed_content(
     platform: &PlatformPlugin,
 ) -> String {
     let commands_dir = platform.config_dir.as_deref().map(|d| d.join("commands"));
-    let skills_section =
-        build_skills_section(&platform.skills_dir, commands_dir.as_deref());
+    let skills_section = build_skills_section(&platform.skills_dir, commands_dir.as_deref());
 
     // Collect per-skill snippets.
     let mut snippet_blocks: Vec<String> = Vec::new();
@@ -230,16 +224,12 @@ fn has_snippets(repo_root: &Path, skills: &[SkillDeclaration], platform_id: &str
 /// <!-- haven managed end -->
 /// ```
 fn create_stub(dest: &Path, platform_name: &str) -> Result<()> {
-    let content = format!(
-        "# {}\n\n{}\n{}\n",
-        platform_name, MARKER_START, MARKER_END
-    );
+    let content = format!("# {}\n\n{}\n{}\n", platform_name, MARKER_START, MARKER_END);
     if let Some(parent) = dest.parent() {
         std::fs::create_dir_all(parent)
             .with_context(|| format!("Cannot create directory {}", parent.display()))?;
     }
-    std::fs::write(dest, content)
-        .with_context(|| format!("Cannot write stub {}", dest.display()))
+    std::fs::write(dest, content).with_context(|| format!("Cannot write stub {}", dest.display()))
 }
 
 // ─── Marker insertion ─────────────────────────────────────────────────────────
@@ -253,8 +243,8 @@ pub enum MarkerPosition {
 
 /// Insert empty managed-section markers into an existing source file.
 pub fn insert_markers(path: &Path, position: MarkerPosition) -> Result<()> {
-    let existing = std::fs::read_to_string(path)
-        .with_context(|| format!("Cannot read {}", path.display()))?;
+    let existing =
+        std::fs::read_to_string(path).with_context(|| format!("Cannot read {}", path.display()))?;
 
     let marker_block = format!("{}\n{}\n", MARKER_START, MARKER_END);
     let new_content = match position {
@@ -265,18 +255,14 @@ pub fn insert_markers(path: &Path, position: MarkerPosition) -> Result<()> {
         }
     };
 
-    std::fs::write(path, new_content)
-        .with_context(|| format!("Cannot write {}", path.display()))
+    std::fs::write(path, new_content).with_context(|| format!("Cannot write {}", path.display()))
 }
 
 // ─── Interactive prompt ───────────────────────────────────────────────────────
 
 fn prompt_add_markers(config_path: &Path) -> Result<Option<MarkerPosition>> {
     let display = tilde_str(&config_path.to_string_lossy());
-    println!(
-        "haven: {} has no managed section.",
-        display
-    );
+    println!("haven: {} has no managed section.", display);
     print!(
         "Skills have snippets to inject — where should the section go?\n  \
          [B] beginning of file\n  \
@@ -381,16 +367,11 @@ pub fn inject_managed_sections(
                         );
                         continue;
                     }
-                    let new_content = replace_managed_section(
-                        &current,
-                        inner_start,
-                        inner_end,
-                        &managed_content,
-                    );
+                    let new_content =
+                        replace_managed_section(&current, inner_start, inner_end, &managed_content);
                     if new_content != current {
-                        std::fs::write(config_path, &new_content).with_context(|| {
-                            format!("Cannot write {}", config_path.display())
-                        })?;
+                        std::fs::write(config_path, &new_content)
+                            .with_context(|| format!("Cannot write {}", config_path.display()))?;
                         println!(
                             "✓ {}  (managed section updated: {} skill(s))",
                             tilde_str(&config_path.to_string_lossy()),
@@ -438,7 +419,10 @@ pub fn inject_managed_sections(
                                     let updated = std::fs::read_to_string(config_path)?;
                                     if let Ok(Some((is, ie))) = find_markers(&updated) {
                                         let new_content = replace_managed_section(
-                                            &updated, is, ie, &managed_content,
+                                            &updated,
+                                            is,
+                                            ie,
+                                            &managed_content,
                                         );
                                         std::fs::write(config_path, &new_content)?;
                                     }
@@ -448,7 +432,10 @@ pub fn inject_managed_sections(
                                     let updated = std::fs::read_to_string(config_path)?;
                                     if let Ok(Some((is, ie))) = find_markers(&updated) {
                                         let new_content = replace_managed_section(
-                                            &updated, is, ie, &managed_content,
+                                            &updated,
+                                            is,
+                                            ie,
+                                            &managed_content,
                                         );
                                         std::fs::write(config_path, &new_content)?;
                                     }
@@ -489,8 +476,7 @@ pub fn inject_managed_sections(
             // Now inject into the freshly-created stub.
             let stub_content = std::fs::read_to_string(config_path)?;
             if let Ok(Some((is, ie))) = find_markers(&stub_content) {
-                let new_content =
-                    replace_managed_section(&stub_content, is, ie, &managed_content);
+                let new_content = replace_managed_section(&stub_content, is, ie, &managed_content);
                 std::fs::write(config_path, &new_content)?;
             }
             println!(
@@ -519,7 +505,9 @@ fn source_file_exists_for(repo_root: &Path, config_path: &Path) -> bool {
     let ctx = TemplateContext::from_env_for_repo(repo_root);
     let ignore = crate::ignore::IgnoreList::load(repo_root, &ctx);
     if let Ok(entries) = crate::source::scan(&source_dir, &ignore) {
-        return entries.iter().any(|e| dest_matches(&e.dest_tilde, config_path));
+        return entries
+            .iter()
+            .any(|e| dest_matches(&e.dest_tilde, config_path));
     }
     false
 }
@@ -665,11 +653,19 @@ mod tests {
         let config = tmp.path().join("CLAUDE.md");
         write_file(
             &config,
-            &format!("# Claude\n\n{}\n{}\n\nUser content.\n", MARKER_START, MARKER_END),
+            &format!(
+                "# Claude\n\n{}\n{}\n\nUser content.\n",
+                MARKER_START, MARKER_END
+            ),
         );
 
         // Write a snippet stub for a skill.
-        let snippet = tmp.path().join("ai").join("skills").join("my-skill").join("all.md");
+        let snippet = tmp
+            .path()
+            .join("ai")
+            .join("skills")
+            .join("my-skill")
+            .join("all.md");
         write_file(&snippet, "## My Skill\nDo the thing.\n");
 
         let skills = vec![crate::ai_skill::SkillDeclaration {
@@ -691,8 +687,15 @@ mod tests {
 
         let mut state = State::default();
 
-        inject_managed_sections(tmp.path(), &skills, &[platform.clone()], &mut state, false, false)
-            .unwrap();
+        inject_managed_sections(
+            tmp.path(),
+            &skills,
+            &[platform.clone()],
+            &mut state,
+            false,
+            false,
+        )
+        .unwrap();
 
         let first = std::fs::read_to_string(&config).unwrap();
         assert!(first.contains("Do the thing"));
@@ -714,7 +717,12 @@ mod tests {
         );
 
         // Skill with blank all.md — should not inject anything.
-        let snippet = tmp.path().join("ai").join("skills").join("my-skill").join("all.md");
+        let snippet = tmp
+            .path()
+            .join("ai")
+            .join("skills")
+            .join("my-skill")
+            .join("all.md");
         write_file(&snippet, "   \n");
 
         let skills = vec![crate::ai_skill::SkillDeclaration {
@@ -747,7 +755,12 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let config = tmp.path().join("subdir").join("CLAUDE.md");
 
-        let snippet = tmp.path().join("ai").join("skills").join("my-skill").join("all.md");
+        let snippet = tmp
+            .path()
+            .join("ai")
+            .join("skills")
+            .join("my-skill")
+            .join("all.md");
         write_file(&snippet, "## My Skill\nDo the thing.\n");
 
         let skills = vec![crate::ai_skill::SkillDeclaration {
@@ -799,7 +812,10 @@ mod tests {
         inject_managed_sections(tmp.path(), &skills, &[platform], &mut state, false, false)
             .unwrap();
 
-        assert!(!config.exists(), "no stub should be created when no snippets");
+        assert!(
+            !config.exists(),
+            "no stub should be created when no snippets"
+        );
     }
 
     #[test]
@@ -809,7 +825,12 @@ mod tests {
         let config = tmp.path().join("CLAUDE.md");
         write_file(&config, "# My Config\n\nNo markers here.\n");
 
-        let snippet = tmp.path().join("ai").join("skills").join("my-skill").join("all.md");
+        let snippet = tmp
+            .path()
+            .join("ai")
+            .join("skills")
+            .join("my-skill")
+            .join("all.md");
         write_file(&snippet, "Some instructions.\n");
 
         let skills = vec![crate::ai_skill::SkillDeclaration {
@@ -839,7 +860,10 @@ mod tests {
         inject_managed_sections(tmp.path(), &skills, &[platform], &mut state, false, false)
             .unwrap();
         let content = std::fs::read_to_string(&config).unwrap();
-        assert!(!content.contains(MARKER_START), "skip list should prevent injection");
+        assert!(
+            !content.contains(MARKER_START),
+            "skip list should prevent injection"
+        );
     }
 
     #[test]
@@ -853,7 +877,10 @@ mod tests {
 
         let skill_dir = tmp.path().join("ai").join("skills").join("my-skill");
         write_file(&skill_dir.join("all.md"), "Global instructions.\n");
-        write_file(&skill_dir.join("claude-code.md"), "Claude-specific instructions.\n");
+        write_file(
+            &skill_dir.join("claude-code.md"),
+            "Claude-specific instructions.\n",
+        );
 
         let skills = vec![crate::ai_skill::SkillDeclaration {
             name: "my-skill".to_string(),
@@ -879,7 +906,10 @@ mod tests {
         let content = std::fs::read_to_string(&config).unwrap();
         let global_pos = content.find("Global instructions").unwrap();
         let specific_pos = content.find("Claude-specific instructions").unwrap();
-        assert!(global_pos < specific_pos, "all.md must appear before platform-specific");
+        assert!(
+            global_pos < specific_pos,
+            "all.md must appear before platform-specific"
+        );
     }
 
     #[test]
@@ -893,7 +923,12 @@ mod tests {
             &format!("# Claude\n\n{}\nno end marker\n", MARKER_START),
         );
 
-        let snippet = tmp.path().join("ai").join("skills").join("s").join("all.md");
+        let snippet = tmp
+            .path()
+            .join("ai")
+            .join("skills")
+            .join("s")
+            .join("all.md");
         write_file(&snippet, "Something.\n");
 
         let skills = vec![crate::ai_skill::SkillDeclaration {
@@ -918,6 +953,9 @@ mod tests {
         inject_managed_sections(tmp.path(), &skills, &[platform], &mut state, false, false)
             .unwrap(); // must not error
         let after = std::fs::read_to_string(&config).unwrap();
-        assert_eq!(original, after, "mismatched markers must leave file unchanged");
+        assert_eq!(
+            original, after,
+            "mismatched markers must leave file unchanged"
+        );
     }
 }

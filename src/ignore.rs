@@ -91,7 +91,11 @@ impl IgnoreList {
             // A leading '/' just means anchored — strip it for matching.
             let raw = raw.trim_start_matches('/').to_string();
             let anchored = raw.contains('/');
-            patterns.push(CompiledPattern { negate, anchored, raw });
+            patterns.push(CompiledPattern {
+                negate,
+                anchored,
+                raw,
+            });
         }
         Self { patterns }
     }
@@ -289,9 +293,9 @@ mod tests {
 
     // ── IgnoreList::load with template context ─────────────────────────────────
 
-    use tempfile::TempDir;
     use crate::template::TemplateContext;
     use std::collections::HashMap;
+    use tempfile::TempDir;
 
     fn test_ctx(os: &str) -> TemplateContext {
         TemplateContext {
@@ -339,6 +343,9 @@ mod tests {
         std::fs::write(config_dir.join("ignore"), "{% unclosed %}").unwrap();
         let ctx = test_ctx("macos");
         let list = IgnoreList::load(dir.path(), &ctx);
-        assert!(!list.is_ignored("~/.zshrc"), "should ignore nothing on render error");
+        assert!(
+            !list.is_ignored("~/.zshrc"),
+            "should ignore nothing on render error"
+        );
     }
 }

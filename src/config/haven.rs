@@ -183,14 +183,24 @@ impl HavenConfig {
         }
         eprintln!(
             "note: haven.toml not found — applying all discovered modules: {}",
-            if modules.is_empty() { "(none)".to_string() } else { modules.join(", ") }
+            if modules.is_empty() {
+                "(none)".to_string()
+            } else {
+                modules.join(", ")
+            }
         );
         let mut profile = HashMap::new();
         profile.insert(
             "default".to_string(),
-            ProfileConfig { modules, extends: None },
+            ProfileConfig {
+                modules,
+                extends: None,
+            },
         );
-        Ok(Self { profile, ..Self::default() })
+        Ok(Self {
+            profile,
+            ..Self::default()
+        })
     }
 
     /// Returns the resolved module list for a profile, flattening `extends`.
@@ -200,12 +210,7 @@ impl HavenConfig {
         Ok(seen)
     }
 
-    fn collect_modules(
-        &self,
-        name: &str,
-        out: &mut Vec<String>,
-        depth: usize,
-    ) -> Result<()> {
+    fn collect_modules(&self, name: &str, out: &mut Vec<String>, depth: usize) -> Result<()> {
         if depth > 10 {
             bail!("Profile inheritance too deep — possible circular extends");
         }

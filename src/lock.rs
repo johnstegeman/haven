@@ -77,8 +77,7 @@ impl LockFile {
         }
         let text = std::fs::read_to_string(&path)
             .with_context(|| format!("Cannot read {}", path.display()))?;
-        toml::from_str(&text)
-            .with_context(|| format!("Invalid TOML in {}", path.display()))
+        toml::from_str(&text).with_context(|| format!("Invalid TOML in {}", path.display()))
     }
 
     /// Write the lock file to `repo_root/haven.lock`.
@@ -153,10 +152,7 @@ mod tests {
         lock.save(dir.path()).unwrap();
 
         let loaded = LockFile::load(dir.path()).unwrap();
-        assert_eq!(
-            loaded.pinned_sha("gh:alice/dotfiles@v1.0"),
-            Some("abc123")
-        );
+        assert_eq!(loaded.pinned_sha("gh:alice/dotfiles@v1.0"), Some("abc123"));
     }
 
     #[test]

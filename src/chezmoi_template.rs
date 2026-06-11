@@ -147,10 +147,7 @@ fn convert_tag<'a>(raw: &'a str, warnings: &mut Vec<String>) -> Cow<'a, str> {
 
     // ── Comments: `/* ... */` ─────────────────────────────────────────────────
     if inner.starts_with("/*") && inner.ends_with("*/") {
-        let body = inner
-            .trim_start_matches("/*")
-            .trim_end_matches("*/")
-            .trim();
+        let body = inner.trim_start_matches("/*").trim_end_matches("*/").trim();
         return Cow::Owned(format!("{{# {} #}}", body));
     }
 
@@ -174,10 +171,10 @@ fn convert_tag<'a>(raw: &'a str, warnings: &mut Vec<String>) -> Cow<'a, str> {
     }
 
     // ── Anything else — preserve and warn ────────────────────────────────────
-    warnings.push(format!("Unconvertible construct: {{{{{}}}}}", raw
-        .trim_start_matches("{{")
-        .trim_end_matches("}}")
-        .trim()));
+    warnings.push(format!(
+        "Unconvertible construct: {{{{{}}}}}",
+        raw.trim_start_matches("{{").trim_end_matches("}}").trim()
+    ));
     Cow::Owned(raw.to_string())
 }
 
@@ -206,7 +203,10 @@ fn convert_elif(condition: &str, warnings: &mut Vec<String>) -> Cow<'static, str
 /// Returns `None` for unsupported conditions.
 fn convert_condition(cond: &str) -> Option<String> {
     // `(index . "key")` → `data.key`  (truthy check for a custom data variable)
-    if let Some(inner) = cond.strip_prefix("(index . \"").and_then(|s| s.strip_suffix("\")")) {
+    if let Some(inner) = cond
+        .strip_prefix("(index . \"")
+        .and_then(|s| s.strip_suffix("\")"))
+    {
         return Some(format!("data.{}", inner));
     }
 
@@ -269,11 +269,11 @@ fn convert_variable<'a>(inner: &str, warnings: &mut Vec<String>) -> Cow<'a, str>
 /// Returns `None` for variables with no direct mapping.
 fn go_var_to_tera(var: &str) -> Option<String> {
     match var {
-        ".chezmoi.hostname"  => Some("hostname".into()),
-        ".chezmoi.username"  => Some("username".into()),
-        ".chezmoi.os"        => Some("os".into()),
-        ".chezmoi.homeDir"   => Some("home_dir".into()),
-        ".chezmoi.homedir"   => Some("home_dir".into()), // lowercase variant
+        ".chezmoi.hostname" => Some("hostname".into()),
+        ".chezmoi.username" => Some("username".into()),
+        ".chezmoi.os" => Some("os".into()),
+        ".chezmoi.homeDir" => Some("home_dir".into()),
+        ".chezmoi.homedir" => Some("home_dir".into()), // lowercase variant
         ".chezmoi.sourceDir" => Some("source_dir".into()),
         ".chezmoi.sourcedir" => Some("source_dir".into()), // lowercase variant
         _ => {
@@ -322,10 +322,7 @@ mod tests {
 
     #[test]
     fn converts_os() {
-        assert_eq!(
-            convert_clean("OS: {{ .chezmoi.os }}"),
-            "OS: {{ os }}"
-        );
+        assert_eq!(convert_clean("OS: {{ .chezmoi.os }}"), "OS: {{ os }}");
     }
 
     #[test]
@@ -347,10 +344,7 @@ mod tests {
     #[test]
     fn converts_trim_marker_variable() {
         // `{{- .chezmoi.hostname -}}` → `{{ hostname }}`
-        assert_eq!(
-            convert_clean("{{- .chezmoi.hostname -}}"),
-            "{{ hostname }}"
-        );
+        assert_eq!(convert_clean("{{- .chezmoi.hostname -}}"), "{{ hostname }}");
     }
 
     // ── Control flow ──────────────────────────────────────────────────────────
@@ -429,7 +423,10 @@ mod tests {
     #[test]
     fn warns_on_custom_data_variable() {
         let r = convert("{{ .chezmoi.config.data.email }}");
-        assert!(!r.warnings.is_empty(), "expected warning for custom data variable");
+        assert!(
+            !r.warnings.is_empty(),
+            "expected warning for custom data variable"
+        );
     }
 
     // ── Mixed ─────────────────────────────────────────────────────────────────
@@ -448,7 +445,11 @@ mod tests {
 {{ end }}"#;
 
         let result = convert(input);
-        assert!(result.warnings.is_empty(), "warnings: {:?}", result.warnings);
+        assert!(
+            result.warnings.is_empty(),
+            "warnings: {:?}",
+            result.warnings
+        );
         assert!(result.text.contains("{{ username }}"));
         assert!(result.text.contains("{% if os == \"macos\" %}"));
         assert!(result.text.contains("{% else %}"));
@@ -488,7 +489,11 @@ mod tests {
         // Full pattern as seen in host.zsh.tmpl imported from chezmoi
         let input = "{{- if (index . \"host\") }}\nexport host={{ .host }}\n{% else %}\nexport host=`hostname`\n{% endif %}";
         let result = convert(input);
-        assert!(result.warnings.is_empty(), "warnings: {:?}", result.warnings);
+        assert!(
+            result.warnings.is_empty(),
+            "warnings: {:?}",
+            result.warnings
+        );
         assert!(result.text.contains("{% if data.host %}"));
         assert!(result.text.contains("{{ data.host }}"));
         assert!(result.text.contains("{% else %}"));

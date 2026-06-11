@@ -43,11 +43,7 @@ impl NativeBackend {
 }
 
 impl SkillBackend for NativeBackend {
-    fn fetch(
-        &self,
-        source: &SkillSource,
-        expected_sha: Option<&str>,
-    ) -> Result<FetchResult> {
+    fn fetch(&self, source: &SkillSource, expected_sha: Option<&str>) -> Result<FetchResult> {
         match source {
             SkillSource::Gh(gh) => {
                 // Fast cache-hit path: if the cached SHA matches the lock, skip fetch.
@@ -144,7 +140,11 @@ impl SkillBackend for NativeBackend {
             // We prefix with `gh:` and replace `--` with `/`.
             let dir_name = entry.file_name().to_string_lossy().into_owned();
             let source_key = format!("gh:{}", dir_name.replace("--", "/"));
-            infos.push(CachedSkillInfo { source_key, cached_path, sha });
+            infos.push(CachedSkillInfo {
+                source_key,
+                cached_path,
+                sha,
+            });
         }
         Ok(infos)
     }
@@ -206,8 +206,8 @@ fn parse_skill_md_frontmatter(content: &str) -> Result<SkillMetadata> {
         .split("\n---")
         .next()
         .ok_or_else(|| anyhow::anyhow!("SKILL.md frontmatter is not closed with ---"))?;
-    let fm: SkillFrontmatter = serde_yaml::from_str(yaml_block)
-        .context("Failed to parse SKILL.md YAML frontmatter")?;
+    let fm: SkillFrontmatter =
+        serde_yaml::from_str(yaml_block).context("Failed to parse SKILL.md YAML frontmatter")?;
     Ok(SkillMetadata {
         name: fm.name,
         description: fm.description,
@@ -265,8 +265,14 @@ mod tests {
         let meta = backend.validate(&skill_path).unwrap();
         assert_eq!(meta.license.as_deref(), Some("Apache-2.0"));
         assert_eq!(meta.compatibility.as_deref(), Some("Rust 1.70+"));
-        assert_eq!(meta.metadata.get("author").map(String::as_str), Some("test-org"));
-        assert_eq!(meta.metadata.get("version").map(String::as_str), Some("2.0"));
+        assert_eq!(
+            meta.metadata.get("author").map(String::as_str),
+            Some("test-org")
+        );
+        assert_eq!(
+            meta.metadata.get("version").map(String::as_str),
+            Some("2.0")
+        );
     }
 
     #[test]
@@ -366,8 +372,16 @@ mod tests {
         let s2 = dir.path().join("skill-b");
         std::fs::create_dir_all(&s1).unwrap();
         std::fs::create_dir_all(&s2).unwrap();
-        std::fs::write(s1.join("SKILL.md"), "---\nname: skill-a\ndescription: A\n---").unwrap();
-        std::fs::write(s2.join("SKILL.md"), "---\nname: skill-b\ndescription: B\n---").unwrap();
+        std::fs::write(
+            s1.join("SKILL.md"),
+            "---\nname: skill-a\ndescription: A\n---",
+        )
+        .unwrap();
+        std::fs::write(
+            s2.join("SKILL.md"),
+            "---\nname: skill-b\ndescription: B\n---",
+        )
+        .unwrap();
 
         let platform_dir = dir.path().join("platform");
         std::fs::create_dir_all(&platform_dir).unwrap();

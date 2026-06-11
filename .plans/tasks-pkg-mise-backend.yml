@@ -1,0 +1,126 @@
+feature: pkg-mise-backend
+prd: ./prd-pkg-mise-backend.md
+created_at: "2026-06-11T00:00:00Z"
+updated_at: "2026-06-11T00:00:00Z"
+
+tasks:
+  - id: task-001
+    title: "Add mise config primitives and mise_uninstall to src/mise.rs"
+    description: |
+      Extend `src/mise.rs` with format-preserving TOML-editing primitives using `toml_edit`
+      (already a dependency). Add `parse_tool_spec(spec: &str) -> (String, String)` that
+      splits `name@version` into (name, version) and maps bare `name` to version `"latest"`.
+      Add `add_to_misefile(path, name, version)` and `remove_from_misefile(path, name)` that
+      operate on the `[tools]` table of a mise config TOML, creating the file (and parent
+      dirs) if absent, and are idempotent. Add `parse_mise_tools(path)` that returns all
+      `(name, version)` pairs from `[tools]`. Add `mise_uninstall(mise, name)` that runs
+      `mise uninstall <name>` best-effort (absent tool is not an error; returns Ok(())
+      when exit code is non-zero for a missing tool). Include unit tests for all config
+      primitives directly in the file (no binary required).
+    status: completed
+    dependencies: []
+    acceptance_criteria:
+      - "`parse_tool_spec(\"node@22\")` returns `(\"node\", \"22\")`"
+      - "`parse_tool_spec(\"node\")` returns `(\"node\", \"latest\")`"
+      - "`add_to_misefile` creates a file with `[tools]` section if it does not exist"
+      - "`add_to_misefile` is idempotent — a second call with the same name does not duplicate the entry"
+      - "`add_to_misefile` preserves existing comments and formatting (verified via toml_edit roundtrip)"
+      - "`remove_from_misefile` removes the named key from `[tools]` and returns the count removed"
+      - "`parse_mise_tools` returns all tools from an existing config"
+      - "`mise_uninstall` does not return an error when the tool is not installed (best-effort)"
+      - "All unit tests pass with `cargo test --lib`"
+    completed_at: "2026-06-11T00:00:00Z"
+
+  - id: task-002
+    title: "Create src/commands/mise.rs mirroring commands/brew.rs structure"
+    description: |
+      Create `src/commands/mise.rs` as the mise analogue of `commands/brew.rs`. Implement
+      `install(repo_root, name, module_filter)`: parse the tool spec with
+      `mise::parse_tool_spec`, resolve the target config file (`mise/mise.<module>.toml` with
+      `--module`, or `mise/mise.toml` as master), call `mise::add_to_misefile`, register
+      `[mise] config` in `ModuleConfig` via `load`/`save`, then run `mise::install_tools`
+      with the config file path. Implement `uninstall(repo_root, name)`: call
+      `mise::remove_from_misefile` across all `mise/mise*.toml` returned by `all_misefiles`,
+      then call `mise::mise_uninstall`. Add `resolve_module_misefile(repo_root, module_name)`
+      and `all_misefiles(repo_root)` helpers mirroring their Brewfile counterparts. Register
+      the new module in `src/commands/mod.rs`. Handle mise-not-installed by returning a clear
+      error with a hint, never panicking.
+    status: completed
+    dependencies:
+      - task-001
+    acceptance_criteria:
+      - "`src/commands/mise.rs` exists and is declared in `src/commands/mod.rs`"
+      - "`install` with no module creates `mise/mise.toml` and registers it nowhere (master config, not per-module)"
+      - "`install` with `--module shell` creates `mise/mise.shell.toml` and writes `[mise] config = \"mise/mise.shell.toml\"` to `modules/shell.toml`"
+      - "`uninstall` removes the tool entry from every `mise/mise*.toml` in the repo"
+      - "`all_misefiles` returns all files matching `mise/mise*.toml` under the repo root"
+      - "Absent mise binary returns a clear error message with install hint"
+      - "`cargo clippy --all-targets` passes with no new warnings"
+    completed_at: "2026-06-11T00:00:00Z"
+
+  - id: task-003
+    title: "Wire mise backend into commands/pkg.rs; replace stubs; add dual-backend uninstall"
+    description: |
+      Replace the "mise backend not yet available" bail stubs in `commands/pkg.rs` with real
+      dispatch to `commands::mise::install` and `commands::mise::uninstall`. Add a guard
+      that rejects `--cask --mise` with a clear error ("mise has no casks"). Implement
+      dual-backend uninstall (REQ-F-007): when `allowed_backends()` includes both `"brew"`
+      and `"mise"` and no explicit backend flag was passed to `uninstall`, remove the tool
+      from both backends idempotently (each backend's removal runs best-effort; errors from
+      one do not prevent the other). Explicit `--brew` or `--mise` flags on uninstall still
+      target only that backend.
+    status: completed
+    dependencies:
+      - task-002
+    acceptance_criteria:
+      - "`haven pkg install node --mise` no longer returns \"not yet available\""
+      - "`haven pkg install node --cask --mise` returns a clear rejection message"
+      - "`haven pkg uninstall node` with both backends in config removes from both brew and mise files"
+      - "`haven pkg uninstall node --brew` only removes from Brewfiles, does not touch mise configs"
+      - "`haven pkg uninstall node --mise` only removes from mise configs, does not touch Brewfiles"
+      - "`cargo clippy --all-targets` passes with no new warnings"
+    completed_at: "2026-06-11T00:00:00Z"
+
+  - id: task-004
+    title: "Integration tests for haven pkg --mise CLI paths"
+    description: |
+      Add integration tests to `tests/integration.rs` covering the mise backend CLI paths.
+      Mirror the pattern from `pkg_install_brew_default` and related tests: create a temp repo
+      with a mock `mise` binary (analogous to `make_mock_brew`), then assert file state and
+      output. Cover: `pkg install <tool> --mise` creates `mise/mise.toml` with the correct
+      `[tools]` entry; `pkg install <tool> --mise --module shell` creates `mise/mise.shell.toml`
+      and updates `modules/shell.toml`; `pkg uninstall <tool>` removes the entry from all
+      `mise/mise*.toml`; `--cask --mise` fails with a clear message; and the dual-backend
+      uninstall path removes from both Brewfile and mise config. Update the existing
+      `pkg_mise_not_yet_available` test to assert success instead of failure now that the
+      backend is wired.
+    status: completed
+    dependencies:
+      - task-003
+    acceptance_criteria:
+      - "New integration tests pass with `cargo test --test integration`"
+      - "`pkg_mise_not_yet_available` test is updated to reflect the now-functional backend"
+      - "Test for `pkg install node --mise` asserts `mise/mise.toml` contains `node = \"latest\"` in `[tools]`"
+      - "Test for `--module shell` asserts both `mise/mise.shell.toml` and updated `modules/shell.toml`"
+      - "Test for dual-backend uninstall asserts removal from both Brewfile and mise config"
+      - "Test for `--cask --mise` asserts failure with a message containing \"cask\""
+    completed_at: "2026-06-11T00:00:00Z"
+
+  - id: task-005
+    title: "Update CLAUDE.md and docs/COMMANDS.md for mise/ convention and backend status"
+    description: |
+      Update the project `CLAUDE.md` to document the `mise/` directory in the repository
+      layout section (parallel to the existing `brew/` entry) and note the convention
+      `mise/mise.<module>.toml` for per-module configs. Update `docs/COMMANDS.md` to remove
+      the "not yet available" qualifiers from the `--mise` flag descriptions in the
+      `haven pkg install` and `haven pkg uninstall` sections and add a note about the
+      `mise/` directory convention and the `name@version` tool-spec syntax.
+    status: completed
+    dependencies:
+      - task-003
+    acceptance_criteria:
+      - "`CLAUDE.md` lists `mise/` in the repository layout alongside `brew/`"
+      - "`docs/COMMANDS.md` `--mise` flag descriptions no longer say \"not yet available\""
+      - "`docs/COMMANDS.md` documents the `mise/mise.<module>.toml` file convention"
+      - "`docs/COMMANDS.md` documents `name@version` tool-spec syntax (e.g. `node@22`)"
+    completed_at: "2026-06-11T00:00:00Z"

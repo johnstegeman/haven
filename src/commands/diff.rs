@@ -30,10 +30,13 @@ use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 
 use crate::ai_skill::{SkillSource, SkillsConfig};
-use crate::config::{sort_modules, HavenConfig, ModuleConfig};
 use crate::config::module::expand_tilde;
+use crate::config::{sort_modules, HavenConfig, ModuleConfig};
 use crate::diff_util::{colorize_diff, stat_line, unified_diff};
-use crate::drift::{check_drift_haven_aware, check_drift_link, check_drift_link_template, check_drift_template, DriftKind};
+use crate::drift::{
+    check_drift_haven_aware, check_drift_link, check_drift_link_template, check_drift_template,
+    DriftKind,
+};
 use crate::ignore::IgnoreList;
 use crate::lock::LockFile;
 use crate::skill_cache::SkillCache;
@@ -133,33 +136,34 @@ pub fn run(opts: &DiffOptions<'_>) -> Result<bool> {
                 let (kind, expected_target) = if entry.flags.template {
                     let src_text = std::fs::read_to_string(&entry.src);
                     match src_text.and_then(|t| {
-                        crate::template::render(&t, &template_ctx)
-                            .map_err(std::io::Error::other)
+                        crate::template::render(&t, &template_ctx).map_err(std::io::Error::other)
                     }) {
                         Err(e) => {
-                            section_lines.push(format!(
-                                "  ~ {}  (template render failed: {})",
-                                label, e
-                            ));
+                            section_lines
+                                .push(format!("  ~ {}  (template render failed: {})", label, e));
                             continue;
                         }
                         Ok(rendered) => {
                             let target = std::path::PathBuf::from(rendered.trim().to_string());
-                            let kind = match check_drift_link_template(&entry.src, &template_ctx, &dest) {
-                                Ok(k) => k,
-                                Err(e) => {
-                                    section_lines.push(format!(
-                                        "  ~ {}  (template render failed: {})",
-                                        label, e
-                                    ));
-                                    continue;
-                                }
-                            };
+                            let kind =
+                                match check_drift_link_template(&entry.src, &template_ctx, &dest) {
+                                    Ok(k) => k,
+                                    Err(e) => {
+                                        section_lines.push(format!(
+                                            "  ~ {}  (template render failed: {})",
+                                            label, e
+                                        ));
+                                        continue;
+                                    }
+                                };
                             (kind, target.display().to_string())
                         }
                     }
                 } else {
-                    (check_drift_link(&entry.src, &dest), entry.src.display().to_string())
+                    (
+                        check_drift_link(&entry.src, &dest),
+                        entry.src.display().to_string(),
+                    )
                 };
                 match kind {
                     DriftKind::Clean => {}
@@ -179,9 +183,7 @@ pub fn run(opts: &DiffOptions<'_>) -> Result<bool> {
                         };
                         section_lines.push(format!(
                             "  M {}  (symlink: points to {}, expected {})",
-                            label,
-                            actual,
-                            expected_target
+                            label, actual, expected_target
                         ));
                     }
                 }
@@ -193,11 +195,8 @@ pub fn run(opts: &DiffOptions<'_>) -> Result<bool> {
                     Ok(k) => k,
                     Err(e) => {
                         // Non-fatal: show the ~ marker and continue.
-                        section_lines.push(format!(
-                            "  ~ {}  (template render failed: {})",
-                            label,
-                            e
-                        ));
+                        section_lines
+                            .push(format!("  ~ {}  (template render failed: {})", label, e));
                         continue;
                     }
                 };
@@ -222,8 +221,8 @@ pub fn run(opts: &DiffOptions<'_>) -> Result<bool> {
                                 &dest_str,
                                 &rendered,
                                 label,
-                                label,                             // --- dest (current)
-                                &format!("{} (source)", label),   // +++ source (desired)
+                                label,                          // --- dest (current)
+                                &format!("{} (source)", label), // +++ source (desired)
                                 opts.stat_only,
                                 use_color,
                                 &mut section_lines,
@@ -258,11 +257,11 @@ pub fn run(opts: &DiffOptions<'_>) -> Result<bool> {
                             &String::from_utf8_lossy(&dest_bytes),
                         );
                         push_diff_output(
-                            &dest_text,                        // a = current on disk
-                            &src_text,                         // b = what apply would write
+                            &dest_text, // a = current on disk
+                            &src_text,  // b = what apply would write
                             label,
-                            label,                             // --- dest (current)
-                            &format!("{} (source)", label),   // +++ source (desired)
+                            label,                          // --- dest (current)
+                            &format!("{} (source)", label), // +++ source (desired)
                             opts.stat_only,
                             use_color,
                             &mut section_lines,
@@ -301,31 +300,29 @@ pub fn run(opts: &DiffOptions<'_>) -> Result<bool> {
                 None => {
                     println!("[brew] skipped (brew not available)\n");
                 }
-                Some(brew) => {
-                    match crate::homebrew::brewfile_diff(&brew, &path_refs) {
-                        Err(e) => {
-                            eprintln!("warning: brew diff failed: {}", e);
-                        }
-                        Ok(diff) if diff.is_clean() => {}
-                        Ok(diff) => {
-                            any_drift = true;
-                            println!("[brew]");
-                            for name in &diff.missing_formulas {
-                                println!("  + {}  (in Brewfile, not installed)", name);
-                            }
-                            for name in &diff.missing_casks {
-                                println!("  + {}  (in Brewfile, not installed)", name);
-                            }
-                            for name in &diff.extra_formulas {
-                                println!("  - {}  (installed, not in Brewfile)", name);
-                            }
-                            for name in &diff.extra_casks {
-                                println!("  - {}  (installed, not in Brewfile)", name);
-                            }
-                            println!();
-                        }
+                Some(brew) => match crate::homebrew::brewfile_diff(&brew, &path_refs) {
+                    Err(e) => {
+                        eprintln!("warning: brew diff failed: {}", e);
                     }
-                }
+                    Ok(diff) if diff.is_clean() => {}
+                    Ok(diff) => {
+                        any_drift = true;
+                        println!("[brew]");
+                        for name in &diff.missing_formulas {
+                            println!("  + {}  (in Brewfile, not installed)", name);
+                        }
+                        for name in &diff.missing_casks {
+                            println!("  + {}  (in Brewfile, not installed)", name);
+                        }
+                        for name in &diff.extra_formulas {
+                            println!("  - {}  (installed, not in Brewfile)", name);
+                        }
+                        for name in &diff.extra_casks {
+                            println!("  - {}  (installed, not in Brewfile)", name);
+                        }
+                        println!();
+                    }
+                },
             }
         }
     }
@@ -353,10 +350,8 @@ pub fn run(opts: &DiffOptions<'_>) -> Result<bool> {
                             .join(&skill.name)
                             .join("files");
                         if !files_path.exists() {
-                            section_lines.push(format!(
-                                "  ? {}  (repo: files not found)",
-                                skill.name
-                            ));
+                            section_lines
+                                .push(format!("  ? {}  (repo: files not found)", skill.name));
                         } else {
                             // Run git status --short on the files/ subdir.
                             // If git is unavailable or fails (e.g. jj-only repo), skip silently.
@@ -469,11 +464,7 @@ fn is_binary(bytes: &[u8]) -> bool {
 
 /// Try to read a file as UTF-8 text. On failure (binary or unreadable), push a notice
 /// into `lines` and return `None`.
-fn read_text_or_notice(
-    path: &Path,
-    label: &str,
-    lines: &mut Vec<String>,
-) -> Option<String> {
+fn read_text_or_notice(path: &Path, label: &str, lines: &mut Vec<String>) -> Option<String> {
     match std::fs::read(path) {
         Err(e) => {
             lines.push(format!("  M {}  (cannot read destination: {})", label, e));
@@ -524,7 +515,9 @@ fn extdir_head_sha(dest: &Path) -> Option<String> {
     if !out.status.success() {
         return None;
     }
-    String::from_utf8(out.stdout).ok().map(|s| s.trim().to_string())
+    String::from_utf8(out.stdout)
+        .ok()
+        .map(|s| s.trim().to_string())
 }
 
 /// Resolve a ref name (branch, tag, commit SHA) to its full SHA inside `dest`.
@@ -537,7 +530,9 @@ fn git_rev_parse_ref(dest: &Path, ref_name: &str) -> Option<String> {
     if !out.status.success() {
         return None;
     }
-    String::from_utf8(out.stdout).ok().map(|s| s.trim().to_string())
+    String::from_utf8(out.stdout)
+        .ok()
+        .map(|s| s.trim().to_string())
 }
 
 /// Generate and push diff or stat output into `lines`.
@@ -547,8 +542,8 @@ fn git_rev_parse_ref(dest: &Path, ref_name: &str) -> Option<String> {
 /// matching `git diff` semantics.
 #[allow(clippy::too_many_arguments)]
 fn push_diff_output(
-    dest_text: &str,   // a = old = current on disk   → shown as "-" lines
-    src_text: &str,    // b = new = what apply writes → shown as "+" lines
+    dest_text: &str, // a = old = current on disk   → shown as "-" lines
+    src_text: &str,  // b = new = what apply writes → shown as "+" lines
     label: &str,
     label_a: &str,
     label_b: &str,

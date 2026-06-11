@@ -111,8 +111,8 @@ impl PlatformsConfig {
         }
         let text = std::fs::read_to_string(&path)
             .with_context(|| format!("Cannot read {}", path.display()))?;
-        let config: Self = toml::from_str(&text)
-            .with_context(|| format!("Invalid TOML in {}", path.display()))?;
+        let config: Self =
+            toml::from_str(&text).with_context(|| format!("Invalid TOML in {}", path.display()))?;
         Ok(Some(config))
     }
 
@@ -311,10 +311,7 @@ mod tests {
     #[test]
     fn loads_active_list() {
         let dir = TempDir::new().unwrap();
-        write_platforms_toml(
-            &dir,
-            r#"active = ["claude-code", "codex"]"#,
-        );
+        write_platforms_toml(&dir, r#"active = ["claude-code", "codex"]"#);
 
         let cfg = PlatformsConfig::load(dir.path()).unwrap().unwrap();
         assert_eq!(cfg.active, ["claude-code", "codex"]);
@@ -336,7 +333,10 @@ mod tests {
 
         assert_eq!(platforms.len(), 1);
         assert_eq!(platforms[0].id, "claude-code");
-        assert!(platforms[0].skills_dir.to_string_lossy().contains(".claude/skills"));
+        assert!(platforms[0]
+            .skills_dir
+            .to_string_lossy()
+            .contains(".claude/skills"));
         assert!(!platforms[0].agentskills_compliant);
     }
 
@@ -359,7 +359,11 @@ mod tests {
         let cfg = PlatformsConfig::load(dir.path()).unwrap().unwrap();
         let err = cfg.resolve_active_platforms().unwrap_err();
         let msg = format!("{:#}", err);
-        assert!(msg.contains("Unknown platform 'claudecode'"), "error was: {}", msg);
+        assert!(
+            msg.contains("Unknown platform 'claudecode'"),
+            "error was: {}",
+            msg
+        );
         assert!(msg.contains("Built-in platforms:"), "error was: {}", msg);
     }
 
@@ -441,7 +445,10 @@ skills_dir = "/tmp/my-tool/skills"
 
         assert_eq!(platforms[0].id, "my-tool");
         assert_eq!(platforms[0].name, "My Tool");
-        assert_eq!(platforms[0].skills_dir, PathBuf::from("/tmp/my-tool/skills"));
+        assert_eq!(
+            platforms[0].skills_dir,
+            PathBuf::from("/tmp/my-tool/skills")
+        );
         assert!(!platforms[0].agentskills_compliant);
     }
 
@@ -518,7 +525,11 @@ agentskills_compliant = false
 
         let platforms = builtin_platforms_with_state_dir(state_dir.path());
         let ids: Vec<&str> = platforms.iter().map(|p| p.id.as_str()).collect();
-        assert!(ids.contains(&"new-agent"), "expected new-agent in {:?}", ids);
+        assert!(
+            ids.contains(&"new-agent"),
+            "expected new-agent in {:?}",
+            ids
+        );
         // Embedded platforms still present.
         assert!(ids.contains(&"claude-code"));
 
@@ -559,7 +570,10 @@ agentskills_compliant = true
         // Should not panic — falls back to embedded platforms only.
         let platforms = builtin_platforms_with_state_dir(state_dir.path());
         let ids: Vec<&str> = platforms.iter().map(|p| p.id.as_str()).collect();
-        assert!(ids.contains(&"claude-code"), "embedded platforms should still load");
+        assert!(
+            ids.contains(&"claude-code"),
+            "embedded platforms should still load"
+        );
     }
 
     #[test]

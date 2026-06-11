@@ -1,3 +1,4 @@
+mod ai_config;
 mod ai_platform;
 mod ai_skill;
 mod chezmoi;
@@ -15,22 +16,21 @@ mod ignore;
 mod lock;
 mod mise;
 mod onepassword;
-mod ai_config;
 mod skill_backend;
 mod skill_backend_agentskills;
 mod skill_backend_factory;
 mod skill_backend_native;
 mod skill_cache;
-mod util;
 mod source;
 mod state;
 mod telemetry;
 mod template;
+mod util;
 mod vcs;
 
 use anyhow::{Context, Result};
 use clap::{CommandFactory, Parser, Subcommand};
-use clap_complete::{Shell, generate};
+use clap_complete::{generate, Shell};
 use std::path::PathBuf;
 
 #[derive(Subcommand)]
@@ -242,7 +242,7 @@ enum PkgAction {
     },
 }
 
-use config::haven::{HavenConfig, repo_root};
+use config::haven::{repo_root, HavenConfig};
 
 #[derive(Parser)]
 #[command(
@@ -895,9 +895,12 @@ enum Commands {
 fn parse_color_mode(s: &str) -> Result<commands::diff::ColorMode, String> {
     match s {
         "always" => Ok(commands::diff::ColorMode::Always),
-        "never"  => Ok(commands::diff::ColorMode::Never),
-        "auto"   => Ok(commands::diff::ColorMode::Auto),
-        other    => Err(format!("unknown color mode '{}'; use always, never, or auto", other)),
+        "never" => Ok(commands::diff::ColorMode::Never),
+        "auto" => Ok(commands::diff::ColorMode::Auto),
+        other => Err(format!(
+            "unknown color mode '{}'; use always, never, or auto",
+            other
+        )),
     }
 }
 
@@ -905,7 +908,7 @@ fn parse_color_mode(s: &str) -> Result<commands::diff::ColorMode, String> {
 fn parse_vcs_flag(s: &str) -> anyhow::Result<vcs::VcsBackend> {
     match s.to_lowercase().as_str() {
         "git" => Ok(vcs::VcsBackend::Git),
-        "jj"  => Ok(vcs::VcsBackend::Jj),
+        "jj" => Ok(vcs::VcsBackend::Jj),
         other => anyhow::bail!("unknown --vcs value '{}'; use 'git' or 'jj'", other),
     }
 }
@@ -916,7 +919,7 @@ fn vcs_from_config(repo: &std::path::Path) -> Option<vcs::VcsBackend> {
     let cfg = HavenConfig::load(repo).ok()?;
     match cfg.vcs.backend.as_deref() {
         Some("git") => Some(vcs::VcsBackend::Git),
-        Some("jj")  => Some(vcs::VcsBackend::Jj),
+        Some("jj") => Some(vcs::VcsBackend::Jj),
         _ => None,
     }
 }
@@ -990,15 +993,13 @@ fn flags_from_args(args: &[String]) -> Vec<String> {
 fn set_telemetry_in_config(repo: &std::path::Path, enabled: bool) -> Result<()> {
     let path = repo.join("haven.toml");
     let text = if path.exists() {
-        std::fs::read_to_string(&path)
-            .with_context(|| format!("Cannot read {}", path.display()))?
+        std::fs::read_to_string(&path).with_context(|| format!("Cannot read {}", path.display()))?
     } else {
         String::new()
     };
 
-    let mut doc: toml_edit::DocumentMut = text
-        .parse()
-        .context("haven.toml contains invalid TOML")?;
+    let mut doc: toml_edit::DocumentMut =
+        text.parse().context("haven.toml contains invalid TOML")?;
 
     // `doc["telemetry"]["enabled"]` creates the [telemetry] table if absent.
     doc["telemetry"]["enabled"] = toml_edit::value(enabled);
@@ -1038,43 +1039,74 @@ fn run() -> Result<()> {
     match &cli.command {
         Commands::Note { text } => {
             let id = telemetry::append_note(text)?;
-            println!("Note {} recorded in ~/.local/state/haven/telemetry.jsonl", id);
+            println!(
+                "Note {} recorded in ~/.local/state/haven/telemetry.jsonl",
+                id
+            );
             return Ok(());
         }
         Commands::Action { text } => {
             let id = telemetry::append_typed("action", 'A', text)?;
-            println!("Action {} recorded in ~/.local/state/haven/telemetry.jsonl", id);
+            println!(
+                "Action {} recorded in ~/.local/state/haven/telemetry.jsonl",
+                id
+            );
             return Ok(());
         }
         Commands::Bug { text } => {
             let id = telemetry::append_typed("bug", 'B', text)?;
-            println!("Bug {} recorded in ~/.local/state/haven/telemetry.jsonl", id);
+            println!(
+                "Bug {} recorded in ~/.local/state/haven/telemetry.jsonl",
+                id
+            );
             return Ok(());
         }
         Commands::Question { text } => {
             let id = telemetry::append_typed("question", 'Q', text)?;
-            println!("Question {} recorded in ~/.local/state/haven/telemetry.jsonl", id);
+            println!(
+                "Question {} recorded in ~/.local/state/haven/telemetry.jsonl",
+                id
+            );
             return Ok(());
         }
-        Commands::Telemetry { action: Some(tel_action) } => {
+        Commands::Telemetry {
+            action: Some(tel_action),
+        } => {
             match tel_action {
                 TelemetryAction::Note { text } => {
                     let id = telemetry::append_note(text)?;
-                    println!("Note {} recorded in ~/.local/state/haven/telemetry.jsonl", id);
+                    println!(
+                        "Note {} recorded in ~/.local/state/haven/telemetry.jsonl",
+                        id
+                    );
                 }
                 TelemetryAction::Action { text } => {
                     let id = telemetry::append_typed("action", 'A', text)?;
-                    println!("Action {} recorded in ~/.local/state/haven/telemetry.jsonl", id);
+                    println!(
+                        "Action {} recorded in ~/.local/state/haven/telemetry.jsonl",
+                        id
+                    );
                 }
                 TelemetryAction::Bug { text } => {
                     let id = telemetry::append_typed("bug", 'B', text)?;
-                    println!("Bug {} recorded in ~/.local/state/haven/telemetry.jsonl", id);
+                    println!(
+                        "Bug {} recorded in ~/.local/state/haven/telemetry.jsonl",
+                        id
+                    );
                 }
                 TelemetryAction::Question { text } => {
                     let id = telemetry::append_typed("question", 'Q', text)?;
-                    println!("Question {} recorded in ~/.local/state/haven/telemetry.jsonl", id);
+                    println!(
+                        "Question {} recorded in ~/.local/state/haven/telemetry.jsonl",
+                        id
+                    );
                 }
-                TelemetryAction::List { notes, actions, bugs, questions } => {
+                TelemetryAction::List {
+                    notes,
+                    actions,
+                    bugs,
+                    questions,
+                } => {
                     let kind = match (notes, actions, bugs, questions) {
                         (true, _, _, _) => Some("note"),
                         (_, true, _, _) => Some("action"),
@@ -1088,14 +1120,20 @@ fn run() -> Result<()> {
                 TelemetryAction::Enable | TelemetryAction::Disable => {}
             }
             // Enable/disable fall through to the repo-requiring section below.
-            if !matches!(tel_action, TelemetryAction::Enable | TelemetryAction::Disable) {
+            if !matches!(
+                tel_action,
+                TelemetryAction::Enable | TelemetryAction::Disable
+            ) {
                 return Ok(());
             }
         }
         Commands::Telemetry { action: None } => {
             // Bare `haven telemetry` — print status (no repo needed).
             let is_on = telemetry::is_enabled(try_load_telemetry_config());
-            println!("Telemetry is currently {}.", if is_on { "enabled" } else { "disabled" });
+            println!(
+                "Telemetry is currently {}.",
+                if is_on { "enabled" } else { "disabled" }
+            );
             println!("  haven telemetry enable              # turn on");
             println!("  haven telemetry disable             # turn off");
             println!("  haven telemetry note \"<text>\"       # record a note (N000001…)");
@@ -1127,12 +1165,13 @@ fn run() -> Result<()> {
     });
     let state_dir = xdg_state_home.join("haven");
     let backup_dir = state_dir.join("backups");
-    let cache_dir = dirs::cache_dir().unwrap_or_else(|| {
-        dirs::home_dir()
-            .unwrap_or_else(|| PathBuf::from("."))
-            .join(".cache")
-    })
-    .join("haven");
+    let cache_dir = dirs::cache_dir()
+        .unwrap_or_else(|| {
+            dirs::home_dir()
+                .unwrap_or_else(|| PathBuf::from("."))
+                .join(".cache")
+        })
+        .join("haven");
     let claude_dir = std::env::var("HAVEN_CLAUDE_DIR")
         .map(PathBuf::from)
         .unwrap_or_else(|_| {
@@ -1180,7 +1219,14 @@ fn run() -> Result<()> {
             })?;
         }
 
-        Commands::List { files, brews, ai, profile, filter, count } => {
+        Commands::List {
+            files,
+            brews,
+            ai,
+            profile,
+            filter,
+            count,
+        } => {
             let resolved = resolve_profile(profile.as_deref(), &state_dir);
             commands::list::run(&commands::list::ListOptions {
                 repo_root: &repo,
@@ -1193,7 +1239,12 @@ fn run() -> Result<()> {
             })?;
         }
 
-        Commands::Add { file, link, apply, update } => {
+        Commands::Add {
+            file,
+            link,
+            apply,
+            update,
+        } => {
             commands::add::run(&repo, file, *link, *apply, *update)?;
         }
 
@@ -1234,7 +1285,9 @@ fn run() -> Result<()> {
             let cli_backend = vcs_flag.as_deref().map(parse_vcs_flag).transpose()?;
             let config_backend = vcs_from_config(&repo);
             let vcs_resolved = vcs::resolve(cli_backend, config_backend, Some(&repo))?;
-            let vcs_backend = vcs_resolved.map(|r| r.backend).unwrap_or(vcs::VcsBackend::Git);
+            let vcs_backend = vcs_resolved
+                .map(|r| r.backend)
+                .unwrap_or(vcs::VcsBackend::Git);
             let on_conflict_mode: commands::apply::OnConflict = on_conflict.parse()?;
             let outcome = commands::apply::run(&commands::apply::ApplyOptions {
                 repo_root: &repo,
@@ -1295,7 +1348,13 @@ fn run() -> Result<()> {
             }
         }
 
-        Commands::Status { profile, files, brews, ai, verbose } => {
+        Commands::Status {
+            profile,
+            files,
+            brews,
+            ai,
+            verbose,
+        } => {
             let resolved = resolve_profile(profile.as_deref(), &state_dir);
             commands::status::run(&commands::status::StatusOptions {
                 repo_root: &repo,
@@ -1313,10 +1372,29 @@ fn run() -> Result<()> {
         Commands::Pkg { action } => {
             let cfg = HavenConfig::load(&repo)?;
             match action {
-                PkgAction::Install { name, brew, mise, cask, module } => {
-                    commands::pkg::install(&repo, name, *brew, *mise, *cask, module.as_deref(), &cfg)?;
+                PkgAction::Install {
+                    name,
+                    brew,
+                    mise,
+                    cask,
+                    module,
+                } => {
+                    commands::pkg::install(
+                        &repo,
+                        name,
+                        *brew,
+                        *mise,
+                        *cask,
+                        module.as_deref(),
+                        &cfg,
+                    )?;
                 }
-                PkgAction::Uninstall { name, brew, mise, cask } => {
+                PkgAction::Uninstall {
+                    name,
+                    brew,
+                    mise,
+                    cask,
+                } => {
                     commands::pkg::uninstall(&repo, name, *brew, *mise, *cask, &cfg)?;
                 }
             }
@@ -1324,9 +1402,7 @@ fn run() -> Result<()> {
 
         Commands::Ai { action } => match action {
             AiAction::Discover => {
-                commands::ai::discover(&commands::ai::DiscoverOptions {
-                    repo_root: &repo,
-                })?;
+                commands::ai::discover(&commands::ai::DiscoverOptions { repo_root: &repo })?;
             }
             AiAction::Add {
                 source,
@@ -1342,7 +1418,11 @@ fn run() -> Result<()> {
                     deploy,
                 })?;
             }
-            AiAction::AddLocal { path, name, platforms } => {
+            AiAction::AddLocal {
+                path,
+                name,
+                platforms,
+            } => {
                 commands::ai::add_local(&commands::ai::AddLocalOptions {
                     repo_root: &repo,
                     path,
@@ -1388,9 +1468,7 @@ fn run() -> Result<()> {
                 })?;
             }
             AiAction::Backends => {
-                commands::ai::backends(&commands::ai::BackendsOptions {
-                    repo_root: &repo,
-                })?;
+                commands::ai::backends(&commands::ai::BackendsOptions { repo_root: &repo })?;
             }
         },
 
@@ -1453,15 +1531,29 @@ fn run() -> Result<()> {
         | Commands::Bug { .. }
         | Commands::Question { .. }
         | Commands::Telemetry { action: None }
-        | Commands::Telemetry { action: Some(TelemetryAction::Note { .. }) }
-        | Commands::Telemetry { action: Some(TelemetryAction::Action { .. }) }
-        | Commands::Telemetry { action: Some(TelemetryAction::Bug { .. }) }
-        | Commands::Telemetry { action: Some(TelemetryAction::Question { .. }) }
-        | Commands::Telemetry { action: Some(TelemetryAction::List { .. }) } => unreachable!(),
-        Commands::Telemetry { action: Some(TelemetryAction::Enable) } => {
+        | Commands::Telemetry {
+            action: Some(TelemetryAction::Note { .. }),
+        }
+        | Commands::Telemetry {
+            action: Some(TelemetryAction::Action { .. }),
+        }
+        | Commands::Telemetry {
+            action: Some(TelemetryAction::Bug { .. }),
+        }
+        | Commands::Telemetry {
+            action: Some(TelemetryAction::Question { .. }),
+        }
+        | Commands::Telemetry {
+            action: Some(TelemetryAction::List { .. }),
+        } => unreachable!(),
+        Commands::Telemetry {
+            action: Some(TelemetryAction::Enable),
+        } => {
             set_telemetry_in_config(&repo, true)?;
         }
-        Commands::Telemetry { action: Some(TelemetryAction::Disable) } => {
+        Commands::Telemetry {
+            action: Some(TelemetryAction::Disable),
+        } => {
             set_telemetry_in_config(&repo, false)?;
         }
 
@@ -1472,7 +1564,12 @@ fn run() -> Result<()> {
             })?;
         }
 
-        Commands::Import { from, source, dry_run, include_ignored_files } => {
+        Commands::Import {
+            from,
+            source,
+            dry_run,
+            include_ignored_files,
+        } => {
             if from != "chezmoi" {
                 anyhow::bail!(
                     "Unknown import source '{}'. Only 'chezmoi' is supported in v1.",

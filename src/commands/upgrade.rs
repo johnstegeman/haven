@@ -220,10 +220,7 @@ pub fn run(opts: &UpgradeOptions) -> Result<()> {
     println!("Upgrading haven v{} → v{}...", current, latest);
 
     let archive_name = format!("haven-v{}-{}.tar.gz", latest, target);
-    let base_url = format!(
-        "https://github.com/{}/releases/download/v{}",
-        REPO, latest
-    );
+    let base_url = format!("https://github.com/{}/releases/download/v{}", REPO, latest);
     let archive_url = format!("{}/{}", base_url, archive_name);
     let shasums_url = format!("{}/haven-v{}-SHA256SUMS", base_url, latest);
 
@@ -293,12 +290,8 @@ fn install_binary(src: &std::path::Path, dest: &std::path::Path) -> Result<()> {
             let _ = std::fs::remove_file(src);
             Ok(())
         }
-        Err(e) => Err(e).with_context(|| {
-            format!(
-                "Failed to replace {} with the new binary",
-                dest.display()
-            )
-        }),
+        Err(e) => Err(e)
+            .with_context(|| format!("Failed to replace {} with the new binary", dest.display())),
     }
 }
 
@@ -321,7 +314,10 @@ fn prompt_sudo() -> Result<bool> {
     std::io::stdin()
         .read_line(&mut line)
         .context("Failed to read from stdin")?;
-    Ok(matches!(line.trim().to_ascii_lowercase().as_str(), "y" | "yes"))
+    Ok(matches!(
+        line.trim().to_ascii_lowercase().as_str(),
+        "y" | "yes"
+    ))
 }
 
 /// Install the binary using sudo: `sudo mv <src> <dest> && sudo chmod 755 <dest>`.
@@ -354,7 +350,11 @@ mod tests {
         let data = b"hello haven";
         let mut hasher = Sha256::new();
         hasher.update(data);
-        let hex: String = hasher.finalize().iter().map(|b| format!("{:02x}", b)).collect();
+        let hex: String = hasher
+            .finalize()
+            .iter()
+            .map(|b| format!("{:02x}", b))
+            .collect();
         let shasums = format!("{}  haven-test.tar.gz\n", hex);
         assert!(verify_sha256(data, &shasums, "haven-test.tar.gz").is_ok());
     }
@@ -362,7 +362,8 @@ mod tests {
     #[test]
     fn verify_sha256_rejects_wrong_hash() {
         let data = b"hello haven";
-        let shasums = "0000000000000000000000000000000000000000000000000000000000000000  haven-test.tar.gz\n";
+        let shasums =
+            "0000000000000000000000000000000000000000000000000000000000000000  haven-test.tar.gz\n";
         assert!(verify_sha256(data, shasums, "haven-test.tar.gz").is_err());
     }
 

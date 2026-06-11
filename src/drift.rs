@@ -103,11 +103,7 @@ pub fn check_drift(src: &Path, dest: &Path) -> DriftKind {
 /// files augmented by haven after writing (e.g. via config injection) are not
 /// falsely reported as modified — consistent with `check_drift_haven_aware` and
 /// the idempotency check in `apply.rs`.
-pub fn check_drift_template(
-    src: &Path,
-    ctx: &TemplateContext,
-    dest: &Path,
-) -> Result<DriftKind> {
+pub fn check_drift_template(src: &Path, ctx: &TemplateContext, dest: &Path) -> Result<DriftKind> {
     if !src.exists() {
         return Ok(DriftKind::SourceMissing);
     }

@@ -1,9 +1,12 @@
 use anyhow::Result;
 use std::path::{Path, PathBuf};
 
-use crate::config::{sort_modules, HavenConfig, ModuleConfig};
 use crate::config::module::expand_tilde;
-use crate::drift::{check_drift_haven_aware, check_drift_link, check_drift_link_template, check_drift_template, drift_marker, DriftKind};
+use crate::config::{sort_modules, HavenConfig, ModuleConfig};
+use crate::drift::{
+    check_drift_haven_aware, check_drift_link, check_drift_link_template, check_drift_template,
+    drift_marker, DriftKind,
+};
 use crate::fs::sha256_of_bytes;
 use crate::ignore::IgnoreList;
 use crate::source;
@@ -33,7 +36,7 @@ pub fn run(opts: &StatusOptions<'_>) -> Result<()> {
     let none_specified = !opts.show_files && !opts.show_brews && !opts.show_ai;
     let show_files = opts.show_files || none_specified;
     let show_brews = opts.show_brews || none_specified;
-    let show_ai    = opts.show_ai   || none_specified;
+    let show_ai = opts.show_ai || none_specified;
 
     println!("Profile: {}", opts.profile);
 
@@ -107,9 +110,9 @@ pub fn run(opts: &StatusOptions<'_>) -> Result<()> {
             };
 
             let marker = match (drift != DriftKind::Clean, user_edited) {
-                (true,  true)  => Some("MC".to_string()),
-                (true,  false) => Some(drift_marker(drift).to_string()),
-                (false, true)  => Some("C".to_string()),
+                (true, true) => Some("MC".to_string()),
+                (true, false) => Some(drift_marker(drift).to_string()),
+                (false, true) => Some("C".to_string()),
                 (false, false) => None,
             };
             if let Some(m) = marker {
@@ -221,14 +224,22 @@ pub fn run(opts: &StatusOptions<'_>) -> Result<()> {
             for skill in &skills_config.skills {
                 let skill_dir = opts.claude_dir.join("skills").join(&skill.name);
                 if !skill_dir.exists() {
-                    ai_lines.push(format!("  {} {}", drift_marker(DriftKind::Missing), skill.source));
+                    ai_lines.push(format!(
+                        "  {} {}",
+                        drift_marker(DriftKind::Missing),
+                        skill.source
+                    ));
                 }
             }
         }
 
         // Check whether CLAUDE.md's haven section is out of date.
-        if crate::claude_md::is_claude_md_stale(opts.claude_dir, Some(opts.repo_root), opts.profile) {
-            ai_lines.push("  ~ ~/.claude/CLAUDE.md  (haven section out of date — run haven apply)".to_string());
+        if crate::claude_md::is_claude_md_stale(opts.claude_dir, Some(opts.repo_root), opts.profile)
+        {
+            ai_lines.push(
+                "  ~ ~/.claude/CLAUDE.md  (haven section out of date — run haven apply)"
+                    .to_string(),
+            );
         }
 
         if !ai_lines.is_empty() {
@@ -253,14 +264,36 @@ pub fn run(opts: &StatusOptions<'_>) -> Result<()> {
         println!("  repo:       {}", opts.repo_root.display());
         println!("  state dir:  {}", opts.state_dir.display());
         let state_file = opts.state_dir.join("state.json");
-        let lock_file  = opts.repo_root.join("haven.lock");
-        println!("  state.json: {}", if state_file.exists() { state_file.display().to_string() } else { format!("{} (missing)", state_file.display()) });
-        println!("  haven.lock: {}", if lock_file.exists()  { lock_file.display().to_string()  } else { format!("{} (missing)", lock_file.display()) });
+        let lock_file = opts.repo_root.join("haven.lock");
+        println!(
+            "  state.json: {}",
+            if state_file.exists() {
+                state_file.display().to_string()
+            } else {
+                format!("{} (missing)", state_file.display())
+            }
+        );
+        println!(
+            "  haven.lock: {}",
+            if lock_file.exists() {
+                lock_file.display().to_string()
+            } else {
+                format!("{} (missing)", lock_file.display())
+            }
+        );
 
         // Last apply + applied file count
         if state_file.exists() {
-            println!("  last apply: {}", state.last_apply.map_or_else(|| "never".to_string(), |t| t.to_rfc3339()));
-            println!("  tracked files with prior hash: {}", state.applied_files.len());
+            println!(
+                "  last apply: {}",
+                state
+                    .last_apply
+                    .map_or_else(|| "never".to_string(), |t| t.to_rfc3339())
+            );
+            println!(
+                "  tracked files with prior hash: {}",
+                state.applied_files.len()
+            );
         }
 
         // Deployed skills from state.json

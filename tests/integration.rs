@@ -6,7 +6,6 @@
 ///
 /// Files are tracked via magic-name encoding in source/ (chezmoi-compatible).
 /// No [[files]] TOML entries — the encoded filename is the source of truth.
-
 use assert_cmd::Command;
 use predicates::prelude::*;
 use std::fs;
@@ -55,13 +54,13 @@ fn init_creates_scaffold() {
         .success()
         .stdout(predicate::str::contains("Initialized haven repo"));
 
-    assert!(repo.path().join("haven.toml").exists(), "haven.toml missing");
+    assert!(
+        repo.path().join("haven.toml").exists(),
+        "haven.toml missing"
+    );
     assert!(repo.path().join("source").is_dir(), "source/ missing");
     assert!(repo.path().join("brew").is_dir(), "brew/ missing");
-    assert!(
-        repo.path().join("modules").is_dir(),
-        "modules/ missing"
-    );
+    assert!(repo.path().join("modules").is_dir(), "modules/ missing");
     assert!(
         repo.path().join("modules").join("shell.toml").exists(),
         "shell.toml missing"
@@ -108,11 +107,7 @@ fn make_local_git_repo(extra_files: &[(&str, &str)]) -> TempDir {
         .output()
         .unwrap();
 
-    fs::write(
-        r.join("haven.toml"),
-        "[profile.default]\nmodules = []\n",
-    )
-    .unwrap();
+    fs::write(r.join("haven.toml"), "[profile.default]\nmodules = []\n").unwrap();
 
     for (name, content) in extra_files {
         fs::write(r.join(name), content).unwrap();
@@ -153,7 +148,10 @@ fn init_from_local_path_clones_repo() {
         .success()
         .stdout(predicate::str::contains("Cloned successfully."));
 
-    assert!(target.path().join("haven.toml").exists(), "haven.toml missing after clone");
+    assert!(
+        target.path().join("haven.toml").exists(),
+        "haven.toml missing after clone"
+    );
 }
 
 #[test]
@@ -219,12 +217,14 @@ fn init_from_source_with_branch() {
     let target = TempDir::new().unwrap();
     Command::cargo_bin("haven")
         .unwrap()
-        .arg("--dir").arg(target.path())
+        .arg("--dir")
+        .arg(target.path())
         .env_remove("HAVEN_DIR")
         .env_remove("HAVEN_CLAUDE_DIR")
         .arg("init")
         .arg(remote.path().to_str().unwrap())
-        .arg("--branch").arg("feature")
+        .arg("--branch")
+        .arg("feature")
         .assert()
         .success()
         .stdout(predicate::str::contains("branch: feature"));
@@ -269,12 +269,14 @@ fn init_from_source_at_ref_uses_ref_as_branch() {
     let target = TempDir::new().unwrap();
     Command::cargo_bin("haven")
         .unwrap()
-        .arg("--dir").arg(target.path())
+        .arg("--dir")
+        .arg(target.path())
         .env_remove("HAVEN_DIR")
         .env_remove("HAVEN_CLAUDE_DIR")
         .arg("init")
         .arg(remote.path().to_str().unwrap())
-        .arg("--branch").arg("dev")
+        .arg("--branch")
+        .arg("dev")
         .assert()
         .success();
 
@@ -289,7 +291,8 @@ fn init_apply_fails_without_source() {
     let repo = TempDir::new().unwrap();
     Command::cargo_bin("haven")
         .unwrap()
-        .arg("--dir").arg(repo.path())
+        .arg("--dir")
+        .arg(repo.path())
         .env_remove("HAVEN_DIR")
         .env_remove("HAVEN_CLAUDE_DIR")
         .arg("init")
@@ -304,11 +307,13 @@ fn init_profile_fails_without_source() {
     let repo = TempDir::new().unwrap();
     Command::cargo_bin("haven")
         .unwrap()
-        .arg("--dir").arg(repo.path())
+        .arg("--dir")
+        .arg(repo.path())
         .env_remove("HAVEN_DIR")
         .env_remove("HAVEN_CLAUDE_DIR")
         .arg("init")
-        .arg("--profile").arg("work")
+        .arg("--profile")
+        .arg("work")
         .assert()
         .failure()
         .stderr(predicate::str::contains("--apply requires a source"));
@@ -323,7 +328,8 @@ fn init_fails_if_target_dir_nonempty() {
     let remote = make_local_git_repo(&[]);
     Command::cargo_bin("haven")
         .unwrap()
-        .arg("--dir").arg(target.path())
+        .arg("--dir")
+        .arg(target.path())
         .env_remove("HAVEN_DIR")
         .env_remove("HAVEN_CLAUDE_DIR")
         .arg("init")
@@ -368,7 +374,8 @@ fn init_apply_hard_fails_if_no_haven_toml() {
     let target = TempDir::new().unwrap();
     Command::cargo_bin("haven")
         .unwrap()
-        .arg("--dir").arg(target.path())
+        .arg("--dir")
+        .arg(target.path())
         .env_remove("HAVEN_DIR")
         .env_remove("HAVEN_CLAUDE_DIR")
         .arg("init")
@@ -376,7 +383,9 @@ fn init_apply_hard_fails_if_no_haven_toml() {
         .arg("--apply")
         .assert()
         .failure()
-        .stderr(predicate::str::contains("does not appear to be a haven repository"));
+        .stderr(predicate::str::contains(
+            "does not appear to be a haven repository",
+        ));
 }
 
 #[test]
@@ -387,7 +396,8 @@ fn init_from_source_with_apply() {
 
     Command::cargo_bin("haven")
         .unwrap()
-        .arg("--dir").arg(target.path())
+        .arg("--dir")
+        .arg(target.path())
         .env_remove("HAVEN_DIR")
         .env("HOME", home.path())
         .env("HAVEN_CLAUDE_DIR", home.path().join(".claude"))
@@ -448,7 +458,11 @@ fn add_is_idempotent() {
         .stderr(predicate::str::contains("already tracked"));
 
     // Exactly one source file with encoded name.
-    assert!(repo.path().join("source").join("dot_idempotent.rc").exists());
+    assert!(repo
+        .path()
+        .join("source")
+        .join("dot_idempotent.rc")
+        .exists());
 }
 
 #[test]
@@ -485,11 +499,20 @@ fn add_directory_without_git_adds_files_recursively() {
 
     // Encoded paths: dot_myapp/config and dot_myapp/sub/data.
     assert!(
-        repo.path().join("source").join("dot_myapp").join("config").exists(),
+        repo.path()
+            .join("source")
+            .join("dot_myapp")
+            .join("config")
+            .exists(),
         "source/dot_myapp/config missing"
     );
     assert!(
-        repo.path().join("source").join("dot_myapp").join("sub").join("data").exists(),
+        repo.path()
+            .join("source")
+            .join("dot_myapp")
+            .join("sub")
+            .join("data")
+            .exists(),
         "source/dot_myapp/sub/data missing"
     );
 }
@@ -510,7 +533,12 @@ fn add_directory_with_git_remote_and_extdir_choice_writes_marker() {
         .status()
         .unwrap();
     std::process::Command::new("git")
-        .args(["remote", "add", "origin", "https://github.com/tmux-plugins/tpm"])
+        .args([
+            "remote",
+            "add",
+            "origin",
+            "https://github.com/tmux-plugins/tpm",
+        ])
         .current_dir(&plugin_dir)
         .status()
         .unwrap();
@@ -526,7 +554,8 @@ fn add_directory_with_git_remote_and_extdir_choice_writes_marker() {
         .stdout(predicate::str::contains("tmux-plugins/tpm"));
 
     // The extdir_ marker file should exist with the correct path.
-    let marker = repo.path()
+    let marker = repo
+        .path()
         .join("source")
         .join("dot_tmux")
         .join("plugins")
@@ -534,7 +563,10 @@ fn add_directory_with_git_remote_and_extdir_choice_writes_marker() {
     assert!(marker.exists(), "extdir_ marker missing at {:?}", marker);
 
     let content = fs::read_to_string(&marker).unwrap();
-    assert!(content.contains("tmux-plugins/tpm"), "url missing from marker");
+    assert!(
+        content.contains("tmux-plugins/tpm"),
+        "url missing from marker"
+    );
     assert!(content.contains("git"), "type missing from marker");
 }
 
@@ -570,11 +602,21 @@ fn add_directory_with_git_remote_and_files_choice_adds_recursively() {
 
     // File should be tracked, not as extdir.
     assert!(
-        repo.path().join("source").join("dot_config").join("nvim").join("init.lua").exists(),
+        repo.path()
+            .join("source")
+            .join("dot_config")
+            .join("nvim")
+            .join("init.lua")
+            .exists(),
         "source/dot_config/nvim/init.lua missing"
     );
     assert!(
-        !repo.path().join("source").join("dot_config").join("extdir_nvim").exists(),
+        !repo
+            .path()
+            .join("source")
+            .join("dot_config")
+            .join("extdir_nvim")
+            .exists(),
         "unexpected extdir_ marker"
     );
 }
@@ -600,7 +642,11 @@ fn add_file_in_private_dir_encodes_private_prefix() {
         .stdout(predicate::str::contains("Added:"));
 
     assert!(
-        repo.path().join("source").join("private_dot_ssh").join("config").exists(),
+        repo.path()
+            .join("source")
+            .join("private_dot_ssh")
+            .join("config")
+            .exists(),
         "expected source/private_dot_ssh/config"
     );
 }
@@ -637,7 +683,8 @@ fn apply_uses_saved_profile_when_no_flag_given() {
     // Run apply with no --profile flag.
     Command::cargo_bin("haven")
         .unwrap()
-        .arg("--dir").arg(repo.path())
+        .arg("--dir")
+        .arg(repo.path())
         .env("HOME", home.path())
         .env("HAVEN_CLAUDE_DIR", home.path().join(".claude"))
         .env_remove("HAVEN_DIR")
@@ -679,7 +726,8 @@ fn apply_explicit_profile_overrides_saved_profile() {
     // Explicit --profile default should override the saved "work".
     Command::cargo_bin("haven")
         .unwrap()
-        .arg("--dir").arg(repo.path())
+        .arg("--dir")
+        .arg(repo.path())
         .env("HOME", home.path())
         .env("HAVEN_CLAUDE_DIR", home.path().join(".claude"))
         .env_remove("HAVEN_DIR")
@@ -705,7 +753,8 @@ fn apply_falls_back_to_default_when_no_state() {
     // No state.json — should fall back to "default".
     Command::cargo_bin("haven")
         .unwrap()
-        .arg("--dir").arg(repo.path())
+        .arg("--dir")
+        .arg(repo.path())
         .env("HOME", home.path())
         .env("HAVEN_CLAUDE_DIR", home.path().join(".claude"))
         .env_remove("HAVEN_DIR")
@@ -757,10 +806,7 @@ fn apply_copies_file_to_dest() {
         .stdout(predicate::str::contains("✓"));
 
     assert!(dest_path.exists(), "dest file was not created");
-    assert_eq!(
-        fs::read_to_string(&dest_path).unwrap(),
-        "export APPLY=1\n"
-    );
+    assert_eq!(fs::read_to_string(&dest_path).unwrap(), "export APPLY=1\n");
 }
 
 #[test]
@@ -775,10 +821,7 @@ fn apply_dry_run_prints_plan_without_writing() {
         .stdout(predicate::str::contains("Dry run"))
         .stdout(predicate::str::contains("applyrc"));
 
-    assert!(
-        !dest_path.exists(),
-        "dry-run must not write files"
-    );
+    assert!(!dest_path.exists(), "dry-run must not write files");
 }
 
 #[test]
@@ -796,7 +839,11 @@ fn apply_run_scripts_executes_script() {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(scripts_dir.join("run_setup.sh"), fs::Permissions::from_mode(0o755)).unwrap();
+        fs::set_permissions(
+            scripts_dir.join("run_setup.sh"),
+            fs::Permissions::from_mode(0o755),
+        )
+        .unwrap();
     }
 
     cmd_home(&repo, &home)
@@ -805,7 +852,10 @@ fn apply_run_scripts_executes_script() {
         .success()
         .stdout(predicate::str::contains("[scripts]"));
 
-    assert!(sentinel.exists(), "script should have created the sentinel file");
+    assert!(
+        sentinel.exists(),
+        "script should have created the sentinel file"
+    );
 }
 
 #[test]
@@ -822,7 +872,11 @@ fn apply_run_once_script_runs_only_once() {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(scripts_dir.join("run_once_setup.sh"), fs::Permissions::from_mode(0o755)).unwrap();
+        fs::set_permissions(
+            scripts_dir.join("run_once_setup.sh"),
+            fs::Permissions::from_mode(0o755),
+        )
+        .unwrap();
     }
 
     // First apply: script should run.
@@ -831,7 +885,11 @@ fn apply_run_once_script_runs_only_once() {
         .assert()
         .success();
     let lines_after_first = fs::read_to_string(&counter_file).unwrap_or_default();
-    assert_eq!(lines_after_first.lines().count(), 1, "script should run once on first apply");
+    assert_eq!(
+        lines_after_first.lines().count(),
+        1,
+        "script should run once on first apply"
+    );
 
     // Second apply with same HOME (state persists in HOME/.haven): script should NOT run again.
     cmd_home(&repo, &home)
@@ -840,7 +898,11 @@ fn apply_run_once_script_runs_only_once() {
         .success()
         .stdout(predicate::str::contains("already run"));
     let lines_after_second = fs::read_to_string(&counter_file).unwrap_or_default();
-    assert_eq!(lines_after_second.lines().count(), 1, "run_once_ script must not run a second time");
+    assert_eq!(
+        lines_after_second.lines().count(),
+        1,
+        "run_once_ script must not run a second time"
+    );
 }
 
 #[test]
@@ -855,12 +917,12 @@ fn apply_scripts_not_run_without_flag() {
     fs::write(scripts_dir.join("run_setup.sh"), &script_content).unwrap();
 
     // Apply WITHOUT --run-scripts.
-    cmd_home(&repo, &home)
-        .arg("apply")
-        .assert()
-        .success();
+    cmd_home(&repo, &home).arg("apply").assert().success();
 
-    assert!(!sentinel.exists(), "script must not run without --run-scripts flag");
+    assert!(
+        !sentinel.exists(),
+        "script must not run without --run-scripts flag"
+    );
 }
 
 #[test]
@@ -889,7 +951,10 @@ fn apply_exact_dir_removes_untracked_files() {
     // Tracked file stays.
     assert!(ssh_dest.join("config").exists(), "tracked file must remain");
     // Untracked file removed.
-    assert!(!ssh_dest.join("id_rsa_old").exists(), "untracked file must be removed");
+    assert!(
+        !ssh_dest.join("id_rsa_old").exists(),
+        "untracked file must be removed"
+    );
 }
 
 #[test]
@@ -906,10 +971,7 @@ fn apply_exact_dir_keeps_tracked_files() {
     let ssh_dest = home.path().join(".ssh");
     fs::create_dir_all(&ssh_dest).unwrap();
 
-    cmd_home(&repo, &home)
-        .arg("apply")
-        .assert()
-        .success();
+    cmd_home(&repo, &home).arg("apply").assert().success();
 
     assert!(ssh_dest.join("config").exists());
 }
@@ -936,7 +998,10 @@ fn apply_create_only_skips_if_dest_exists() {
 
     // Destination must NOT be overwritten.
     let result = fs::read_to_string(&dest).unwrap();
-    assert_eq!(result, "user content\n", "create_only must not overwrite existing dest");
+    assert_eq!(
+        result, "user content\n",
+        "create_only must not overwrite existing dest"
+    );
 }
 
 #[test]
@@ -952,14 +1017,14 @@ fn apply_create_only_writes_if_dest_absent() {
     let dest = home.path().join(".seedrc");
     assert!(!dest.exists());
 
-    cmd_home(&repo, &home)
-        .arg("apply")
-        .assert()
-        .success();
+    cmd_home(&repo, &home).arg("apply").assert().success();
 
     // File should be written on first apply.
     let result = fs::read_to_string(&dest).unwrap();
-    assert_eq!(result, "seed content\n", "create_only must write file when dest is absent");
+    assert_eq!(
+        result, "seed content\n",
+        "create_only must write file when dest is absent"
+    );
 }
 
 #[test]
@@ -997,7 +1062,9 @@ fn apply_extfile_dry_run_shows_download_entry() {
         .assert()
         .success()
         .stdout(predicate::str::contains("[extfile]"))
-        .stdout(predicate::str::contains("https://example.com/gh-v2.0.tar.gz"));
+        .stdout(predicate::str::contains(
+            "https://example.com/gh-v2.0.tar.gz",
+        ));
 }
 
 #[test]
@@ -1159,7 +1226,11 @@ fn apply_renders_template_variables() {
         "expected os variable rendered, got: {}",
         content
     );
-    assert!(content.contains("profile=default"), "expected profile rendered, got: {}", content);
+    assert!(
+        content.contains("profile=default"),
+        "expected profile rendered, got: {}",
+        content
+    );
 }
 
 #[test]
@@ -1269,7 +1340,14 @@ fn status_ai_flag_shows_only_ai_section() {
     let mut c = Command::cargo_bin("haven").unwrap();
     c.env_remove("HAVEN_DIR");
     c.env("HAVEN_CLAUDE_DIR", claude.path());
-    c.args(["--dir", repo.path().to_str().unwrap(), "status", "--ai", "--profile", "default"]);
+    c.args([
+        "--dir",
+        repo.path().to_str().unwrap(),
+        "status",
+        "--ai",
+        "--profile",
+        "default",
+    ]);
     c.assert()
         .success()
         .stdout(predicate::str::contains("?"))
@@ -1346,11 +1424,7 @@ fn apply_fails_on_malformed_template() {
 
 fn write_packages_module(repo: &TempDir, brewfile: &str) {
     let toml = format!("[homebrew]\nbrewfile = \"{}\"\n", brewfile);
-    fs::write(
-        repo.path().join("modules").join("packages.toml"),
-        toml,
-    )
-    .unwrap();
+    fs::write(repo.path().join("modules").join("packages.toml"), toml).unwrap();
     fs::write(
         repo.path().join("haven.toml"),
         "[profile.default]\nmodules = [\"packages\"]\n",
@@ -1366,13 +1440,24 @@ fn packages_toml_parses_homebrew_section() {
 
     // Create the Brewfile in brew/ directory.
     fs::create_dir_all(repo.path().join("brew")).unwrap();
-    fs::write(repo.path().join("brew").join("Brewfile.packages"), "brew \"git\"\n").unwrap();
+    fs::write(
+        repo.path().join("brew").join("Brewfile.packages"),
+        "brew \"git\"\n",
+    )
+    .unwrap();
     write_packages_module(&repo, "brew/Brewfile.packages");
 
     // dry-run apply should parse and print the plan without touching brew.
     let mut c = Command::cargo_bin("haven").unwrap();
     c.env_remove("HAVEN_DIR");
-    c.args(["--dir", repo.path().to_str().unwrap(), "apply", "--dry-run", "--profile", "default"]);
+    c.args([
+        "--dir",
+        repo.path().to_str().unwrap(),
+        "apply",
+        "--dry-run",
+        "--profile",
+        "default",
+    ]);
     c.assert()
         .success()
         .stdout(predicate::str::contains("brew bundle"))
@@ -1385,11 +1470,7 @@ fn packages_toml_with_mise_section_parses() {
     cmd(&repo).arg("init").assert().success();
 
     let toml = "[mise]\nconfig = \"source/mise.toml\"\n";
-    fs::write(
-        repo.path().join("modules").join("packages.toml"),
-        toml,
-    )
-    .unwrap();
+    fs::write(repo.path().join("modules").join("packages.toml"), toml).unwrap();
     fs::write(
         repo.path().join("haven.toml"),
         "[profile.default]\nmodules = [\"packages\"]\n",
@@ -1398,7 +1479,14 @@ fn packages_toml_with_mise_section_parses() {
 
     let mut c = Command::cargo_bin("haven").unwrap();
     c.env_remove("HAVEN_DIR");
-    c.args(["--dir", repo.path().to_str().unwrap(), "apply", "--dry-run", "--profile", "default"]);
+    c.args([
+        "--dir",
+        repo.path().to_str().unwrap(),
+        "apply",
+        "--dry-run",
+        "--profile",
+        "default",
+    ]);
     c.assert()
         .success()
         .stdout(predicate::str::contains("mise install"));
@@ -1416,7 +1504,11 @@ fn apply_shows_files_and_brew_in_dry_run() {
 
     // Brew module.
     fs::create_dir_all(repo.path().join("brew")).unwrap();
-    fs::write(repo.path().join("brew").join("Brewfile.packages"), "brew \"git\"\n").unwrap();
+    fs::write(
+        repo.path().join("brew").join("Brewfile.packages"),
+        "brew \"git\"\n",
+    )
+    .unwrap();
     fs::write(
         repo.path().join("modules").join("packages.toml"),
         "[homebrew]\nbrewfile = \"brew/Brewfile.packages\"\n",
@@ -1459,12 +1551,22 @@ fn status_shows_missing_when_brew_absent_and_brewfile_configured() {
 
     // Create the Brewfile so it exists in the repo.
     fs::create_dir_all(repo.path().join("brew")).unwrap();
-    fs::write(repo.path().join("brew").join("Brewfile.packages"), "brew \"git\"\n").unwrap();
+    fs::write(
+        repo.path().join("brew").join("Brewfile.packages"),
+        "brew \"git\"\n",
+    )
+    .unwrap();
     write_packages_module(&repo, "brew/Brewfile.packages");
 
     let mut c = Command::cargo_bin("haven").unwrap();
     c.env_remove("HAVEN_DIR");
-    c.args(["--dir", repo.path().to_str().unwrap(), "status", "--profile", "default"]);
+    c.args([
+        "--dir",
+        repo.path().to_str().unwrap(),
+        "status",
+        "--profile",
+        "default",
+    ]);
     let out = c.assert().success();
     // We can't enforce which marker without knowing the test environment.
     let _ = out; // verified it doesn't panic or error
@@ -1479,7 +1581,8 @@ fn remove_unreferenced_brews_dry_run_does_not_uninstall() {
     let (repo, home) = setup_apply();
     Command::cargo_bin("haven")
         .unwrap()
-        .arg("--dir").arg(repo.path())
+        .arg("--dir")
+        .arg(repo.path())
         .env("HOME", home.path())
         .env("HAVEN_CLAUDE_DIR", home.path().join(".claude"))
         .env_remove("HAVEN_DIR")
@@ -1495,7 +1598,8 @@ fn interactive_dry_run_does_not_prompt_or_uninstall() {
     let (repo, home) = setup_apply();
     Command::cargo_bin("haven")
         .unwrap()
-        .arg("--dir").arg(repo.path())
+        .arg("--dir")
+        .arg(repo.path())
         .env("HOME", home.path())
         .env("HAVEN_CLAUDE_DIR", home.path().join(".claude"))
         .env_remove("HAVEN_DIR")
@@ -1503,7 +1607,6 @@ fn interactive_dry_run_does_not_prompt_or_uninstall() {
         .assert()
         .success();
 }
-
 
 // ─── 1Password integration ───────────────────────────────────────────────────
 
@@ -1514,11 +1617,7 @@ fn write_secrets_module(repo: &TempDir) {
     let toml = "requires_op = true\n\n\
                 [homebrew]\n\
                 brewfile = \"brew/Brewfile.secrets\"\n";
-    fs::write(
-        repo.path().join("modules").join("secrets.toml"),
-        toml,
-    )
-    .unwrap();
+    fs::write(repo.path().join("modules").join("secrets.toml"), toml).unwrap();
     fs::write(
         repo.path().join("haven.toml"),
         "[profile.default]\nmodules = [\"secrets\"]\n",
@@ -1567,7 +1666,11 @@ fn apply_skips_requires_op_module_when_op_absent() {
     write_secrets_module(&repo);
 
     // A plain source file should still apply even when op is absent.
-    fs::write(repo.path().join("source").join("dot_zshrc"), "# always applies\n").unwrap();
+    fs::write(
+        repo.path().join("source").join("dot_zshrc"),
+        "# always applies\n",
+    )
+    .unwrap();
 
     cmd_home(&repo, &home)
         .env("PATH", "/usr/bin:/bin")
@@ -1577,7 +1680,10 @@ fn apply_skips_requires_op_module_when_op_absent() {
         .stderr(predicate::str::contains("skipped"));
 
     // File should have been applied (not blocked by requires_op).
-    assert!(home.path().join(".zshrc").exists(), "file should apply even when op absent");
+    assert!(
+        home.path().join(".zshrc").exists(),
+        "file should apply even when op absent"
+    );
 }
 
 #[test]
@@ -1598,7 +1704,10 @@ fn apply_requires_op_module_skipped_without_op_not_a_hard_error() {
         .success();
 
     // File should have been applied despite secrets module being skipped.
-    assert!(home.path().join(".plain").exists(), "file should apply regardless of requires_op");
+    assert!(
+        home.path().join(".plain").exists(),
+        "file should apply regardless of requires_op"
+    );
 }
 
 // ─── AI module (Week 6) ───────────────────────────────────────────────────────
@@ -1693,7 +1802,10 @@ fn apply_generates_claude_md_from_installed_skills() {
     assert!(claude_md.exists(), "CLAUDE.md was not generated");
     let content = fs::read_to_string(&claude_md).unwrap();
     // Skills are auto-discovered — no listing in CLAUDE.md.
-    assert!(!content.contains("/my-skill: Test skill"), "skills should not be listed");
+    assert!(
+        !content.contains("/my-skill: Test skill"),
+        "skills should not be listed"
+    );
     assert!(content.contains("profile: default"));
 }
 
@@ -1729,7 +1841,13 @@ fn status_reports_missing_when_ai_skill_not_installed() {
     let mut c = Command::cargo_bin("haven").unwrap();
     c.env_remove("HAVEN_DIR");
     c.env("HAVEN_CLAUDE_DIR", claude.path());
-    c.args(["--dir", repo.path().to_str().unwrap(), "status", "--profile", "default"]);
+    c.args([
+        "--dir",
+        repo.path().to_str().unwrap(),
+        "status",
+        "--profile",
+        "default",
+    ]);
     c.assert()
         .success()
         .stdout(predicate::str::contains("?"))
@@ -1751,7 +1869,13 @@ fn status_reports_clean_when_ai_skill_installed() {
     let mut c = Command::cargo_bin("haven").unwrap();
     c.env_remove("HAVEN_DIR");
     c.env("HAVEN_CLAUDE_DIR", claude.path());
-    c.args(["--dir", repo.path().to_str().unwrap(), "status", "--profile", "default"]);
+    c.args([
+        "--dir",
+        repo.path().to_str().unwrap(),
+        "status",
+        "--profile",
+        "default",
+    ]);
     c.assert()
         .success()
         .stdout(predicate::str::contains("up to date"));
@@ -1798,7 +1922,11 @@ fn make_chezmoi_dir(base: &TempDir) -> std::path::PathBuf {
     fs::write(src.join("dot_zshrc"), "# zsh config\n").unwrap();
     fs::write(src.join("dot_finicky.js"), "module.exports = {};\n").unwrap();
     // Template file.
-    fs::write(src.join("dot_hgrc.tmpl"), "[ui]\nusername = {{ .chezmoi.username }}\n").unwrap();
+    fs::write(
+        src.join("dot_hgrc.tmpl"),
+        "[ui]\nusername = {{ .chezmoi.username }}\n",
+    )
+    .unwrap();
 
     // Nested dot_config/git/config.
     let git_dir = src.join("dot_config").join("git");
@@ -1871,14 +1999,29 @@ fn import_copies_files_with_encoded_paths() {
         .stdout(predicate::str::contains("Skipped"));
 
     // Source files are stored with encoded paths (chezmoi-compatible).
-    assert!(repo.path().join("source").join("dot_zshrc").exists(), "source/dot_zshrc missing");
     assert!(
-        repo.path().join("source").join("dot_config").join("git").join("config").exists(),
+        repo.path().join("source").join("dot_zshrc").exists(),
+        "source/dot_zshrc missing"
+    );
+    assert!(
+        repo.path()
+            .join("source")
+            .join("dot_config")
+            .join("git")
+            .join("config")
+            .exists(),
         "source/dot_config/git/config missing"
     );
-    assert!(repo.path().join("source").join("Justfile").exists(), "source/Justfile missing");
     assert!(
-        repo.path().join("source").join("private_dot_ssh").join("id_rsa").exists(),
+        repo.path().join("source").join("Justfile").exists(),
+        "source/Justfile missing"
+    );
+    assert!(
+        repo.path()
+            .join("source")
+            .join("private_dot_ssh")
+            .join("id_rsa")
+            .exists(),
         "source/private_dot_ssh/id_rsa missing"
     );
 
@@ -1934,7 +2077,11 @@ fn import_skips_dot_directories() {
         .output()
         .unwrap();
     let stdout = String::from_utf8_lossy(&out.stdout);
-    assert!(!stdout.contains("HEAD"), ".git/HEAD should not appear in output: {}", stdout);
+    assert!(
+        !stdout.contains("HEAD"),
+        ".git/HEAD should not appear in output: {}",
+        stdout
+    );
 }
 
 #[test]
@@ -1955,14 +2102,20 @@ fn import_missing_source_dir_fails() {
     cmd(&repo).arg("init").assert().success();
 
     cmd(&repo)
-        .args(["import", "--from", "chezmoi", "--source", "/nonexistent/chezmoi/dir"])
+        .args([
+            "import",
+            "--from",
+            "chezmoi",
+            "--source",
+            "/nonexistent/chezmoi/dir",
+        ])
         .assert()
         .failure()
-        .stderr(predicate::str::contains("chezmoi source directory not found").or(
-            predicate::str::contains("Cannot locate").or(
-                predicate::str::contains("No such file")
-            )
-        ));
+        .stderr(
+            predicate::str::contains("chezmoi source directory not found")
+                .or(predicate::str::contains("Cannot locate")
+                    .or(predicate::str::contains("No such file"))),
+        );
 }
 
 /// Mock chezmoi binary: a shell script placed in a temp dir on PATH that echoes
@@ -1985,7 +2138,8 @@ fn import_uses_chezmoi_subprocess_when_on_path() {
             "#!/bin/sh\nif [ \"$1\" = \"source-path\" ]; then echo '{}'; exit 0; fi\nexit 1\n",
             chezmoi_src.path().display()
         ),
-    ).unwrap();
+    )
+    .unwrap();
 
     // Make it executable.
     #[cfg(unix)]
@@ -2077,7 +2231,11 @@ fn apply_sets_private_executable_permission() {
 
     let dest = home.path().join("secret_script");
     assert!(dest.exists(), "dest file not created");
-    assert_eq!(file_mode(&dest), 0o700, "expected 0700 for private+executable");
+    assert_eq!(
+        file_mode(&dest),
+        0o700,
+        "expected 0700 for private+executable"
+    );
 }
 
 #[test]
@@ -2087,7 +2245,11 @@ fn apply_dry_run_shows_private_annotation() {
     cmd(&repo).arg("init").assert().success();
 
     // private_id_rsa → ~/id_rsa; dry-run should show "(private)" annotation.
-    fs::write(repo.path().join("source").join("private_id_rsa"), "content\n").unwrap();
+    fs::write(
+        repo.path().join("source").join("private_id_rsa"),
+        "content\n",
+    )
+    .unwrap();
     fs::write(
         repo.path().join("haven.toml"),
         "[profile.default]\nmodules = []\n",
@@ -2118,7 +2280,11 @@ fn import_private_prefix_preserves_encoding() {
 
     // Encoded source path is preserved — private_dot_ssh/id_rsa in source/.
     assert!(
-        repo.path().join("source").join("private_dot_ssh").join("id_rsa").exists(),
+        repo.path()
+            .join("source")
+            .join("private_dot_ssh")
+            .join("id_rsa")
+            .exists(),
         "source/private_dot_ssh/id_rsa missing"
     );
     // No TOML entry for private flag — it's encoded in the filename.
@@ -2140,7 +2306,12 @@ fn import_executable_prefix_preserves_encoding() {
         .success();
 
     assert!(
-        repo.path().join("source").join("executable_dot_local").join("bin").join("myscript").exists(),
+        repo.path()
+            .join("source")
+            .join("executable_dot_local")
+            .join("bin")
+            .join("myscript")
+            .exists(),
         "source/executable_dot_local/bin/myscript missing"
     );
 }
@@ -2164,7 +2335,10 @@ fn import_create_prefix_preserved_in_source() {
 
     // Prefix is preserved in the source path — apply uses it to set create_only.
     assert!(
-        repo.path().join("source").join("create_dot_seedrc").exists(),
+        repo.path()
+            .join("source")
+            .join("create_dot_seedrc")
+            .exists(),
         "source/create_dot_seedrc must be present (create_ prefix preserved)"
     );
 }
@@ -2190,7 +2364,11 @@ fn import_exact_prefix_preserved_in_source() {
 
     // Directory AND file are imported with the exact_ prefix on the dir.
     assert!(
-        repo.path().join("source").join("exact_dot_ssh").join("config").exists(),
+        repo.path()
+            .join("source")
+            .join("exact_dot_ssh")
+            .join("config")
+            .exists(),
         "source/exact_dot_ssh/config must be present (exact_ prefix preserved)"
     );
 }
@@ -2316,9 +2494,15 @@ fn import_chezmoiexternal_toml_writes_externals_section() {
         .join("source")
         .join("dot_config")
         .join("extdir_nvim");
-    assert!(extdir_marker.exists(), "extdir_ marker missing at source/dot_config/extdir_nvim");
+    assert!(
+        extdir_marker.exists(),
+        "extdir_ marker missing at source/dot_config/extdir_nvim"
+    );
     let marker_content = fs::read_to_string(&extdir_marker).unwrap();
-    assert!(marker_content.contains("nvim-config"), "missing url in marker");
+    assert!(
+        marker_content.contains("nvim-config"),
+        "missing url in marker"
+    );
     assert!(marker_content.contains("git"), "missing type in marker");
 }
 
@@ -2393,10 +2577,14 @@ fn status_shows_external_missing() {
 
     let mut c = Command::cargo_bin("haven").unwrap();
     c.env_remove("HAVEN_DIR");
-    c.args(["--dir", repo.path().to_str().unwrap(), "status", "--profile", "default"]);
-    c.assert()
-        .success()
-        .stdout(predicate::str::contains("?"));
+    c.args([
+        "--dir",
+        repo.path().to_str().unwrap(),
+        "status",
+        "--profile",
+        "default",
+    ]);
+    c.assert().success().stdout(predicate::str::contains("?"));
 }
 
 // ─── link = true (symlink entries via symlink_ encoding) ─────────────────────
@@ -2411,7 +2599,11 @@ fn setup_link_apply() -> (TempDir, TempDir, std::path::PathBuf) {
 
     // symlink_vscode_settings.json → ~/vscode_settings.json (symlink → source file)
     let source_dir = repo.path().join("source");
-    fs::write(source_dir.join("symlink_vscode_settings.json"), r#"{"editor.fontSize": 14}"#).unwrap();
+    fs::write(
+        source_dir.join("symlink_vscode_settings.json"),
+        r#"{"editor.fontSize": 14}"#,
+    )
+    .unwrap();
 
     fs::write(
         repo.path().join("haven.toml"),
@@ -2419,7 +2611,10 @@ fn setup_link_apply() -> (TempDir, TempDir, std::path::PathBuf) {
     )
     .unwrap();
 
-    let source_abs = repo.path().join("source").join("symlink_vscode_settings.json");
+    let source_abs = repo
+        .path()
+        .join("source")
+        .join("symlink_vscode_settings.json");
     (repo, home, source_abs)
 }
 
@@ -2446,11 +2641,17 @@ fn apply_symlink_is_idempotent() {
 
     // First apply.
     cmd_home(&repo, &home).arg("apply").assert().success();
-    assert!(dest_path.is_symlink(), "symlink should exist after first apply");
+    assert!(
+        dest_path.is_symlink(),
+        "symlink should exist after first apply"
+    );
 
     // Second apply — must succeed without creating a backup or erroring.
     cmd_home(&repo, &home).arg("apply").assert().success();
-    assert!(dest_path.is_symlink(), "symlink should still exist after second apply");
+    assert!(
+        dest_path.is_symlink(),
+        "symlink should still exist after second apply"
+    );
 }
 
 #[test]
@@ -2481,15 +2682,24 @@ fn apply_symlink_replaces_dangling_symlink() {
 
     // Create a dangling symlink (target does not exist).
     std::os::unix::fs::symlink("/tmp/nonexistent_target_for_haven_test", &dest_path).unwrap();
-    assert!(dest_path.is_symlink(), "pre-condition: dangling symlink exists");
-    assert!(!dest_path.exists(), "pre-condition: symlink target does not exist");
+    assert!(
+        dest_path.is_symlink(),
+        "pre-condition: dangling symlink exists"
+    );
+    assert!(
+        !dest_path.exists(),
+        "pre-condition: symlink target does not exist"
+    );
 
     // Apply must succeed without error and fix the symlink.
     cmd_home(&repo, &home).arg("apply").assert().success();
 
     assert!(dest_path.is_symlink(), "dest should still be a symlink");
     let target = fs::read_link(&dest_path).unwrap();
-    assert_eq!(target, source_abs, "symlink should now point to source file");
+    assert_eq!(
+        target, source_abs,
+        "symlink should now point to source file"
+    );
 }
 
 #[test]
@@ -2499,7 +2709,10 @@ fn apply_symlink_replaces_regular_file() {
 
     // Pre-create a regular file at the dest location.
     fs::write(&dest_path, "old content\n").unwrap();
-    assert!(!dest_path.is_symlink(), "pre-condition: regular file at dest");
+    assert!(
+        !dest_path.is_symlink(),
+        "pre-condition: regular file at dest"
+    );
 
     cmd_home(&repo, &home)
         .arg("apply")
@@ -2535,7 +2748,9 @@ fn apply_warns_when_link_and_private_combined() {
 
     // symlink_private_ combined: private flag is meaningless for symlinks → warning.
     fs::write(
-        repo.path().join("source").join("symlink_private_secret_link.txt"),
+        repo.path()
+            .join("source")
+            .join("symlink_private_secret_link.txt"),
         "secret\n",
     )
     .unwrap();
@@ -2613,17 +2828,16 @@ fn add_link_flag_encodes_symlink_in_filename() {
     fs::write(&dotfile, r#"{"editor.fontSize": 14}"#).unwrap();
 
     cmd_home(&repo, &home)
-        .args([
-            "add",
-            dotfile.to_str().unwrap(),
-            "--link",
-        ])
+        .args(["add", dotfile.to_str().unwrap(), "--link"])
         .assert()
         .success();
 
     // Source file should have symlink_ encoding.
     assert!(
-        repo.path().join("source").join("symlink_vscode_settings.json").exists(),
+        repo.path()
+            .join("source")
+            .join("symlink_vscode_settings.json")
+            .exists(),
         "expected source/symlink_vscode_settings.json"
     );
 }
@@ -2644,12 +2858,21 @@ fn add_link_apply_installs_symlink_immediately() {
         .stdout(predicate::str::contains("linked"));
 
     // Original path should now be a symlink.
-    assert!(dotfile.is_symlink(), "original file should be replaced by a symlink");
+    assert!(
+        dotfile.is_symlink(),
+        "original file should be replaced by a symlink"
+    );
 
     // Symlink should point into source/.
     let target = fs::read_link(&dotfile).unwrap();
-    let expected = repo.path().join("source").join("symlink_vscode_settings.json");
-    assert_eq!(target, expected, "symlink should point to source/symlink_vscode_settings.json");
+    let expected = repo
+        .path()
+        .join("source")
+        .join("symlink_vscode_settings.json");
+    assert_eq!(
+        target, expected,
+        "symlink should point to source/symlink_vscode_settings.json"
+    );
 
     // The file content should still be accessible through the symlink.
     let content = fs::read_to_string(&dotfile).unwrap();
@@ -2692,9 +2915,16 @@ fn add_link_without_apply_does_not_create_symlink() {
         .success();
 
     // Without --apply, original file should NOT be a symlink.
-    assert!(!dotfile.is_symlink(), "without --apply the original file should not be replaced");
+    assert!(
+        !dotfile.is_symlink(),
+        "without --apply the original file should not be replaced"
+    );
     // But source/ should have the encoded file.
-    assert!(repo.path().join("source").join("symlink_settings.json").exists());
+    assert!(repo
+        .path()
+        .join("source")
+        .join("symlink_settings.json")
+        .exists());
 }
 
 #[test]
@@ -2803,7 +3033,9 @@ fn import_symlink_prefix_resolves_to_link_entry() {
     );
     // The file should be stored with symlink_ encoding (symlink_dot_vimrc).
     assert!(
-        source_files.iter().any(|f| f.contains("symlink") || f.contains("vimrc")),
+        source_files
+            .iter()
+            .any(|f| f.contains("symlink") || f.contains("vimrc")),
         "expected symlink-encoded file in source/, found: {:?}",
         source_files
     );
@@ -2849,7 +3081,10 @@ fn apply_files_flag_applies_files() {
         .assert()
         .success();
 
-    assert!(dest_path.exists(), "--files should have copied the source file");
+    assert!(
+        dest_path.exists(),
+        "--files should have copied the source file"
+    );
 }
 
 #[test]
@@ -3013,7 +3248,11 @@ fn diff_template_rendered_before_compare() {
     let source_dir = repo.path().join("source");
     // Replace the plain file with a template.
     fs::remove_file(source_dir.join("dot_diffrc")).unwrap();
-    fs::write(source_dir.join("dot_diffrc.tmpl"), "profile={{ profile }}\n").unwrap();
+    fs::write(
+        source_dir.join("dot_diffrc.tmpl"),
+        "profile={{ profile }}\n",
+    )
+    .unwrap();
 
     // Apply first so the rendered file is in dest.
     cmd_home(&repo, &home)
@@ -3032,7 +3271,11 @@ fn diff_template_rendered_diff_shows_delta() {
     let (repo, home) = setup_diff();
     let source_dir = repo.path().join("source");
     fs::remove_file(source_dir.join("dot_diffrc")).unwrap();
-    fs::write(source_dir.join("dot_diffrc.tmpl"), "profile={{ profile }}\n").unwrap();
+    fs::write(
+        source_dir.join("dot_diffrc.tmpl"),
+        "profile={{ profile }}\n",
+    )
+    .unwrap();
 
     // Apply with profile "default" so dest = "profile=default\n".
     cmd_home(&repo, &home)
@@ -3216,9 +3459,7 @@ fn diff_exits_0_when_clean() {
         .assert()
         .success();
 
-    diff_cmd(&repo, &home)
-        .assert()
-        .success(); // exit code 0
+    diff_cmd(&repo, &home).assert().success(); // exit code 0
 }
 
 #[test]
@@ -3226,9 +3467,7 @@ fn diff_exits_1_when_drift() {
     let (repo, home) = setup_diff();
     // Don't apply — dest is missing, so drift exists.
 
-    diff_cmd(&repo, &home)
-        .assert()
-        .failure(); // exit code 1
+    diff_cmd(&repo, &home).assert().failure(); // exit code 1
 }
 
 // ─── .chezmoiignore import tests ──────────────────────────────────────────────
@@ -3256,11 +3495,23 @@ fn import_chezmoiignore_writes_config_ignore() {
         .stdout(predicate::str::contains("config/ignore"));
 
     let ignore_path = repo.path().join("config").join("ignore");
-    assert!(ignore_path.exists(), "config/ignore should have been created");
+    assert!(
+        ignore_path.exists(),
+        "config/ignore should have been created"
+    );
     let content = fs::read_to_string(&ignore_path).unwrap();
-    assert!(content.contains(".ssh/id_*"), "should contain .ssh/id_* pattern");
-    assert!(content.contains(".local/share/app/**"), "should contain .local/share/app/** pattern");
-    assert!(content.contains("# ignored patterns"), "should preserve comments");
+    assert!(
+        content.contains(".ssh/id_*"),
+        "should contain .ssh/id_* pattern"
+    );
+    assert!(
+        content.contains(".local/share/app/**"),
+        "should contain .local/share/app/** pattern"
+    );
+    assert!(
+        content.contains("# ignored patterns"),
+        "should preserve comments"
+    );
 }
 
 #[test]
@@ -3270,11 +3521,7 @@ fn import_chezmoiignore_skips_ignored_files_by_default() {
     make_chezmoi_dir(&chezmoi_src);
 
     // .chezmoiignore ignores dot_zshrc.
-    fs::write(
-        chezmoi_src.path().join(".chezmoiignore"),
-        ".zshrc\n",
-    )
-    .unwrap();
+    fs::write(chezmoi_src.path().join(".chezmoiignore"), ".zshrc\n").unwrap();
 
     cmd(&repo).arg("init").assert().success();
 
@@ -3303,11 +3550,7 @@ fn import_chezmoiignore_include_ignored_files_flag_imports_all() {
     let chezmoi_src = TempDir::new().unwrap();
     make_chezmoi_dir(&chezmoi_src);
 
-    fs::write(
-        chezmoi_src.path().join(".chezmoiignore"),
-        ".zshrc\n",
-    )
-    .unwrap();
+    fs::write(chezmoi_src.path().join(".chezmoiignore"), ".zshrc\n").unwrap();
 
     cmd(&repo).arg("init").assert().success();
 
@@ -3353,9 +3596,15 @@ fn import_chezmoiignore_strips_go_template_lines_with_warning() {
     let ignore_path = repo.path().join("config").join("ignore");
     let content = fs::read_to_string(&ignore_path).unwrap();
     // Plain patterns should be preserved.
-    assert!(content.contains(".ssh/id_rsa"), "plain patterns should be kept");
+    assert!(
+        content.contains(".ssh/id_rsa"),
+        "plain patterns should be kept"
+    );
     // Go template lines should be stripped.
-    assert!(!content.contains("{{"), "Go template lines should be stripped");
+    assert!(
+        !content.contains("{{"),
+        "Go template lines should be stripped"
+    );
 }
 
 #[test]
@@ -3364,11 +3613,7 @@ fn import_chezmoiignore_dry_run_shows_ignore_import() {
     let chezmoi_src = TempDir::new().unwrap();
     make_chezmoi_dir(&chezmoi_src);
 
-    fs::write(
-        chezmoi_src.path().join(".chezmoiignore"),
-        ".zshrc\n",
-    )
-    .unwrap();
+    fs::write(chezmoi_src.path().join(".chezmoiignore"), ".zshrc\n").unwrap();
 
     cmd(&repo).arg("init").assert().success();
 
@@ -3421,7 +3666,8 @@ fn import_run_once_brew_bundle_emits_homebrew_module_toml() {
     fs::write(
         chezmoi_src.path().join("run_once_install-packages.sh"),
         "#!/bin/bash\nbrew bundle --file=~/Brewfile\n",
-    ).unwrap();
+    )
+    .unwrap();
 
     cmd(&repo).arg("init").assert().success();
 
@@ -3434,7 +3680,10 @@ fn import_run_once_brew_bundle_emits_homebrew_module_toml() {
 
     // Brewfile should be copied to brew/.
     let brewfile_dest = repo.path().join("brew").join("Brewfile.packages");
-    assert!(brewfile_dest.exists(), "brew/Brewfile.packages should exist");
+    assert!(
+        brewfile_dest.exists(),
+        "brew/Brewfile.packages should exist"
+    );
     assert_eq!(
         fs::read_to_string(&brewfile_dest).unwrap(),
         "brew \"ripgrep\"\n",
@@ -3444,8 +3693,14 @@ fn import_run_once_brew_bundle_emits_homebrew_module_toml() {
     let toml_path = repo.path().join("modules").join("packages.toml");
     assert!(toml_path.exists(), "packages.toml should be written");
     let toml_content = fs::read_to_string(&toml_path).unwrap();
-    assert!(toml_content.contains("[homebrew]"), "should contain [homebrew]");
-    assert!(toml_content.contains("brew/Brewfile.packages"), "should contain brew/Brewfile.packages");
+    assert!(
+        toml_content.contains("[homebrew]"),
+        "should contain [homebrew]"
+    );
+    assert!(
+        toml_content.contains("brew/Brewfile.packages"),
+        "should contain brew/Brewfile.packages"
+    );
 }
 
 #[test]
@@ -3474,18 +3729,33 @@ fn import_brewfile_in_chezmoi_source_copied_to_brew_dir() {
 
     // Brewfile should be in brew/.
     let brewfile_dest = repo.path().join("brew").join("Brewfile.packages");
-    assert!(brewfile_dest.exists(), "brew/Brewfile.packages should exist");
-    assert_eq!(fs::read_to_string(&brewfile_dest).unwrap(), "brew \"git\"\n");
+    assert!(
+        brewfile_dest.exists(),
+        "brew/Brewfile.packages should exist"
+    );
+    assert_eq!(
+        fs::read_to_string(&brewfile_dest).unwrap(),
+        "brew \"git\"\n"
+    );
 
     // Module TOML should reference brew/Brewfile.packages.
     let toml_path = repo.path().join("modules").join("packages.toml");
     assert!(toml_path.exists(), "packages.toml should be created");
     let toml = fs::read_to_string(&toml_path).unwrap();
-    assert!(toml.contains("[homebrew]"), "packages.toml should have [homebrew]");
-    assert!(toml.contains("brew/Brewfile.packages"), "packages.toml should reference brew/Brewfile.packages");
+    assert!(
+        toml.contains("[homebrew]"),
+        "packages.toml should have [homebrew]"
+    );
+    assert!(
+        toml.contains("brew/Brewfile.packages"),
+        "packages.toml should reference brew/Brewfile.packages"
+    );
 
     // Summary line should mention 1 Brewfile.
-    assert!(stdout.contains("1 Brewfile"), "summary should say 1 Brewfile(s)");
+    assert!(
+        stdout.contains("1 Brewfile"),
+        "summary should say 1 Brewfile(s)"
+    );
 }
 
 #[test]
@@ -3511,7 +3781,10 @@ fn import_brewfile_with_suffix_preserves_module_name() {
     let toml_path = repo.path().join("modules").join("work.toml");
     assert!(toml_path.exists(), "work.toml should be created");
     let toml = fs::read_to_string(&toml_path).unwrap();
-    assert!(toml.contains("brew/Brewfile.work"), "work.toml should reference brew/Brewfile.work");
+    assert!(
+        toml.contains("brew/Brewfile.work"),
+        "work.toml should reference brew/Brewfile.work"
+    );
 }
 
 #[test]
@@ -3522,7 +3795,11 @@ fn import_brewfile_in_subdir_detected_by_filename() {
 
     // Brewfile in a subdirectory (e.g. ~/config/Brewfile) — detected by filename alone.
     fs::create_dir_all(chezmoi_src.path().join("config")).unwrap();
-    fs::write(chezmoi_src.path().join("config").join("Brewfile"), "brew \"fd\"\n").unwrap();
+    fs::write(
+        chezmoi_src.path().join("config").join("Brewfile"),
+        "brew \"fd\"\n",
+    )
+    .unwrap();
 
     cmd(&repo).arg("init").assert().success();
 
@@ -3534,7 +3811,12 @@ fn import_brewfile_in_subdir_detected_by_filename() {
 
     // Should land in brew/ not source/config/.
     assert!(
-        !repo.path().join("source").join("config").join("Brewfile").exists(),
+        !repo
+            .path()
+            .join("source")
+            .join("config")
+            .join("Brewfile")
+            .exists(),
         "Brewfile must not be in source/"
     );
     assert!(
@@ -3581,7 +3863,8 @@ fn import_run_once_mise_install_emits_mise_module_toml() {
     fs::write(
         chezmoi_src.path().join("run_once_install-tools.sh"),
         "#!/bin/bash\nmise install\n",
-    ).unwrap();
+    )
+    .unwrap();
 
     cmd(&repo).arg("init").assert().success();
 
@@ -3607,7 +3890,8 @@ fn import_unrecognised_script_is_copied_to_source_scripts() {
     fs::write(
         chezmoi_src.path().join("run_once_custom.sh"),
         "#!/bin/bash\necho 'custom stuff'\n",
-    ).unwrap();
+    )
+    .unwrap();
 
     cmd(&repo).arg("init").assert().success();
 
@@ -3621,7 +3905,11 @@ fn import_unrecognised_script_is_copied_to_source_scripts() {
 
     // Script should be copied to source/scripts/.
     assert!(
-        repo.path().join("source").join("scripts").join("run_once_custom.sh").exists(),
+        repo.path()
+            .join("source")
+            .join("scripts")
+            .join("run_once_custom.sh")
+            .exists(),
         "script should be copied to source/scripts/"
     );
     // No packages.toml should be written (no recognised pattern).
@@ -3637,7 +3925,11 @@ fn import_unrecognised_script_is_copied_to_source_scripts() {
 fn make_skill_dir(parent: &TempDir, name: &str) -> std::path::PathBuf {
     let skill_dir = parent.path().join(name);
     fs::create_dir_all(&skill_dir).unwrap();
-    fs::write(skill_dir.join("SKILL.md"), format!("# {}\nA test skill.", name)).unwrap();
+    fs::write(
+        skill_dir.join("SKILL.md"),
+        format!("# {}\nA test skill.", name),
+    )
+    .unwrap();
     fs::write(skill_dir.join("extra.md"), "extra content").unwrap();
     skill_dir
 }
@@ -3660,18 +3952,42 @@ fn ai_add_local_copies_files_and_writes_skill_toml() {
         .stdout(predicates::str::contains("haven apply --ai"));
 
     // skill.toml should have source = "repo:"
-    let skill_toml = repo.path().join("ai").join("skills").join("myskill").join("skill.toml");
+    let skill_toml = repo
+        .path()
+        .join("ai")
+        .join("skills")
+        .join("myskill")
+        .join("skill.toml");
     assert!(skill_toml.exists(), "skill.toml should be created");
     let toml_content = fs::read_to_string(&skill_toml).unwrap();
-    assert!(toml_content.contains("repo:"), "skill.toml should contain repo:");
+    assert!(
+        toml_content.contains("repo:"),
+        "skill.toml should contain repo:"
+    );
 
     // files/ should contain the original skill files
-    let files_dir = repo.path().join("ai").join("skills").join("myskill").join("files");
-    assert!(files_dir.join("SKILL.md").exists(), "SKILL.md should be in files/");
-    assert!(files_dir.join("extra.md").exists(), "extra.md should be in files/");
+    let files_dir = repo
+        .path()
+        .join("ai")
+        .join("skills")
+        .join("myskill")
+        .join("files");
+    assert!(
+        files_dir.join("SKILL.md").exists(),
+        "SKILL.md should be in files/"
+    );
+    assert!(
+        files_dir.join("extra.md").exists(),
+        "extra.md should be in files/"
+    );
 
     // blank all.md should be created
-    let all_md = repo.path().join("ai").join("skills").join("myskill").join("all.md");
+    let all_md = repo
+        .path()
+        .join("ai")
+        .join("skills")
+        .join("myskill")
+        .join("all.md");
     assert!(all_md.exists(), "all.md stub should be created");
 
     // original directory should be removed
@@ -3698,7 +4014,13 @@ fn ai_add_local_name_override() {
         .stdout(predicates::str::contains("Added local skill 'custom-name'"));
 
     assert!(
-        repo.path().join("ai").join("skills").join("custom-name").join("files").join("SKILL.md").exists(),
+        repo.path()
+            .join("ai")
+            .join("skills")
+            .join("custom-name")
+            .join("files")
+            .join("SKILL.md")
+            .exists(),
         "files/ should be under custom-name"
     );
 }
@@ -3760,7 +4082,8 @@ fn ai_apply_deploys_repo_skill_as_symlink() {
     fs::write(
         platforms_dir.join("platforms.toml"),
         "active = [\"claude-code\"]\n",
-    ).unwrap();
+    )
+    .unwrap();
 
     let claude_skills = home.path().join(".claude").join("skills");
     cmd_home(&repo, &home)
@@ -3789,7 +4112,8 @@ fn ai_diff_repo_skill_missing_files_shows_question_mark() {
     fs::write(
         skill_dir.join("skill.toml"),
         "source    = \"repo:\"\nplatforms = \"all\"\n",
-    ).unwrap();
+    )
+    .unwrap();
 
     cmd_home(&repo, &home)
         .args(["diff", "--ai"])
@@ -3832,7 +4156,8 @@ fn skill_source_parses_repo() {
     fs::write(
         skill_dir.join("skill.toml"),
         "source    = \"repo:\"\nplatforms = \"all\"\n",
-    ).unwrap();
+    )
+    .unwrap();
 
     cmd_home(&repo, &home)
         .env("HAVEN_CLAUDE_DIR", home.path().join(".claude"))
@@ -3853,7 +4178,8 @@ fn setup_conflict_repo() -> (TempDir, TempDir, std::path::PathBuf, std::path::Pa
     fs::write(
         repo.path().join("haven.toml"),
         "[profile.default]\nmodules = []\n\n[vcs]\nbackend = \"git\"\n",
-    ).unwrap();
+    )
+    .unwrap();
     let source_path = repo.path().join("source").join("dot_zshrc");
     fs::write(&source_path, "# original content\n").unwrap();
     let dest_path = home.path().join(".zshrc");
@@ -3865,7 +4191,9 @@ fn read_applied_hash(home: &TempDir, tilde_key: &str) -> Option<String> {
     let state_path = home.path().join(".local/state/haven").join("state.json");
     let text = fs::read_to_string(&state_path).ok()?;
     let v: serde_json::Value = serde_json::from_str(&text).ok()?;
-    v["applied_files"][tilde_key]["sha256"].as_str().map(|s| s.to_string())
+    v["applied_files"][tilde_key]["sha256"]
+        .as_str()
+        .map(|s| s.to_string())
 }
 
 // ── State recording — baseline behaviour ──────────────────────────────────────
@@ -3875,10 +4203,14 @@ fn conflict_detection_dest_absent_hash_recorded() {
     let (repo, home, _, dest_path) = setup_conflict_repo();
     cmd_home(&repo, &home)
         .args(["apply", "--files"])
-        .assert().success();
+        .assert()
+        .success();
     assert!(dest_path.exists());
     let hash = read_applied_hash(&home, "~/.zshrc");
-    assert!(hash.is_some(), "applied_files should contain ~/.zshrc after apply");
+    assert!(
+        hash.is_some(),
+        "applied_files should contain ~/.zshrc after apply"
+    );
     assert!(!hash.unwrap().is_empty());
 }
 
@@ -3892,9 +4224,13 @@ fn conflict_detection_migration_seed() {
     let _ = &source_path;
     cmd_home(&repo, &home)
         .args(["apply", "--files"])
-        .assert().success();
+        .assert()
+        .success();
     let hash = read_applied_hash(&home, "~/.zshrc");
-    assert!(hash.is_some(), "hash should be seeded even when no write occurs");
+    assert!(
+        hash.is_some(),
+        "hash should be seeded even when no write occurs"
+    );
 }
 
 #[test]
@@ -3905,7 +4241,8 @@ fn conflict_detection_first_apply_content_differs() {
     fs::write(&dest_path, "# user content\n").unwrap();
     cmd_home(&repo, &home)
         .args(["apply", "--files"])
-        .assert().success();
+        .assert()
+        .success();
     let content = fs::read_to_string(&dest_path).unwrap();
     assert_eq!(content, "# original content\n");
     let hash = read_applied_hash(&home, "~/.zshrc");
@@ -3918,9 +4255,15 @@ fn conflict_detection_first_apply_content_differs() {
 fn conflict_detection_no_user_edit_source_unchanged() {
     // Apply twice without touching dest → second apply is idempotent.
     let (repo, home, _, _) = setup_conflict_repo();
-    cmd_home(&repo, &home).args(["apply", "--files"]).assert().success();
+    cmd_home(&repo, &home)
+        .args(["apply", "--files"])
+        .assert()
+        .success();
     let hash1 = read_applied_hash(&home, "~/.zshrc").unwrap();
-    cmd_home(&repo, &home).args(["apply", "--files"]).assert().success();
+    cmd_home(&repo, &home)
+        .args(["apply", "--files"])
+        .assert()
+        .success();
     let hash2 = read_applied_hash(&home, "~/.zshrc").unwrap();
     assert_eq!(hash1, hash2, "hash should not change on idempotent apply");
 }
@@ -3929,9 +4272,15 @@ fn conflict_detection_no_user_edit_source_unchanged() {
 fn conflict_detection_no_user_edit_source_changed() {
     // Apply, update source, apply again → second apply writes new content.
     let (repo, home, source_path, dest_path) = setup_conflict_repo();
-    cmd_home(&repo, &home).args(["apply", "--files"]).assert().success();
+    cmd_home(&repo, &home)
+        .args(["apply", "--files"])
+        .assert()
+        .success();
     fs::write(&source_path, "# updated content\n").unwrap();
-    cmd_home(&repo, &home).args(["apply", "--files"]).assert().success();
+    cmd_home(&repo, &home)
+        .args(["apply", "--files"])
+        .assert()
+        .success();
     let content = fs::read_to_string(&dest_path).unwrap();
     assert_eq!(content, "# updated content\n");
 }
@@ -3941,7 +4290,10 @@ fn conflict_detection_no_user_edit_source_changed() {
 #[test]
 fn conflict_detection_prompt_fires_on_user_edit() {
     let (repo, home, _, dest_path) = setup_conflict_repo();
-    cmd_home(&repo, &home).args(["apply", "--files"]).assert().success();
+    cmd_home(&repo, &home)
+        .args(["apply", "--files"])
+        .assert()
+        .success();
     fs::write(&dest_path, "# user edited\n").unwrap();
     cmd_home(&repo, &home)
         .env("HAVEN_FORCE_INTERACTIVE", "1")
@@ -3954,7 +4306,10 @@ fn conflict_detection_prompt_fires_on_user_edit() {
 #[test]
 fn conflict_detection_skip_preserves_user_edit() {
     let (repo, home, _, dest_path) = setup_conflict_repo();
-    cmd_home(&repo, &home).args(["apply", "--files"]).assert().success();
+    cmd_home(&repo, &home)
+        .args(["apply", "--files"])
+        .assert()
+        .success();
     fs::write(&dest_path, "# user edited\n").unwrap();
     let hash_before = read_applied_hash(&home, "~/.zshrc").unwrap();
     let _ = cmd_home(&repo, &home)
@@ -3963,7 +4318,10 @@ fn conflict_detection_skip_preserves_user_edit() {
         .write_stdin("s\n")
         .assert();
     let content = fs::read_to_string(&dest_path).unwrap();
-    assert_eq!(content, "# user edited\n", "skip should preserve user's version");
+    assert_eq!(
+        content, "# user edited\n",
+        "skip should preserve user's version"
+    );
     let hash_after = read_applied_hash(&home, "~/.zshrc").unwrap();
     assert_eq!(hash_before, hash_after, "hash should not change on skip");
 }
@@ -3971,15 +4329,22 @@ fn conflict_detection_skip_preserves_user_edit() {
 #[test]
 fn conflict_detection_overwrite_restores_source() {
     let (repo, home, _, dest_path) = setup_conflict_repo();
-    cmd_home(&repo, &home).args(["apply", "--files"]).assert().success();
+    cmd_home(&repo, &home)
+        .args(["apply", "--files"])
+        .assert()
+        .success();
     fs::write(&dest_path, "# user edited\n").unwrap();
     cmd_home(&repo, &home)
         .env("HAVEN_FORCE_INTERACTIVE", "1")
         .args(["apply", "--files"])
         .write_stdin("o\n")
-        .assert().success();
+        .assert()
+        .success();
     let content = fs::read_to_string(&dest_path).unwrap();
-    assert_eq!(content, "# original content\n", "overwrite should restore source");
+    assert_eq!(
+        content, "# original content\n",
+        "overwrite should restore source"
+    );
 }
 
 #[test]
@@ -3991,7 +4356,10 @@ fn conflict_detection_apply_all_skips_subsequent_prompts() {
     fs::write(&src2, "# bash content\n").unwrap();
     let dest2 = home.path().join(".bashrc");
 
-    cmd_home(&repo, &home).args(["apply", "--files"]).assert().success();
+    cmd_home(&repo, &home)
+        .args(["apply", "--files"])
+        .assert()
+        .success();
     fs::write(&dest1, "# user edited zshrc\n").unwrap();
     fs::write(&dest2, "# user edited bashrc\n").unwrap();
 
@@ -3999,7 +4367,8 @@ fn conflict_detection_apply_all_skips_subsequent_prompts() {
         .env("HAVEN_FORCE_INTERACTIVE", "1")
         .args(["apply", "--files"])
         .write_stdin("A\n")
-        .assert().success();
+        .assert()
+        .success();
 
     assert_eq!(fs::read_to_string(&dest1).unwrap(), "# original content\n");
     assert_eq!(fs::read_to_string(&dest2).unwrap(), "# bash content\n");
@@ -4008,13 +4377,17 @@ fn conflict_detection_apply_all_skips_subsequent_prompts() {
 #[test]
 fn conflict_detection_diff_then_overwrite() {
     let (repo, home, _, dest_path) = setup_conflict_repo();
-    cmd_home(&repo, &home).args(["apply", "--files"]).assert().success();
+    cmd_home(&repo, &home)
+        .args(["apply", "--files"])
+        .assert()
+        .success();
     fs::write(&dest_path, "# user edited\n").unwrap();
     cmd_home(&repo, &home)
         .env("HAVEN_FORCE_INTERACTIVE", "1")
         .args(["apply", "--files"])
         .write_stdin("d\no\n")
-        .assert().success();
+        .assert()
+        .success();
     let content = fs::read_to_string(&dest_path).unwrap();
     assert_eq!(content, "# original content\n");
 }
@@ -4029,12 +4402,16 @@ fn conflict_detection_binary_diff_not_available() {
     fs::write(
         repo.path().join("haven.toml"),
         "[profile.default]\nmodules = []\n\n[vcs]\nbackend = \"git\"\n",
-    ).unwrap();
+    )
+    .unwrap();
     let src = repo.path().join("source").join("dot_binary");
     fs::write(&src, b"\x00\x01\x02\x03").unwrap();
     let dest = home.path().join(".binary");
 
-    cmd_home(&repo, &home).args(["apply", "--files"]).assert().success();
+    cmd_home(&repo, &home)
+        .args(["apply", "--files"])
+        .assert()
+        .success();
     fs::write(&dest, b"\xff\xfe\xfd").unwrap();
 
     cmd_home(&repo, &home)
@@ -4050,7 +4427,10 @@ fn conflict_detection_binary_diff_not_available() {
 #[test]
 fn conflict_skip_mode_preserves_dest() {
     let (repo, home, _, dest_path) = setup_conflict_repo();
-    cmd_home(&repo, &home).args(["apply", "--files"]).assert().success();
+    cmd_home(&repo, &home)
+        .args(["apply", "--files"])
+        .assert()
+        .success();
     fs::write(&dest_path, "# user edited\n").unwrap();
     cmd_home(&repo, &home)
         .args(["apply", "--files", "--on-conflict=skip"])
@@ -4063,11 +4443,15 @@ fn conflict_skip_mode_preserves_dest() {
 #[test]
 fn conflict_overwrite_mode_restores_source() {
     let (repo, home, _, dest_path) = setup_conflict_repo();
-    cmd_home(&repo, &home).args(["apply", "--files"]).assert().success();
+    cmd_home(&repo, &home)
+        .args(["apply", "--files"])
+        .assert()
+        .success();
     fs::write(&dest_path, "# user edited\n").unwrap();
     cmd_home(&repo, &home)
         .args(["apply", "--files", "--on-conflict=overwrite"])
-        .assert().success();
+        .assert()
+        .success();
     let content = fs::read_to_string(&dest_path).unwrap();
     assert_eq!(content, "# original content\n");
 }
@@ -4076,7 +4460,10 @@ fn conflict_overwrite_mode_restores_source() {
 fn conflict_prompt_in_non_tty_falls_back_to_skip() {
     // When stdin is piped (non-TTY) and --on-conflict=prompt, warn and skip.
     let (repo, home, _, dest_path) = setup_conflict_repo();
-    cmd_home(&repo, &home).args(["apply", "--files"]).assert().success();
+    cmd_home(&repo, &home)
+        .args(["apply", "--files"])
+        .assert()
+        .success();
     fs::write(&dest_path, "# user edited\n").unwrap();
     cmd_home(&repo, &home)
         .args(["apply", "--files", "--on-conflict=prompt"])
@@ -4096,7 +4483,8 @@ fn conflict_dry_run_does_not_record_hashes() {
     let (repo, home, _, _) = setup_conflict_repo();
     cmd_home(&repo, &home)
         .args(["apply", "--files", "--dry-run"])
-        .assert().success();
+        .assert()
+        .success();
     let hash = read_applied_hash(&home, "~/.zshrc");
     assert!(hash.is_none(), "dry-run should not write state");
 }
@@ -4111,12 +4499,16 @@ fn conflict_detection_template_file_user_edit() {
     fs::write(
         repo.path().join("haven.toml"),
         "[profile.default]\nmodules = []\n\n[vcs]\nbackend = \"git\"\n",
-    ).unwrap();
+    )
+    .unwrap();
     let src = repo.path().join("source").join("dot_tmplrc.tmpl");
     fs::write(&src, "# profile: {{ profile }}\n").unwrap();
     let dest = home.path().join(".tmplrc");
 
-    cmd_home(&repo, &home).args(["apply", "--files"]).assert().success();
+    cmd_home(&repo, &home)
+        .args(["apply", "--files"])
+        .assert()
+        .success();
     fs::write(&dest, "# user edited template dest\n").unwrap();
 
     cmd_home(&repo, &home)
@@ -4139,11 +4531,15 @@ fn conflict_state_saved_on_partial_failure() {
     fs::write(
         repo.path().join("haven.toml"),
         "[profile.default]\nmodules = []\n\n[vcs]\nbackend = \"git\"\n",
-    ).unwrap();
+    )
+    .unwrap();
     let src1 = repo.path().join("source").join("dot_file1");
     fs::write(&src1, "content1\n").unwrap();
 
-    cmd_home(&repo, &home).args(["apply", "--files"]).assert().success();
+    cmd_home(&repo, &home)
+        .args(["apply", "--files"])
+        .assert()
+        .success();
     let hash = read_applied_hash(&home, "~/.file1");
     assert!(hash.is_some(), "hash for .file1 should be recorded");
 }
@@ -4153,15 +4549,24 @@ fn conflict_state_saved_on_partial_failure() {
 #[test]
 fn conflict_retain_removes_stale_entries() {
     let (repo, home, source_path, _) = setup_conflict_repo();
-    cmd_home(&repo, &home).args(["apply", "--files"]).assert().success();
+    cmd_home(&repo, &home)
+        .args(["apply", "--files"])
+        .assert()
+        .success();
     assert!(read_applied_hash(&home, "~/.zshrc").is_some());
 
     // Remove the file from source/.
     fs::remove_file(&source_path).unwrap();
 
-    cmd_home(&repo, &home).args(["apply", "--files"]).assert().success();
+    cmd_home(&repo, &home)
+        .args(["apply", "--files"])
+        .assert()
+        .success();
     let hash = read_applied_hash(&home, "~/.zshrc");
-    assert!(hash.is_none(), "stale entry should be removed by retain pass");
+    assert!(
+        hash.is_none(),
+        "stale entry should be removed by retain pass"
+    );
 }
 
 // ── haven status C marker ─────────────────────────────────────────────────────
@@ -4169,17 +4574,28 @@ fn conflict_retain_removes_stale_entries() {
 #[test]
 fn status_no_c_marker_when_dest_unchanged() {
     let (repo, home, _, _) = setup_conflict_repo();
-    cmd_home(&repo, &home).args(["apply", "--files"]).assert().success();
+    cmd_home(&repo, &home)
+        .args(["apply", "--files"])
+        .assert()
+        .success();
     cmd_home(&repo, &home)
         .args(["status", "--files"])
-        .assert().success()
-        .stdout(predicate::str::contains("C").not().or(predicate::str::is_empty()));
+        .assert()
+        .success()
+        .stdout(
+            predicate::str::contains("C")
+                .not()
+                .or(predicate::str::is_empty()),
+        );
 }
 
 #[test]
 fn status_c_marker_when_dest_changed() {
     let (repo, home, _, dest_path) = setup_conflict_repo();
-    cmd_home(&repo, &home).args(["apply", "--files"]).assert().success();
+    cmd_home(&repo, &home)
+        .args(["apply", "--files"])
+        .assert()
+        .success();
     fs::write(&dest_path, "# user edited\n").unwrap();
     cmd_home(&repo, &home)
         .args(["status", "--files"])
@@ -4190,7 +4606,10 @@ fn status_c_marker_when_dest_changed() {
 #[test]
 fn status_mc_marker_when_both_changed() {
     let (repo, home, source_path, dest_path) = setup_conflict_repo();
-    cmd_home(&repo, &home).args(["apply", "--files"]).assert().success();
+    cmd_home(&repo, &home)
+        .args(["apply", "--files"])
+        .assert()
+        .success();
     // Update source (drift = M) and dest (user edit = C).
     fs::write(&source_path, "# source updated\n").unwrap();
     fs::write(&dest_path, "# user edited\n").unwrap();
@@ -4210,7 +4629,11 @@ fn status_no_c_marker_when_no_prior_hash() {
     cmd_home(&repo, &home)
         .args(["status", "--files"])
         .assert()
-        .stdout(predicate::str::contains("C").not().or(predicate::str::is_empty()));
+        .stdout(
+            predicate::str::contains("C")
+                .not()
+                .or(predicate::str::is_empty()),
+        );
 }
 
 // ── Haven-augmented file drift (CLAUDE.md) ───────────────────────────────────
@@ -4221,7 +4644,10 @@ fn status_clean_when_dest_has_haven_managed_section_appended() {
     // user content plus a haven-managed block appended by claude_md::generate.
     // Haven status/diff should report Clean, not Modified or C.
     let (repo, home, _source_path, dest_path) = setup_conflict_repo();
-    cmd_home(&repo, &home).args(["apply", "--files"]).assert().success();
+    cmd_home(&repo, &home)
+        .args(["apply", "--files"])
+        .assert()
+        .success();
 
     // Append a haven-managed block to dest (as claude_md::generate would).
     let original = fs::read_to_string(&dest_path).unwrap();
@@ -4251,7 +4677,10 @@ fn status_clean_when_dest_has_haven_snippet_section_appended() {
     // This test verifies that a destination file with a haven-managed block
     // containing snippet content is still reported as Clean.
     let (repo, home, _source_path, dest_path) = setup_conflict_repo();
-    cmd_home(&repo, &home).args(["apply", "--files"]).assert().success();
+    cmd_home(&repo, &home)
+        .args(["apply", "--files"])
+        .assert()
+        .success();
 
     let original = fs::read_to_string(&dest_path).unwrap();
     let augmented = format!(
@@ -4281,7 +4710,10 @@ fn status_c_marker_when_user_edits_dest_despite_haven_section() {
     // User edits the user-content portion of the dest — should still show C
     // even when a haven-managed section is also present.
     let (repo, home, _, dest_path) = setup_conflict_repo();
-    cmd_home(&repo, &home).args(["apply", "--files"]).assert().success();
+    cmd_home(&repo, &home)
+        .args(["apply", "--files"])
+        .assert()
+        .success();
 
     let augmented = "# user edited the content\n\
         <!-- haven managed start -->\n\
@@ -4300,7 +4732,10 @@ fn status_c_marker_when_user_edits_dest_despite_haven_section() {
 #[test]
 fn apply_outcome_exit_code_1_on_skip() {
     let (repo, home, _, dest_path) = setup_conflict_repo();
-    cmd_home(&repo, &home).args(["apply", "--files"]).assert().success();
+    cmd_home(&repo, &home)
+        .args(["apply", "--files"])
+        .assert()
+        .success();
     fs::write(&dest_path, "# user edited\n").unwrap();
     cmd_home(&repo, &home)
         .args(["apply", "--files", "--on-conflict=skip"])
@@ -4311,11 +4746,15 @@ fn apply_outcome_exit_code_1_on_skip() {
 #[test]
 fn apply_outcome_exit_code_0_on_overwrite() {
     let (repo, home, _, dest_path) = setup_conflict_repo();
-    cmd_home(&repo, &home).args(["apply", "--files"]).assert().success();
+    cmd_home(&repo, &home)
+        .args(["apply", "--files"])
+        .assert()
+        .success();
     fs::write(&dest_path, "# user edited\n").unwrap();
     cmd_home(&repo, &home)
         .args(["apply", "--files", "--on-conflict=overwrite"])
-        .assert().success(); // exit code 0
+        .assert()
+        .success(); // exit code 0
 }
 
 // ─── pkg backend resolution and brew dispatch ────────────────────────────────
@@ -4325,11 +4764,7 @@ fn apply_outcome_exit_code_0_on_overwrite() {
 fn make_mock_brew() -> TempDir {
     let bin_dir = TempDir::new().unwrap();
     let mock_brew = bin_dir.path().join("brew");
-    fs::write(
-        &mock_brew,
-        "#!/bin/sh\nexit 0\n",
-    )
-    .unwrap();
+    fs::write(&mock_brew, "#!/bin/sh\nexit 0\n").unwrap();
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -4413,9 +4848,10 @@ fn pkg_mise_default_errors_without_brew_flag() {
 
     cmd(&repo)
         .args(["pkg", "install", "ripgrep"])
+        .env("PATH", "")
         .assert()
         .failure()
-        .stderr(predicate::str::contains("not yet available"));
+        .stderr(predicate::str::contains("mise not found").or(predicate::str::contains("mise")));
 
     assert!(
         !repo.path().join("brew").join("Brewfile").exists(),
@@ -4425,13 +4861,15 @@ fn pkg_mise_default_errors_without_brew_flag() {
 
 #[test]
 fn pkg_mise_not_yet_available() {
-    let (repo, _) = setup_pkg_repo_default_backend();
+    let (repo, original_path) = setup_pkg_repo_default_backend();
+    let bin_dir = make_mock_mise();
+    let new_path = format!("{}:{}", bin_dir.path().display(), original_path);
 
     cmd(&repo)
         .args(["pkg", "install", "ripgrep", "--mise"])
+        .env("PATH", &new_path)
         .assert()
-        .failure()
-        .stderr(predicate::str::contains("not yet available"));
+        .success();
 
     assert!(
         !repo.path().join("brew").join("Brewfile").exists(),
@@ -4468,11 +4906,7 @@ fn pkg_uninstall() {
 
     let brew_dir = repo.path().join("brew");
     fs::create_dir_all(&brew_dir).unwrap();
-    fs::write(
-        brew_dir.join("Brewfile"),
-        "brew \"ripgrep\"\n",
-    )
-    .unwrap();
+    fs::write(brew_dir.join("Brewfile"), "brew \"ripgrep\"\n").unwrap();
 
     let bin_dir = make_mock_brew();
     let original_path = std::env::var("PATH").unwrap_or_default();
@@ -4488,5 +4922,186 @@ fn pkg_uninstall() {
     assert!(
         !brewfile.exists(),
         "Brewfile should have been removed when last entry is uninstalled"
+    );
+}
+
+fn make_mock_mise() -> TempDir {
+    let bin_dir = TempDir::new().unwrap();
+    let mock_mise = bin_dir.path().join("mise");
+    fs::write(&mock_mise, "#!/bin/sh\nexit 0\n").unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&mock_mise, fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    bin_dir
+}
+
+#[test]
+fn pkg_mise_install_creates_mise_toml() {
+    let (repo, original_path) = setup_pkg_repo_default_backend();
+    let bin_dir = make_mock_mise();
+    let new_path = format!("{}:{}", bin_dir.path().display(), original_path);
+
+    cmd(&repo)
+        .args(["pkg", "install", "node", "--mise"])
+        .env("PATH", &new_path)
+        .assert()
+        .success();
+
+    let mise_toml = repo.path().join("mise").join("mise.toml");
+    assert!(mise_toml.exists(), "mise/mise.toml should have been created");
+    let content = fs::read_to_string(&mise_toml).unwrap();
+    assert!(
+        content.contains("node = \"latest\""),
+        "mise/mise.toml should contain node = \"latest\", got: {content}"
+    );
+}
+
+#[test]
+fn pkg_mise_install_with_module() {
+    let (repo, original_path) = setup_pkg_repo_default_backend();
+    let bin_dir = make_mock_mise();
+    let new_path = format!("{}:{}", bin_dir.path().display(), original_path);
+
+    cmd(&repo)
+        .args(["pkg", "install", "node", "--mise", "--module", "shell"])
+        .env("PATH", &new_path)
+        .assert()
+        .success();
+
+    let mise_toml = repo.path().join("mise").join("mise.shell.toml");
+    assert!(
+        mise_toml.exists(),
+        "mise/mise.shell.toml should have been created"
+    );
+    let content = fs::read_to_string(&mise_toml).unwrap();
+    assert!(
+        content.contains("node = \"latest\""),
+        "mise/mise.shell.toml should contain node = \"latest\", got: {content}"
+    );
+
+    let module_toml = repo.path().join("modules").join("shell.toml");
+    assert!(
+        module_toml.exists(),
+        "modules/shell.toml should have been created"
+    );
+    let module_content = fs::read_to_string(&module_toml).unwrap();
+    assert!(
+        module_content.contains("mise/mise.shell.toml"),
+        "modules/shell.toml should reference mise/mise.shell.toml, got: {module_content}"
+    );
+}
+
+#[test]
+fn pkg_mise_install_version_pinned() {
+    let (repo, original_path) = setup_pkg_repo_default_backend();
+    let bin_dir = make_mock_mise();
+    let new_path = format!("{}:{}", bin_dir.path().display(), original_path);
+
+    cmd(&repo)
+        .args(["pkg", "install", "node@22", "--mise"])
+        .env("PATH", &new_path)
+        .assert()
+        .success();
+
+    let mise_toml = repo.path().join("mise").join("mise.toml");
+    assert!(mise_toml.exists(), "mise/mise.toml should have been created");
+    let content = fs::read_to_string(&mise_toml).unwrap();
+    assert!(
+        content.contains("node = \"22\""),
+        "mise/mise.toml should contain node = \"22\", got: {content}"
+    );
+}
+
+#[test]
+fn pkg_mise_uninstall_removes_entry() {
+    let (repo, original_path) = setup_pkg_repo_default_backend();
+    let bin_dir = make_mock_mise();
+    let new_path = format!("{}:{}", bin_dir.path().display(), original_path);
+
+    let mise_dir = repo.path().join("mise");
+    fs::create_dir_all(&mise_dir).unwrap();
+    fs::write(
+        mise_dir.join("mise.toml"),
+        "[tools]\nnode = \"latest\"\n",
+    )
+    .unwrap();
+
+    cmd(&repo)
+        .args(["pkg", "uninstall", "node", "--mise"])
+        .env("PATH", &new_path)
+        .assert()
+        .success();
+
+    let content = fs::read_to_string(mise_dir.join("mise.toml")).unwrap();
+    assert!(
+        !content.contains("node"),
+        "mise/mise.toml should no longer contain node, got: {content}"
+    );
+}
+
+#[test]
+fn pkg_cask_mise_rejected() {
+    let (repo, original_path) = setup_pkg_repo_default_backend();
+    let bin_dir = make_mock_mise();
+    let new_path = format!("{}:{}", bin_dir.path().display(), original_path);
+
+    cmd(&repo)
+        .args(["pkg", "install", "iterm2", "--cask", "--mise"])
+        .env("PATH", &new_path)
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("cask"));
+}
+
+#[test]
+fn pkg_dual_backend_uninstall() {
+    let repo = TempDir::new().unwrap();
+    cmd(&repo).arg("init").assert().success();
+    fs::write(
+        repo.path().join("haven.toml"),
+        "[profile.default]\nmodules = []\n\n[packages]\nbackends = [\"brew\", \"mise\"]\n",
+    )
+    .unwrap();
+
+    let brew_dir = repo.path().join("brew");
+    fs::create_dir_all(&brew_dir).unwrap();
+    fs::write(brew_dir.join("Brewfile"), "brew \"node\"\n").unwrap();
+
+    let mise_dir = repo.path().join("mise");
+    fs::create_dir_all(&mise_dir).unwrap();
+    fs::write(
+        mise_dir.join("mise.toml"),
+        "[tools]\nnode = \"latest\"\n",
+    )
+    .unwrap();
+
+    let brew_bin = make_mock_brew();
+    let mise_bin = make_mock_mise();
+    let original_path = std::env::var("PATH").unwrap_or_default();
+    let new_path = format!(
+        "{}:{}:{}",
+        brew_bin.path().display(),
+        mise_bin.path().display(),
+        original_path
+    );
+
+    cmd(&repo)
+        .args(["pkg", "uninstall", "node"])
+        .env("PATH", &new_path)
+        .assert()
+        .success();
+
+    let brewfile = repo.path().join("brew").join("Brewfile");
+    assert!(
+        !brewfile.exists(),
+        "Brewfile should have been removed when last entry is uninstalled"
+    );
+
+    let mise_content = fs::read_to_string(mise_dir.join("mise.toml")).unwrap();
+    assert!(
+        !mise_content.contains("node"),
+        "mise/mise.toml should no longer contain node, got: {mise_content}"
     );
 }

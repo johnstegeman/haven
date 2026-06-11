@@ -1,11 +1,12 @@
 pub mod add;
 pub mod ai;
-pub mod list;
 pub mod apply;
 pub mod brew;
 pub mod diff;
 pub mod import;
 pub mod init;
+pub mod list;
+pub mod mise;
 pub mod pkg;
 pub mod remove;
 pub mod security_scan;

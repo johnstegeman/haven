@@ -25,9 +25,9 @@ pub enum BackendKind {
 impl BackendKind {
     pub fn as_str(&self) -> &'static str {
         match self {
-            BackendKind::Native      => "native",
+            BackendKind::Native => "native",
             BackendKind::AgentSkills => "agent-skills",
-            BackendKind::Akm         => "akm",
+            BackendKind::Akm => "akm",
         }
     }
 }
@@ -74,8 +74,8 @@ impl AiConfig {
         }
         let text = std::fs::read_to_string(&path)
             .with_context(|| format!("Cannot read {}", path.display()))?;
-        let raw: RawAiConfig = toml::from_str(&text)
-            .with_context(|| format!("Invalid TOML in {}", path.display()))?;
+        let raw: RawAiConfig =
+            toml::from_str(&text).with_context(|| format!("Invalid TOML in {}", path.display()))?;
         raw.resolve(&path.display().to_string())
     }
 }
@@ -115,17 +115,20 @@ struct RawSkillsSection {
 impl RawAiConfig {
     fn resolve(self, path_display: &str) -> Result<AiConfig> {
         let backend = match self.skills.backend.as_deref().unwrap_or("native") {
-            "native"       => BackendKind::Native,
+            "native" => BackendKind::Native,
             "agent-skills" => BackendKind::AgentSkills,
-            "akm"          => BackendKind::Akm,
+            "akm" => BackendKind::Akm,
             other => anyhow::bail!(
                 "{}: unknown skill backend '{}'\n\
                  hint: valid values are 'native', 'agent-skills', 'akm'",
-                path_display, other
+                path_display,
+                other
             ),
         };
 
-        let runner = self.skills.runner
+        let runner = self
+            .skills
+            .runner
             .map(Vec::from)
             .unwrap_or_else(|| vec!["skills".to_string()]);
         if runner.is_empty() {
@@ -206,7 +209,10 @@ mod tests {
         write_config(&dir, "[skills]\nbackend = \"agent-skills\"\nrunner = []\n");
         let err = AiConfig::load(dir.path()).unwrap_err();
         let msg = format!("{err:#}");
-        assert!(msg.contains("empty"), "error should mention empty array: {msg}");
+        assert!(
+            msg.contains("empty"),
+            "error should mention empty array: {msg}"
+        );
     }
 
     #[test]
@@ -215,8 +221,10 @@ mod tests {
         write_config(&dir, "[skills]\nbackend = \"frobble\"\n");
         let err = AiConfig::load(dir.path()).unwrap_err();
         let msg = format!("{err:#}");
-        assert!(msg.contains("frobble"), "error should name the bad value: {msg}");
+        assert!(
+            msg.contains("frobble"),
+            "error should name the bad value: {msg}"
+        );
         assert!(msg.contains("hint:"), "error should include hint: {msg}");
     }
-
 }

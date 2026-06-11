@@ -83,8 +83,8 @@ impl ModuleConfig {
         }
         let text = std::fs::read_to_string(&path)
             .with_context(|| format!("Cannot read {}", path.display()))?;
-        let config: Self = toml::from_str(&text)
-            .with_context(|| format!("Invalid TOML in {}", path.display()))?;
+        let config: Self =
+            toml::from_str(&text).with_context(|| format!("Invalid TOML in {}", path.display()))?;
         Ok(config)
     }
 
@@ -93,11 +93,9 @@ impl ModuleConfig {
         std::fs::create_dir_all(&dir)?;
         let path = dir.join(format!("{}.toml", module_name));
         let text = toml::to_string_pretty(self)?;
-        std::fs::write(&path, text)
-            .with_context(|| format!("Cannot write {}", path.display()))?;
+        std::fs::write(&path, text).with_context(|| format!("Cannot write {}", path.display()))?;
         Ok(())
     }
-
 }
 
 /// Canonical dependency order for modules.

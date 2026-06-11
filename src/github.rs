@@ -115,8 +115,10 @@ impl GhSource {
 pub fn download_bytes(url: &str) -> Result<Vec<u8>> {
     let token = std::env::var("GITHUB_TOKEN").ok();
 
-    let mut request =
-        ureq::get(url).set("User-Agent", "haven/0.1 (+https://github.com/johnstegeman/haven)");
+    let mut request = ureq::get(url).set(
+        "User-Agent",
+        "haven/0.1 (+https://github.com/johnstegeman/haven)",
+    );
     if let Some(ref t) = token {
         request = request.set("Authorization", &format!("Bearer {}", t));
     }
@@ -206,7 +208,6 @@ pub fn extract_tarball(bytes: &[u8], subpath: Option<&str>, dest: &Path) -> Resu
 
     Ok(())
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -337,7 +338,12 @@ mod tests {
         ];
         for case in cases {
             let s = GhSource::parse(case).unwrap();
-            assert_eq!(s.source_key(), case, "source_key round-trip failed for {}", case);
+            assert_eq!(
+                s.source_key(),
+                case,
+                "source_key round-trip failed for {}",
+                case
+            );
         }
     }
 
@@ -408,10 +414,22 @@ mod tests {
         };
 
         add_dir(&mut ar, "fake-owner-fake-repo-abc123/");
-        add_file(&mut ar, "fake-owner-fake-repo-abc123/SKILL.md", b"---\nname: test\n---\n");
-        add_file(&mut ar, "fake-owner-fake-repo-abc123/main.sh", b"#!/bin/sh\necho hi\n");
+        add_file(
+            &mut ar,
+            "fake-owner-fake-repo-abc123/SKILL.md",
+            b"---\nname: test\n---\n",
+        );
+        add_file(
+            &mut ar,
+            "fake-owner-fake-repo-abc123/main.sh",
+            b"#!/bin/sh\necho hi\n",
+        );
         add_dir(&mut ar, "fake-owner-fake-repo-abc123/subskill/");
-        add_file(&mut ar, "fake-owner-fake-repo-abc123/subskill/nested.md", b"# Nested\n");
+        add_file(
+            &mut ar,
+            "fake-owner-fake-repo-abc123/subskill/nested.md",
+            b"# Nested\n",
+        );
 
         let gz = ar.into_inner().unwrap();
         gz.finish().unwrap()

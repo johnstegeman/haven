@@ -9,8 +9,8 @@ use std::path::Path;
 use crate::config::haven::HavenConfig;
 use crate::fs::is_sensitive_with_rule;
 use crate::ignore::IgnoreList;
-use crate::template::TemplateContext;
 use crate::source;
+use crate::template::TemplateContext;
 
 pub struct ScanOptions<'a> {
     pub repo_root: &'a Path,
@@ -126,18 +126,34 @@ fn build_content_rules() -> Vec<ContentRule> {
 
 /// (glob pattern matched against dest_tilde, rule name, severity)
 const PATH_RULES: &[(&str, &str, Severity)] = &[
-    ("~/.config/gh/hosts.yml",     "GitHub CLI credentials",       Severity::High),
-    ("~/.config/gcloud/**",        "Google Cloud credentials",      Severity::High),
-    ("~/.aws/credentials",         "AWS credentials file",          Severity::High),
-    ("~/.aws/config",              "AWS config (may contain keys)", Severity::Medium),
-    ("~/.docker/config.json",      "Docker credentials",            Severity::High),
-    ("~/.kube/**",                 "Kubernetes credentials",        Severity::High),
-    ("~/.ssh/**",                  "SSH key or config",             Severity::High),
-    ("~/.gnupg/**",                "GPG keyring",                   Severity::High),
-    ("~/.config/op/**",            "1Password credentials",         Severity::High),
-    ("~/.netrc",                   ".netrc credentials",            Severity::High),
-    ("~/.config/hub",              "Hub (GitHub) credentials",      Severity::High),
-    ("~/.config/gh/**",            "GitHub CLI config",             Severity::Medium),
+    (
+        "~/.config/gh/hosts.yml",
+        "GitHub CLI credentials",
+        Severity::High,
+    ),
+    (
+        "~/.config/gcloud/**",
+        "Google Cloud credentials",
+        Severity::High,
+    ),
+    ("~/.aws/credentials", "AWS credentials file", Severity::High),
+    (
+        "~/.aws/config",
+        "AWS config (may contain keys)",
+        Severity::Medium,
+    ),
+    (
+        "~/.docker/config.json",
+        "Docker credentials",
+        Severity::High,
+    ),
+    ("~/.kube/**", "Kubernetes credentials", Severity::High),
+    ("~/.ssh/**", "SSH key or config", Severity::High),
+    ("~/.gnupg/**", "GPG keyring", Severity::High),
+    ("~/.config/op/**", "1Password credentials", Severity::High),
+    ("~/.netrc", ".netrc credentials", Severity::High),
+    ("~/.config/hub", "Hub (GitHub) credentials", Severity::High),
+    ("~/.config/gh/**", "GitHub CLI config", Severity::Medium),
 ];
 
 /// Returns the first matching path rule for `dest_tilde`, or `None`.
@@ -260,9 +276,9 @@ pub fn run(opts: &ScanOptions<'_>) -> Result<()> {
         // 2. Path-based check.
         if let Some((rule, severity)) = is_sensitive_path(&entry.dest_tilde) {
             // Only report path finding if not already flagged by filename for the same file.
-            let already_flagged = findings
-                .iter()
-                .any(|f| f.dest_tilde == entry.dest_tilde && matches!(f.kind, FindingKind::Filename));
+            let already_flagged = findings.iter().any(|f| {
+                f.dest_tilde == entry.dest_tilde && matches!(f.kind, FindingKind::Filename)
+            });
             if !already_flagged {
                 findings.push(Finding {
                     dest_tilde: entry.dest_tilde.clone(),
@@ -275,7 +291,13 @@ pub fn run(opts: &ScanOptions<'_>) -> Result<()> {
         }
 
         // 3. Content-based check.
-        scan_file_content(&entry.src, &entry.dest_tilde, &content_rules, opts.entropy, &mut findings);
+        scan_file_content(
+            &entry.src,
+            &entry.dest_tilde,
+            &content_rules,
+            opts.entropy,
+            &mut findings,
+        );
     }
 
     if findings.is_empty() {
@@ -335,7 +357,10 @@ fn scan_file_content(
                     dest_tilde: dest_tilde.to_string(),
                     rule: rule.name,
                     severity: rule.severity,
-                    kind: FindingKind::Content { line: line_no, snippet },
+                    kind: FindingKind::Content {
+                        line: line_no,
+                        snippet,
+                    },
                     revoke_url: rule.revoke_url,
                 });
                 break; // one content finding per line is enough
@@ -361,7 +386,10 @@ fn check_entropy(line: &str, line_no: usize, dest_tilde: &str, findings: &mut Ve
                 dest_tilde: dest_tilde.to_string(),
                 rule: "High-entropy string",
                 severity: Severity::Medium,
-                kind: FindingKind::Entropy { line: line_no, snippet },
+                kind: FindingKind::Entropy {
+                    line: line_no,
+                    snippet,
+                },
                 revoke_url: None,
             });
             return; // one entropy finding per line
@@ -465,7 +493,10 @@ mod tests {
         let repo = TempDir::new().unwrap();
         fs::create_dir_all(repo.path().join("source")).unwrap();
 
-        let _opts = ScanOptions { repo_root: repo.path(), entropy: false };
+        let _opts = ScanOptions {
+            repo_root: repo.path(),
+            entropy: false,
+        };
         // run() calls process::exit(1) on findings, so we test the scanning logic directly.
         let ignore = IgnoreList::default();
         let entries = source::scan(&repo.path().join("source"), &ignore).unwrap();
@@ -577,10 +608,7 @@ mod tests {
     fn allow_list_trims_whitespace() {
         // Patterns with leading/trailing spaces (e.g. from TOML inline formatting)
         // must still match correctly.
-        let patterns = vec![
-            " ~/.ssh/id_rsa.pub".to_string(),
-            "~/.env  ".to_string(),
-        ];
+        let patterns = vec![" ~/.ssh/id_rsa.pub".to_string(), "~/.env  ".to_string()];
         let allow_list = make_allow_list(&patterns);
         assert!(allow_list.is_ignored("~/.ssh/id_rsa.pub"));
         assert!(allow_list.is_ignored("~/.env"));
@@ -601,7 +629,10 @@ mod tests {
             .iter()
             .filter(|f| matches!(f.kind, FindingKind::Entropy { .. }))
             .collect();
-        assert!(entropy_findings.is_empty(), "entropy should not fire by default");
+        assert!(
+            entropy_findings.is_empty(),
+            "entropy should not fire by default"
+        );
     }
 
     #[test]
@@ -609,7 +640,11 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let file = dir.path().join("high_entropy");
         // A high-entropy string that doesn't match known patterns (no known prefixes).
-        fs::write(&file, "CUSTOM_KEY=Xk8mN2pQ7rL4vW9jY3bZ6dF1hAsGcEiKmOpQrStUv\n").unwrap();
+        fs::write(
+            &file,
+            "CUSTOM_KEY=Xk8mN2pQ7rL4vW9jY3bZ6dF1hAsGcEiKmOpQrStUv\n",
+        )
+        .unwrap();
 
         let mut findings = Vec::new();
         let rules = build_content_rules();
@@ -619,7 +654,10 @@ mod tests {
             .iter()
             .filter(|f| matches!(f.kind, FindingKind::Entropy { .. }))
             .collect();
-        assert!(!entropy_findings.is_empty(), "entropy should fire when enabled");
+        assert!(
+            !entropy_findings.is_empty(),
+            "entropy should fire when enabled"
+        );
     }
 
     #[test]

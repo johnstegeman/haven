@@ -19,7 +19,10 @@
 use anyhow::{Context, Result};
 use std::path::Path;
 
-use crate::chezmoi::{self, ChezmoiBrewfileEntry, ChezmoiEntry, ChezmoiExternalEntry, ChezmoiScriptEntry, ScriptMigration, ScriptWhen, SkippedEntry};
+use crate::chezmoi::{
+    self, ChezmoiBrewfileEntry, ChezmoiEntry, ChezmoiExternalEntry, ChezmoiScriptEntry,
+    ScriptMigration, ScriptWhen, SkippedEntry,
+};
 use crate::config::haven::HavenConfig;
 use crate::config::module::{expand_tilde, HomebrewConfig, MiseConfig, ModuleConfig};
 use crate::fs::copy_to_dest;
@@ -68,10 +71,18 @@ pub fn run(opts: &ImportOptions<'_>) -> Result<()> {
     println!("Chezmoi source: {}", source_dir.display());
     println!();
 
-    let (keeps, externals, skips, scripts, brewfiles) = chezmoi::scan(&source_dir, opts.include_ignored_files)?;
+    let (keeps, externals, skips, scripts, brewfiles) =
+        chezmoi::scan(&source_dir, opts.include_ignored_files)?;
 
     if opts.dry_run {
-        print_dry_run_plan(&source_dir, &keeps, &externals, &skips, &scripts, &brewfiles);
+        print_dry_run_plan(
+            &source_dir,
+            &keeps,
+            &externals,
+            &skips,
+            &scripts,
+            &brewfiles,
+        );
         return Ok(());
     }
 
@@ -81,12 +92,27 @@ pub fn run(opts: &ImportOptions<'_>) -> Result<()> {
         return Ok(());
     }
 
-    execute(opts, &source_dir, &keeps, &externals, &skips, &scripts, &brewfiles)
+    execute(
+        opts,
+        &source_dir,
+        &keeps,
+        &externals,
+        &skips,
+        &scripts,
+        &brewfiles,
+    )
 }
 
 // ─── Dry-run output ───────────────────────────────────────────────────────────
 
-fn print_dry_run_plan(chezmoi_source_dir: &std::path::Path, keeps: &[ChezmoiEntry], externals: &[ChezmoiExternalEntry], skips: &[SkippedEntry], scripts: &[ChezmoiScriptEntry], brewfiles: &[ChezmoiBrewfileEntry]) {
+fn print_dry_run_plan(
+    chezmoi_source_dir: &std::path::Path,
+    keeps: &[ChezmoiEntry],
+    externals: &[ChezmoiExternalEntry],
+    skips: &[SkippedEntry],
+    scripts: &[ChezmoiScriptEntry],
+    brewfiles: &[ChezmoiBrewfileEntry],
+) {
     if keeps.is_empty() && externals.is_empty() {
         println!("Would import 0 files.");
     } else {
@@ -95,10 +121,18 @@ fn print_dry_run_plan(chezmoi_source_dir: &std::path::Path, keeps: &[ChezmoiEntr
             println!();
             for e in keeps {
                 let mut flags: Vec<&str> = Vec::new();
-                if e.private { flags.push("private"); }
-                if e.executable { flags.push("executable"); }
-                if e.link { flags.push("link"); }
-                if e.template { flags.push("template"); }
+                if e.private {
+                    flags.push("private");
+                }
+                if e.executable {
+                    flags.push("executable");
+                }
+                if e.link {
+                    flags.push("link");
+                }
+                if e.template {
+                    flags.push("template");
+                }
                 let annotation = if flags.is_empty() {
                     String::new()
                 } else {
@@ -129,19 +163,31 @@ fn print_dry_run_plan(chezmoi_source_dir: &std::path::Path, keeps: &[ChezmoiEntr
     }
     // Show script imports in dry-run.
     if !scripts.is_empty() {
-        println!("Would import {} script(s) to source/scripts/:", scripts.len());
+        println!(
+            "Would import {} script(s) to source/scripts/:",
+            scripts.len()
+        );
         println!();
         for s in scripts {
-            let when_label = match s.when { ScriptWhen::Once => "run_once", ScriptWhen::Always => "run_always" };
+            let when_label = match s.when {
+                ScriptWhen::Once => "run_once",
+                ScriptWhen::Always => "run_always",
+            };
             let migration_label = match &s.migration {
-                ScriptMigration::BrewBundle { brewfile_path } => format!(" + emit [homebrew] brewfile = {:?}", brewfile_path),
+                ScriptMigration::BrewBundle { brewfile_path } => {
+                    format!(" + emit [homebrew] brewfile = {:?}", brewfile_path)
+                }
                 ScriptMigration::MiseInstall => " + emit [mise]".to_string(),
                 ScriptMigration::Unrecognized => " (no pattern detected — copy only)".to_string(),
             };
             println!(
                 "  [{:10}]  {}  →  source/scripts/{}{}",
-                when_label, s.chezmoi_path.display(),
-                s.chezmoi_path.file_name().unwrap_or(s.chezmoi_path.as_os_str()).to_string_lossy(),
+                when_label,
+                s.chezmoi_path.display(),
+                s.chezmoi_path
+                    .file_name()
+                    .unwrap_or(s.chezmoi_path.as_os_str())
+                    .to_string_lossy(),
                 migration_label,
             );
         }
@@ -177,12 +223,16 @@ fn print_dry_run_plan(chezmoi_source_dir: &std::path::Path, keeps: &[ChezmoiEntr
                 if resolved.is_some_and(|p| p.exists()) {
                     println!(
                         "  Would copy {} → {}  (referenced in script: {})",
-                        brewfile_path, brew_dest, script.chezmoi_path.display(),
+                        brewfile_path,
+                        brew_dest,
+                        script.chezmoi_path.display(),
                     );
                 } else {
                     println!(
                         "  warning: {} → {} not found on disk  (referenced in script: {})",
-                        brewfile_path, brew_dest, script.chezmoi_path.display(),
+                        brewfile_path,
+                        brew_dest,
+                        script.chezmoi_path.display(),
                     );
                 }
             }
@@ -200,7 +250,10 @@ fn print_dry_run_plan(chezmoi_source_dir: &std::path::Path, keeps: &[ChezmoiEntr
         if !data_vars.is_empty() {
             let mut keys: Vec<&String> = data_vars.keys().collect();
             keys.sort();
-            println!("Would add {} [data] variable(s) to haven.toml:", data_vars.len());
+            println!(
+                "Would add {} [data] variable(s) to haven.toml:",
+                data_vars.len()
+            );
             for k in keys {
                 println!("  data.{} = {:?}", k, data_vars[k]);
             }
@@ -212,7 +265,15 @@ fn print_dry_run_plan(chezmoi_source_dir: &std::path::Path, keeps: &[ChezmoiEntr
 
 // ─── Real run ────────────────────────────────────────────────────────────────
 
-fn execute(opts: &ImportOptions<'_>, source_dir: &std::path::Path, keeps: &[ChezmoiEntry], externals: &[ChezmoiExternalEntry], skips: &[SkippedEntry], scripts: &[ChezmoiScriptEntry], brewfiles: &[ChezmoiBrewfileEntry]) -> Result<()> {
+fn execute(
+    opts: &ImportOptions<'_>,
+    source_dir: &std::path::Path,
+    keeps: &[ChezmoiEntry],
+    externals: &[ChezmoiExternalEntry],
+    skips: &[SkippedEntry],
+    scripts: &[ChezmoiScriptEntry],
+    brewfiles: &[ChezmoiBrewfileEntry],
+) -> Result<()> {
     let repo_source = opts.repo_root.join("source");
     std::fs::create_dir_all(&repo_source)?;
 
@@ -246,7 +307,9 @@ fn execute(opts: &ImportOptions<'_>, source_dir: &std::path::Path, keeps: &[Chez
         } else {
             // For symlink_ entries, copy_from points to the resolved target file;
             // for regular entries, copy from the chezmoi source path.
-            let src = entry.copy_from.clone()
+            let src = entry
+                .copy_from
+                .clone()
                 .unwrap_or_else(|| source_dir.join(&entry.chezmoi_path));
             copy_to_dest(&src, &dest).with_context(|| {
                 format!(
@@ -258,10 +321,18 @@ fn execute(opts: &ImportOptions<'_>, source_dir: &std::path::Path, keeps: &[Chez
         }
 
         let mut flags: Vec<&str> = Vec::new();
-        if entry.private { flags.push("private"); }
-        if entry.executable { flags.push("executable"); }
-        if entry.link { flags.push("link"); }
-        if entry.template { flags.push("template"); }
+        if entry.private {
+            flags.push("private");
+        }
+        if entry.executable {
+            flags.push("executable");
+        }
+        if entry.link {
+            flags.push("link");
+        }
+        if entry.template {
+            flags.push("template");
+        }
         let annotation = if flags.is_empty() {
             String::new()
         } else {
@@ -277,11 +348,7 @@ fn execute(opts: &ImportOptions<'_>, source_dir: &std::path::Path, keeps: &[Chez
 
         // Emit any partial-conversion warnings.
         for w in &entry.template_warnings {
-            eprintln!(
-                "    warning (template): {}  [{}]",
-                w,
-                entry.source_name,
-            );
+            eprintln!("    warning (template): {}  [{}]", w, entry.source_name,);
         }
     }
 
@@ -298,9 +365,8 @@ fn execute(opts: &ImportOptions<'_>, source_dir: &std::path::Path, keeps: &[Chez
         }
 
         if let Some(parent) = extdir_path.parent() {
-            std::fs::create_dir_all(parent).with_context(|| {
-                format!("Cannot create parent dir {}", parent.display())
-            })?;
+            std::fs::create_dir_all(parent)
+                .with_context(|| format!("Cannot create parent dir {}", parent.display()))?;
         }
 
         let mut content = format!("type = {:?}\nurl  = {:?}\n", entry.kind, entry.url);
@@ -361,7 +427,10 @@ fn execute(opts: &ImportOptions<'_>, source_dir: &std::path::Path, keeps: &[Chez
         skips.iter().filter(|s| s.reason.display().is_some()).count(),
     );
     if !data_vars.is_empty() {
-        println!("  [data] {} custom variable(s) added to haven.toml", data_vars.len());
+        println!(
+            "  [data] {} custom variable(s) added to haven.toml",
+            data_vars.len()
+        );
     }
     println!("Run `haven apply` to deploy.");
 
@@ -369,10 +438,7 @@ fn execute(opts: &ImportOptions<'_>, source_dir: &std::path::Path, keeps: &[Chez
     let symlinks: Vec<&ChezmoiEntry> = keeps.iter().filter(|e| e.link).collect();
     if !symlinks.is_empty() {
         println!();
-        println!(
-            "⚠  Review symlink targets ({} found):",
-            symlinks.len()
-        );
+        println!("⚠  Review symlink targets ({} found):", symlinks.len());
         for e in &symlinks {
             println!("  {}", e.dest_tilde);
             println!("    source: source/{}", e.source_name);
@@ -415,13 +481,15 @@ fn emit_script_migrations(repo_root: &Path, scripts: &[ChezmoiScriptEntry]) -> R
             module.mise = Some(MiseConfig { config: None });
             println!(
                 "  ✓  {} → modules/{}.toml  ([mise])",
-                script.chezmoi_path.display(), module_name,
+                script.chezmoi_path.display(),
+                module_name,
             );
             changed = true;
         } else {
             println!(
                 "  ~ {} → [mise] already set in {} — skipped",
-                script.chezmoi_path.display(), module_name,
+                script.chezmoi_path.display(),
+                module_name,
             );
         }
     }
@@ -438,7 +506,11 @@ fn emit_script_migrations(repo_root: &Path, scripts: &[ChezmoiScriptEntry]) -> R
 ///
 /// Each script is stored under its original filename. Existing files are skipped
 /// (idempotent — same behaviour as regular source file import).
-fn import_scripts(chezmoi_source_dir: &std::path::Path, repo_root: &Path, scripts: &[ChezmoiScriptEntry]) -> Result<()> {
+fn import_scripts(
+    chezmoi_source_dir: &std::path::Path,
+    repo_root: &Path,
+    scripts: &[ChezmoiScriptEntry],
+) -> Result<()> {
     if scripts.is_empty() {
         return Ok(());
     }
@@ -447,7 +519,8 @@ fn import_scripts(chezmoi_source_dir: &std::path::Path, repo_root: &Path, script
     std::fs::create_dir_all(&scripts_dest)?;
 
     for script in scripts {
-        let filename = script.chezmoi_path
+        let filename = script
+            .chezmoi_path
             .file_name()
             .expect("script path always has a filename");
         let dest = scripts_dest.join(filename);
@@ -470,7 +543,10 @@ fn import_scripts(chezmoi_source_dir: &std::path::Path, repo_root: &Path, script
             )
         })?;
 
-        let when_label = match script.when { ScriptWhen::Once => "run_once", ScriptWhen::Always => "run_always" };
+        let when_label = match script.when {
+            ScriptWhen::Once => "run_once",
+            ScriptWhen::Always => "run_always",
+        };
         println!(
             "  ✓  [{}]  {}  →  source/scripts/{}",
             when_label,
@@ -516,13 +592,11 @@ fn import_brewfiles(
             continue;
         }
 
-        std::fs::create_dir_all(&brew_dir)
-            .context("Cannot create brew/ directory")?;
+        std::fs::create_dir_all(&brew_dir).context("Cannot create brew/ directory")?;
 
         let src = source_dir.join(&entry.chezmoi_path);
-        std::fs::copy(&src, &dest).with_context(|| {
-            format!("Cannot copy {} → {}", src.display(), dest.display())
-        })?;
+        std::fs::copy(&src, &dest)
+            .with_context(|| format!("Cannot copy {} → {}", src.display(), dest.display()))?;
 
         println!("  ✓  {}  →  {}", entry.dest_tilde, entry.brew_dest);
 
@@ -561,15 +635,15 @@ fn import_brewfiles(
         match try_expand_tilde(brewfile_path).filter(|p| p.exists()) {
             Some(src) => {
                 // Found on disk — copy to brew/.
-                std::fs::create_dir_all(&brew_dir)
-                    .context("Cannot create brew/ directory")?;
+                std::fs::create_dir_all(&brew_dir).context("Cannot create brew/ directory")?;
                 std::fs::copy(&src, &dest).with_context(|| {
                     format!("Cannot copy {} → {}", src.display(), dest.display())
                 })?;
 
                 println!(
                     "  ✓  {}  →  {}  (from script: {})",
-                    brewfile_path, brew_dest,
+                    brewfile_path,
+                    brew_dest,
                     script.chezmoi_path.display(),
                 );
 
@@ -611,7 +685,10 @@ fn import_brewfiles(
 fn emit_brewfile_module_toml(repo_root: &Path, brew_dest: &str, module_name: &str) -> Result<()> {
     let mut module = ModuleConfig::load(repo_root, module_name)?;
     if module.homebrew.is_none() {
-        module.homebrew = Some(HomebrewConfig { brewfile: brew_dest.to_string(), sort: false });
+        module.homebrew = Some(HomebrewConfig {
+            brewfile: brew_dest.to_string(),
+            sort: false,
+        });
         module.save(repo_root, module_name)?;
         println!(
             "  ✓  → modules/{}.toml  ([homebrew] brewfile = {:?})",
@@ -649,14 +726,17 @@ fn normalize_to_tilde(path: &str) -> String {
 ///
 /// Returns a list of warnings for any expressions that could not be converted.
 /// Does nothing (returns empty warnings) if `.chezmoiignore` does not exist.
-fn import_chezmoiignore(chezmoi_source_dir: &std::path::Path, repo_root: &std::path::Path) -> Result<Vec<String>> {
+fn import_chezmoiignore(
+    chezmoi_source_dir: &std::path::Path,
+    repo_root: &std::path::Path,
+) -> Result<Vec<String>> {
     let src = chezmoi_source_dir.join(".chezmoiignore");
     if !src.exists() {
         return Ok(Vec::new());
     }
 
-    let content = std::fs::read_to_string(&src)
-        .with_context(|| format!("Cannot read {}", src.display()))?;
+    let content =
+        std::fs::read_to_string(&src).with_context(|| format!("Cannot read {}", src.display()))?;
 
     let dest = repo_root.join("config").join("ignore");
     if dest.exists() {
@@ -667,10 +747,13 @@ fn import_chezmoiignore(chezmoi_source_dir: &std::path::Path, repo_root: &std::p
     let (tera_content, warnings) = crate::chezmoi::convert_chezmoiignore_to_tera(&content);
 
     // Count non-blank, non-comment, non-directive lines as "patterns".
-    let pattern_count = tera_content.lines().filter(|l| {
-        let t = l.trim();
-        !t.is_empty() && !t.starts_with('#') && !t.starts_with("{%")
-    }).count();
+    let pattern_count = tera_content
+        .lines()
+        .filter(|l| {
+            let t = l.trim();
+            !t.is_empty() && !t.starts_with('#') && !t.starts_with("{%")
+        })
+        .count();
 
     if !tera_content.trim().is_empty() {
         if let Some(parent) = dest.parent() {
@@ -684,7 +767,10 @@ fn import_chezmoiignore(chezmoi_source_dir: &std::path::Path, repo_root: &std::p
         std::fs::write(&dest, &file_content)
             .with_context(|| format!("Cannot write {}", dest.display()))?;
 
-        println!("  ✓  .chezmoiignore  →  config/ignore  ({} pattern(s))", pattern_count);
+        println!(
+            "  ✓  .chezmoiignore  →  config/ignore  ({} pattern(s))",
+            pattern_count
+        );
     }
 
     Ok(warnings)
@@ -700,15 +786,13 @@ fn import_data_vars(
 ) -> Result<()> {
     let path = repo_root.join("haven.toml");
     let text = if path.exists() {
-        std::fs::read_to_string(&path)
-            .with_context(|| format!("Cannot read {}", path.display()))?
+        std::fs::read_to_string(&path).with_context(|| format!("Cannot read {}", path.display()))?
     } else {
         String::new()
     };
 
-    let mut doc: toml_edit::DocumentMut = text
-        .parse()
-        .context("haven.toml contains invalid TOML")?;
+    let mut doc: toml_edit::DocumentMut =
+        text.parse().context("haven.toml contains invalid TOML")?;
 
     let mut added = 0usize;
     let mut skipped = 0usize;
@@ -733,7 +817,11 @@ fn import_data_vars(
         println!(
             "  ✓  .chezmoidata  →  [data] in haven.toml  ({} variable(s) added{})",
             added,
-            if skipped > 0 { format!(", {} already present", skipped) } else { String::new() },
+            if skipped > 0 {
+                format!(", {} already present", skipped)
+            } else {
+                String::new()
+            },
         );
     } else if skipped > 0 {
         println!(
@@ -770,4 +858,3 @@ fn print_skip_table(skips: &[SkippedEntry]) {
     }
     println!();
 }
-

@@ -200,11 +200,20 @@ deploy    = "symlink"            # or "copy"
 ```
 haven pkg install <name> [--cask] [--module <m>] [--brew] [--mise]
 haven pkg uninstall <name> [--cask] [--brew] [--mise]
+haven pkg outdated
+haven pkg upgrade [name]
+haven pkg search <term>
 ```
 
 Backend resolution order: explicit `--brew`/`--mise` flag → `[packages] backends[0]` in haven.toml → `"brew"` (hard default).
 
 `--cask` always implies the brew backend. Forcing a backend not listed in `allowed_backends()` is an error. The mise backend writes to `mise/mise[.<module>].toml`; supports `name@version` tool-spec syntax (bare name defaults to `"latest"`). When both backends are configured and no flag is passed, `uninstall` removes from both.
+
+- **`haven pkg outdated`** — lists upgradable packages across all configured backends, grouped by backend (`==> brew outdated` / `==> mise outdated`). A missing backend binary prints a skip note and does not abort.
+- **`haven pkg upgrade [name]`** — upgrades one named package or all packages when no name is given. Fans out to all allowed backends. For mise, rewrites the pinned version in the targeted `mise/mise*.toml` config file (declarative, propagates the change to VCS). For brew, runs `brew upgrade` without modifying Brewfiles. Missing backend binary prints a skip note and continues.
+- **`haven pkg search <term>`** — queries all configured backends and prints grouped results with copy-pasteable install hints (`haven pkg install <name>` for brew, `haven pkg install <name> --mise` for mise). Missing backend binary prints a skip note and does not abort.
+
+**Note:** `haven upgrade` (no `pkg`) is the *binary self-update* command — it upgrades the haven binary itself from GitHub, not any managed packages. Use `haven pkg upgrade` to upgrade packages.
 
 ## Key Data Structures
 

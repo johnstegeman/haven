@@ -7,6 +7,20 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- **`haven pkg outdated`** — lists upgradable packages across all configured backends (brew and/or mise), grouped by backend. A missing backend binary prints a skip note instead of aborting.
+
+- **`haven pkg upgrade [name]`** — upgrades one named package or all packages across all allowed backends. For mise, rewrites the pinned version in the `mise/mise*.toml` config file so the change is tracked in VCS. For brew, runs `brew upgrade` without modifying Brewfiles. Missing backend binary prints a skip note and continues.
+
+- **`haven pkg search <term>`** — queries all configured backends and prints results grouped by backend with copy-pasteable `haven pkg install` hints. Missing backend binary prints a skip note and does not abort.
+
+> **Note:** `haven upgrade` (no `pkg`) upgrades the haven binary itself. Use `haven pkg upgrade` to upgrade managed packages.
+
+---
+
 ## [v1.0.0] — 2026-03-29
 
 ### Changed

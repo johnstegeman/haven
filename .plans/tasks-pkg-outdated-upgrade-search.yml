@@ -172,7 +172,8 @@ tasks:
       [name]`, and `haven pkg search <term>`. Note that `haven upgrade` (binary self-
       update) is distinct from `haven pkg upgrade`. Update `CHANGELOG.md` with a
       summary of the new commands.
-    status: pending
+    status: completed
+    completed_at: "2026-06-11T25:00:00Z"
     dependencies:
       - task-005
       - task-006

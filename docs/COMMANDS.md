@@ -18,6 +18,9 @@ haven status [--profile <p>] [--files] [--brews] [--ai]
 haven source-path
 haven pkg install <name> [--cask] [--module <m>] [--brew] [--mise]
 haven pkg uninstall <name> [--cask] [--brew] [--mise]
+haven pkg outdated
+haven pkg upgrade [name]
+haven pkg search <term>
 haven import --from chezmoi [--source <dir>] [--dry-run]
              [--include-ignored-files]
 haven ai discover
@@ -344,6 +347,67 @@ haven pkg uninstall <name> [--cask] [--brew] [--mise]
 Removes the formula from **all** Brewfiles in the repo, then runs `brew uninstall`.
 When both `brew` and `mise` are listed in `[packages] backends` and no explicit backend
 flag is passed, uninstall removes the tool from both backends.
+
+### `haven pkg outdated`
+
+```
+haven pkg outdated
+```
+
+Lists upgradable packages across all configured backends, grouped by backend. Output format:
+
+```
+==> brew outdated
+bat  0.24.0 → 0.25.0
+fd   9.0.0  → 10.2.0
+
+==> mise outdated
+node  20.11.0 → 22.14.0
+```
+
+A missing backend binary prints a skip note and does not abort the command.
+
+### `haven pkg upgrade`
+
+```
+haven pkg upgrade [name]
+```
+
+| Argument | Description |
+|----------|-------------|
+| `name` | Optional. Package or tool name to upgrade. Omit to upgrade all packages across all backends. |
+
+Fans out to all allowed backends. For mise, rewrites the pinned version in the targeted
+`mise/mise*.toml` config file so the change propagates to VCS. For brew, runs `brew upgrade`
+without modifying Brewfiles. A missing backend binary prints a skip note and continues.
+
+> **Note:** `haven upgrade` (no `pkg`) upgrades the haven binary itself from GitHub.
+> Use `haven pkg upgrade` to upgrade managed packages.
+
+### `haven pkg search`
+
+```
+haven pkg search <term>
+```
+
+| Argument | Description |
+|----------|-------------|
+| `term` | Search term (substring match across all backends). |
+
+Queries all configured backends and prints results grouped by backend with copy-pasteable
+install hints:
+
+```
+==> brew
+bat                   haven pkg install bat
+bat-extras            haven pkg install bat-extras
+
+==> mise
+node                  haven pkg install node --mise
+bun                   haven pkg install bun --mise
+```
+
+A missing backend binary prints a skip note and does not abort the command.
 
 ---
 

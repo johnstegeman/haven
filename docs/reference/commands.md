@@ -18,6 +18,9 @@ haven status [--profile <p>] [--files] [--brews] [--ai]
 haven source-path
 haven pkg install <name> [--cask] [--module <m>] [--brew] [--mise]
 haven pkg uninstall <name> [--cask] [--brew] [--mise]
+haven pkg outdated
+haven pkg upgrade [name]
+haven pkg search <term>
 haven import --from chezmoi [--source <dir>] [--dry-run]
              [--include-ignored-files]
 haven ai discover
@@ -212,7 +215,7 @@ haven pkg install <name> [--cask] [--module <m>] [--brew] [--mise]
 | `--cask` | Install as a cask. Implies brew backend. |
 | `--module <m>` | Record in this module's Brewfile. Default: master `brew/Brewfile`. |
 | `--brew` | Force brew backend. |
-| `--mise` | Force mise backend (not yet available). |
+| `--mise` | Force mise backend. |
 
 ## `haven pkg uninstall`
 
@@ -221,6 +224,50 @@ Uninstall a package and remove it from all Brewfiles (brew backend).
 ```sh
 haven pkg uninstall <name> [--cask] [--brew] [--mise]
 ```
+
+## `haven pkg outdated`
+
+List upgradable packages across all configured backends, grouped by backend.
+
+```sh
+haven pkg outdated
+```
+
+A missing backend binary prints a skip note and does not abort the command.
+
+## `haven pkg upgrade`
+
+Upgrade one or all packages across all configured backends.
+
+```sh
+haven pkg upgrade [name]
+```
+
+| Argument | Description |
+|----------|-------------|
+| `name` | Optional. Package name to upgrade. Omit to upgrade all packages. |
+
+For mise, rewrites the pinned version in the targeted `mise/mise*.toml` config file so the change is tracked in VCS. For brew, runs `brew upgrade` without modifying Brewfiles. A missing backend binary prints a skip note and continues.
+
+> **Note:** `haven upgrade` (no `pkg`) is the binary self-update command. Use `haven pkg upgrade` to upgrade managed packages.
+
+## `haven pkg search`
+
+Search all configured backends for packages matching a term.
+
+```sh
+haven pkg search <term>
+```
+
+| Argument | Description |
+|----------|-------------|
+| `term` | Search term (substring match). |
+
+Results are grouped by backend. Each result includes a copy-pasteable install hint:
+- Brew results: `haven pkg install <name>`
+- Mise results: `haven pkg install <name> --mise`
+
+A missing backend binary prints a skip note and does not abort the command.
 
 ---
 

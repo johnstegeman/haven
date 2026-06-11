@@ -1,0 +1,3 @@
+## TASK-001 — 2026-06-11T00:30:00Z
+Added public `EntryKind` enum (PlainFile, Symlink, ExternalDir, ExternalFile) and promoted `kind`, `private`, `executable`, `template`, `create_only` as direct fields on `SourceEntry`; replaced `SourceDir.flags: FileFlags` with `private: bool` and `exact: bool`; made `FileFlags` and `decode_component` `pub(crate)`; updated all source.rs unit tests to use the new fields. `SourceEntry.flags` retained for backward compat with apply.rs/status.rs/diff.rs/list.rs callers. Updated `apply.rs` to use `dir.private`/`dir.exact` directly (the only `SourceDir.flags` callsites). All 430 unit tests and 191 integration tests pass.
+Files: src/source.rs, src/commands/apply.rs

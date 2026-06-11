@@ -17,7 +17,7 @@ tasks:
       `FileFlags` non-public (remove `pub`). Update all unit tests in `source.rs`
       to assert on `e.kind` and `e.<modifier>` instead of `e.flags.*`. Run
       `cargo test` and verify all tests pass.
-    status: pending
+    status: completed
     dependencies: []
     acceptance_criteria:
       - '`EntryKind` enum is public with variants PlainFile, Symlink, ExternalDir, ExternalFile'
@@ -25,7 +25,7 @@ tasks:
       - '`SourceDir` uses `private: bool` and `exact: bool` instead of `flags: FileFlags`'
       - '`FileFlags` is no longer `pub` in source.rs'
       - 'All unit tests in `src/source.rs` updated and passing (`cargo test`)'
-    completed_at: null
+    completed_at: "2026-06-11T00:30:00Z"
 
   - id: task-002
     title: 'Migrate apply.rs to use EntryKind and modifier fields'

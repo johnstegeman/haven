@@ -43,30 +43,29 @@ use crate::ignore::IgnoreList;
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
+/// What kind of entry a source file represents.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum EntryKind {
+    /// A regular file: copy or render-then-copy to the destination.
+    PlainFile,
+    /// A symlink entry (`symlink_` prefix): create a symlink at dest pointing into source/.
+    Symlink,
+    /// An external directory marker (`extdir_` prefix): clone a remote git repo into dest.
+    ExternalDir,
+    /// An external file marker (`extfile_` prefix): download a file or archive to dest.
+    ExternalFile,
+}
+
 /// Flags decoded from a magic-name path component.
 #[derive(Debug, Clone, Default)]
-pub struct FileFlags {
+pub(crate) struct FileFlags {
     pub private: bool,
     pub executable: bool,
     pub symlink: bool,
     pub template: bool,
-    /// When true, this entry is an external-directory marker: clone a remote git
-    /// repo into `dest_tilde` on apply. The marker file's TOML content holds the
-    /// `url` (required) and optional `ref` and `type` fields.
     pub extdir: bool,
-    /// When true, this entry is an external-file marker: download a single file
-    /// (or archive) from a URL on apply. The marker file's TOML content holds the
-    /// `url` (required), optional `ref`, `type` ("file" or "archive"), and optional
-    /// `sha256` for verification.
     pub extfile: bool,
-    /// When true, skip writing the file if the destination already exists.
-    /// Corresponds to chezmoi's `create_` prefix — seed-only files that should
-    /// not overwrite user customisations after initial setup.
     pub create_only: bool,
-    /// When true (on a `SourceDir`), this directory is declared as "exact": any
-    /// file or subdirectory present in the destination but not tracked in source/
-    /// will be backed up and removed during apply.
-    /// Corresponds to chezmoi's `exact_` directory prefix.
     pub exact: bool,
 }
 
@@ -77,7 +76,17 @@ pub struct SourceEntry {
     pub src: PathBuf,
     /// Destination path using `~` (e.g. `"~/.config/git/config"`).
     pub dest_tilde: String,
-    /// Flags decoded from this file's own name component.
+    /// What kind of entry this is.
+    pub kind: EntryKind,
+    /// chmod 0600 (file) / 0700 (dir).
+    pub private: bool,
+    /// chmod 0755.
+    pub executable: bool,
+    /// Render through Tera before writing.
+    pub template: bool,
+    /// Skip writing if the destination already exists (chezmoi `create_` prefix).
+    pub create_only: bool,
+    /// Flags decoded from this file's own name component (kept for backward compat).
     pub flags: FileFlags,
     /// Directory components between `source/` and the file, in order.
     /// Apply these first to create / permission parent directories.
@@ -89,8 +98,10 @@ pub struct SourceEntry {
 pub struct SourceDir {
     /// Destination path with `~` (e.g. `"~/.ssh"`).
     pub dest_tilde: String,
-    /// Flags (mainly `private` → 0700).
-    pub flags: FileFlags,
+    /// chmod 0700 when true.
+    pub private: bool,
+    /// Remove untracked files in dest on apply (chezmoi `exact_` prefix).
+    pub exact: bool,
 }
 
 // ─── Scanner ──────────────────────────────────────────────────────────────────
@@ -191,7 +202,8 @@ fn decode_path(abs: PathBuf, rel: &Path) -> SourceEntry {
         dest_parts.push(name);
         dirs.push(SourceDir {
             dest_tilde: format!("~/{}", dest_parts.join("/")),
-            flags,
+            private: flags.private,
+            exact: flags.exact,
         });
     }
 
@@ -199,9 +211,24 @@ fn decode_path(abs: PathBuf, rel: &Path) -> SourceEntry {
     let (name, flags) = decode_component(components[n - 1], true);
     dest_parts.push(name);
 
+    let kind = if flags.extdir {
+        EntryKind::ExternalDir
+    } else if flags.extfile {
+        EntryKind::ExternalFile
+    } else if flags.symlink {
+        EntryKind::Symlink
+    } else {
+        EntryKind::PlainFile
+    };
+
     SourceEntry {
         src: abs,
         dest_tilde: format!("~/{}", dest_parts.join("/")),
+        kind,
+        private: flags.private,
+        executable: flags.executable,
+        template: flags.template,
+        create_only: flags.create_only,
         flags,
         dirs,
     }
@@ -210,7 +237,7 @@ fn decode_path(abs: PathBuf, rel: &Path) -> SourceEntry {
 /// Decode one path component, stripping magic prefixes.
 ///
 /// `is_file`: when true, also strip the `.tmpl` suffix and set `template`.
-pub fn decode_component(s: &str, is_file: bool) -> (String, FileFlags) {
+pub(crate) fn decode_component(s: &str, is_file: bool) -> (String, FileFlags) {
     let mut flags = FileFlags::default();
     let mut remaining = s;
 
@@ -495,7 +522,8 @@ mod tests {
         let e = decode("dot_zshrc");
         assert_eq!(e.dest_tilde, "~/.zshrc");
         assert!(e.dirs.is_empty());
-        assert!(!e.flags.private);
+        assert!(!e.private);
+        assert_eq!(e.kind, EntryKind::PlainFile);
     }
 
     #[test]
@@ -511,40 +539,40 @@ mod tests {
     fn path_private_dir_private_file() {
         let e = decode("private_dot_ssh/private_id_rsa");
         assert_eq!(e.dest_tilde, "~/.ssh/id_rsa");
-        assert!(e.flags.private);
+        assert!(e.private);
         assert_eq!(e.dirs.len(), 1);
         assert_eq!(e.dirs[0].dest_tilde, "~/.ssh");
-        assert!(e.dirs[0].flags.private);
+        assert!(e.dirs[0].private);
     }
 
     #[test]
     fn path_executable_file() {
         let e = decode("dot_local/bin/executable_myscript");
         assert_eq!(e.dest_tilde, "~/.local/bin/myscript");
-        assert!(e.flags.executable);
-        assert!(!e.flags.private);
+        assert!(e.executable);
+        assert!(!e.private);
     }
 
     #[test]
     fn path_template_file() {
         let e = decode("dot_gitconfig.tmpl");
         assert_eq!(e.dest_tilde, "~/.gitconfig");
-        assert!(e.flags.template);
+        assert!(e.template);
     }
 
     #[test]
     fn path_symlink_file() {
         let e = decode("symlink_dot_vimrc");
         assert_eq!(e.dest_tilde, "~/.vimrc");
-        assert!(e.flags.symlink);
+        assert_eq!(e.kind, EntryKind::Symlink);
     }
 
     #[test]
     fn path_extdir_plain() {
         let e = decode("dot_tmux/plugins/extdir_tpm");
         assert_eq!(e.dest_tilde, "~/.tmux/plugins/tpm");
-        assert!(e.flags.extdir);
-        assert!(!e.flags.symlink);
+        assert_eq!(e.kind, EntryKind::ExternalDir);
+        assert_ne!(e.kind, EntryKind::Symlink);
         assert_eq!(e.dirs.len(), 2);
         assert_eq!(e.dirs[0].dest_tilde, "~/.tmux");
         assert_eq!(e.dirs[1].dest_tilde, "~/.tmux/plugins");
@@ -554,14 +582,14 @@ mod tests {
     fn path_extdir_with_dot_inside() {
         let e = decode("dot_tmux/extdir_dot_plugins");
         assert_eq!(e.dest_tilde, "~/.tmux/.plugins");
-        assert!(e.flags.extdir);
+        assert_eq!(e.kind, EntryKind::ExternalDir);
     }
 
     #[test]
     fn path_extdir_at_root() {
         let e = decode("extdir_nvim");
         assert_eq!(e.dest_tilde, "~/nvim");
-        assert!(e.flags.extdir);
+        assert_eq!(e.kind, EntryKind::ExternalDir);
         assert!(e.dirs.is_empty());
     }
 
@@ -646,7 +674,7 @@ mod tests {
     fn path_create_only_file() {
         let e = decode("create_dot_zshrc");
         assert_eq!(e.dest_tilde, "~/.zshrc");
-        assert!(e.flags.create_only, "expected create_only=true");
+        assert!(e.create_only, "expected create_only=true");
     }
 
     #[test]
@@ -661,11 +689,8 @@ mod tests {
     fn path_exact_dir_sets_flag_on_sourcedir() {
         let e = decode("exact_dot_config/fish/config.fish");
         assert_eq!(e.dest_tilde, "~/.config/fish/config.fish");
-        assert!(
-            e.dirs[0].flags.exact,
-            "expected exact dir flag on ~/.config"
-        );
-        assert!(!e.flags.exact, "file itself should not have exact flag");
+        assert!(e.dirs[0].exact, "expected exact dir flag on ~/.config");
+        assert!(!e.create_only, "file itself should not have create_only");
     }
 
     #[test]
@@ -675,7 +700,8 @@ mod tests {
         let e = decode("create_dot_config/fish/config.fish");
         assert_eq!(e.dest_tilde, "~/.config/fish/config.fish");
         // Dir at index 0 is create_dot_config → decoded to .config with create_only.
-        assert!(e.dirs[0].flags.create_only, "expected dir create_only=true");
+        // SourceDir only has `private` and `exact`; create_only on a dir is not tracked.
+        assert!(!e.dirs[0].private, "dir should not be private");
     }
 
     // ── extfile_ ──────────────────────────────────────────────────────────────
@@ -699,8 +725,8 @@ mod tests {
     fn path_extfile_simple() {
         let e = decode("dot_local/bin/extfile_gh");
         assert_eq!(e.dest_tilde, "~/.local/bin/gh");
-        assert!(e.flags.extfile);
-        assert!(!e.dirs.iter().any(|d| d.flags.extfile));
+        assert_eq!(e.kind, EntryKind::ExternalFile);
+        assert!(!e.dirs.iter().any(|d| d.exact));
     }
 
     #[test]

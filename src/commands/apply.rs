@@ -602,7 +602,7 @@ fn collect_exact_dirs(
         }
 
         for (idx, dir) in entry.dirs.iter().enumerate() {
-            if !dir.flags.exact {
+            if !dir.exact {
                 continue;
             }
 
@@ -691,7 +691,7 @@ fn apply_entry(
         if !dir_path.exists() {
             std::fs::create_dir_all(&dir_path)
                 .with_context(|| format!("Cannot create directory {}", dir_path.display()))?;
-            if dir.flags.private {
+            if dir.private {
                 apply_permissions(&dir_path, true, false)
                     .with_context(|| format!("Cannot set permissions on {}", dir_path.display()))?;
             }

@@ -16,6 +16,7 @@ mod ignore;
 mod lock;
 mod mise;
 mod onepassword;
+mod packages;
 mod skill_backend;
 mod skill_backend_agentskills;
 mod skill_backend_factory;
@@ -239,6 +240,45 @@ enum PkgAction {
         /// Uninstall as a cask (Homebrew only; implies --brew).
         #[arg(long)]
         cask: bool,
+    },
+
+    /// List packages that have updates available, grouped by backend.
+    ///
+    /// Checks all allowed backends (brew, mise) for outdated packages.
+    /// A missing backend binary is reported as a skip note rather than an error.
+    ///
+    /// Examples:
+    ///   haven pkg outdated
+    Outdated,
+
+    /// Upgrade one or all packages across allowed backends.
+    ///
+    /// When a package name is given, only that package is upgraded. When no
+    /// name is given, all packages across all allowed backends are upgraded.
+    /// A missing backend binary is reported as a skip note rather than an error.
+    ///
+    /// Note: to upgrade the haven binary itself, use `haven upgrade`.
+    ///
+    /// Examples:
+    ///   haven pkg upgrade
+    ///   haven pkg upgrade ripgrep
+    ///   haven pkg upgrade node@22
+    Upgrade {
+        /// Package name to upgrade. Omit to upgrade all packages.
+        name: Option<String>,
+    },
+
+    /// Search for packages matching a term across allowed backends.
+    ///
+    /// Results are grouped by backend. Each result includes a copy-pasteable
+    /// `haven pkg install` hint.
+    ///
+    /// Examples:
+    ///   haven pkg search ripgrep
+    ///   haven pkg search "rust toolchain"
+    Search {
+        /// Search term.
+        term: String,
     },
 }
 
@@ -823,10 +863,13 @@ enum Commands {
         text: String,
     },
 
-    /// Upgrade haven to the latest version.
+    /// Upgrade the haven binary to the latest version.
     ///
     /// Downloads the latest release from GitHub, verifies the SHA256 checksum,
     /// and atomically replaces the running binary in place.
+    ///
+    /// This upgrades the haven tool itself. To upgrade managed packages
+    /// (Homebrew formulae, mise runtimes, etc.), use `haven pkg upgrade`.
     ///
     /// Examples:
     ///   haven upgrade              # install the latest version
@@ -1396,6 +1439,15 @@ fn run() -> Result<()> {
                     cask,
                 } => {
                     commands::pkg::uninstall(&repo, name, *brew, *mise, *cask, &cfg)?;
+                }
+                PkgAction::Outdated => {
+                    commands::pkg::outdated(&repo, &cfg)?;
+                }
+                PkgAction::Upgrade { name } => {
+                    commands::pkg::upgrade(&repo, name.as_deref(), &cfg)?;
+                }
+                PkgAction::Search { term } => {
+                    commands::pkg::search(&repo, term, &cfg)?;
                 }
             }
         }

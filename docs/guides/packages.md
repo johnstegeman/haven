@@ -65,6 +65,52 @@ haven status --brews    # which packages are present / missing
 haven diff --brews      # detailed diff
 ```
 
+## Checking for outdated packages
+
+```sh
+haven pkg outdated
+```
+
+Lists upgradable packages across all configured backends, grouped by backend. Output:
+
+```
+==> brew outdated
+bat  0.24.0 → 0.25.0
+
+==> mise outdated
+node  20.11.0 → 22.14.0
+```
+
+## Upgrading packages
+
+```sh
+haven pkg upgrade          # upgrade all packages across all backends
+haven pkg upgrade ripgrep  # upgrade a specific package
+haven pkg upgrade node     # upgrade a specific mise tool
+```
+
+For mise tools, the pinned version in `mise/mise*.toml` is rewritten after the upgrade
+so the change is tracked in VCS. For brew, `brew upgrade` runs without modifying Brewfiles.
+
+> **Note:** `haven upgrade` (no `pkg`) upgrades the **haven binary** itself. Use `haven pkg upgrade` for managed packages.
+
+## Searching for packages
+
+```sh
+haven pkg search bat    # search across all configured backends
+```
+
+Results are grouped by backend with copy-pasteable install hints:
+
+```
+==> brew
+bat                   haven pkg install bat
+bat-extras            haven pkg install bat-extras
+
+==> mise
+bun                   haven pkg install bun --mise
+```
+
 ## mise (language runtimes)
 
 [mise](https://mise.jdx.dev/) manages language runtimes (Node.js, Python, Ruby, Go, etc.). haven integrates with it via module configuration.

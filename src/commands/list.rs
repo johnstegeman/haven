@@ -33,7 +33,7 @@ pub fn run(opts: &ListOptions<'_>) -> Result<()> {
     let matches = |s: &str| -> bool {
         filter_lc
             .as_deref()
-            .map_or(true, |f| s.to_lowercase().contains(f))
+            .is_none_or(|f| s.to_lowercase().contains(f))
     };
 
     let config = HavenConfig::load(opts.repo_root).unwrap_or_default();
@@ -114,7 +114,7 @@ pub fn run(opts: &ListOptions<'_>) -> Result<()> {
                     printed_header = true;
                 }
                 if let Some(sc) = section_comment {
-                    if last_section.as_deref() != Some(sc.as_str()) {
+                    if last_section != Some(sc.as_str()) {
                         println!("  # {}", sc);
                         last_section = Some(sc.as_str());
                     }

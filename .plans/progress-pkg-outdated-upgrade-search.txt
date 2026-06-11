@@ -1,0 +1,59 @@
+## TASK-001 — 2026-06-11T18:00:00Z
+Added `PkgAction::Outdated`, `PkgAction::Upgrade { name: Option<String> }`, and `PkgAction::Search { term: String }` to the clap enum in `src/main.rs`, wired stubs in `commands/pkg.rs`, and added disambiguation note to `haven upgrade` help text.
+Files: ~src/main.rs, ~src/commands/pkg.rs, ~src/mise.rs, ~src/commands/list.rs
+Decisions: Fixed three pre-existing `cargo clippy -D warnings` failures (dead_code in mise.rs, unnecessary_map_or and needless_option_as_deref in list.rs) to satisfy the clippy acceptance criterion.
+
+## TASK-002 — 2026-06-11T18:30:00Z
+Added `OutdatedPackage` struct and `brew_outdated`, `brew_upgrade`, and `brew_search` functions to `src/homebrew.rs`. `brew_outdated` parses `brew outdated --json=v2` JSON for both formulae and casks; `brew_upgrade` upgrades one or all packages; `brew_search` filters section headers from brew search output.
+Files: ~src/homebrew.rs
+Decisions: Used `#[allow(dead_code)]` on new items (matching `mise.rs` pattern) since callers land in later tasks. Noted that `brew outdated` exits 1 when packages are outdated — this is normal, so empty stdout with non-zero exit is the actual error signal.
+
+## TASK-003 — 2026-06-11T19:30:00Z
+Added `mise_outdated` and `mise_search` to `src/mise.rs`. `mise_outdated` runs `mise outdated --json` with `MISE_CONFIG_FILE` set and parses the JSON object (keys are tool names, values have `current`/`latest` fields). `mise_search` runs `mise registry` and filters the full tool listing by substring match since `mise registry <name>` only does exact lookups.
+Files: ~src/mise.rs
+Decisions: Used `mise outdated --json` (not table output) for reliable parsing. Used `mise registry` full listing with local substring filter rather than `mise registry <term>` which is exact-name only.
+
+## TASK-004 — 2026-06-11T20:30:00Z
+Added `mise_upgrade` to `src/mise.rs`. Reads the config tools before upgrade, then runs `mise upgrade --bump --yes <tools>` with `MISE_CONFIG_FILE` set; reads the config back after to validate TOML integrity.
+Files: ~src/mise.rs
+Decisions: Used `mise upgrade --bump` (confirmed available in mise 2026.6.2) which natively rewrites the pinned version in the config file — no toml_edit fallback needed. When `name` is `None`, all tool names are read from the config and passed explicitly to avoid upgrading tools from other (global) config files.
+
+## TASK-006 — 2026-06-11T22:30:00Z
+Implemented `pkg::upgrade` in `src/commands/pkg.rs`, replacing the stub. Fans out to all allowed backends: brew calls `brew_upgrade(name)`, mise iterates all `mise/mise*.toml` files and calls `mise_upgrade(config, name)` (which handles the pin-rewrite). Missing binary prints a skip note and continues; on success, prints confirmation including the config file path for mise.
+Files: ~src/commands/pkg.rs
+
+## TASK-007 — 2026-06-11T23:30:00Z
+Implemented `pkg::search` in `src/commands/pkg.rs`, replacing the stub. Fans out to all allowed backends: brew calls `brew_search(term)` and prints results under `==> brew` with `haven pkg install <name>` hints; mise calls `mise_search(term)` and prints under `==> mise` with `haven pkg install <name> --mise` hints. Missing binary or call errors print a skip note and continue; empty results print `(no results)`.
+Files: ~src/commands/pkg.rs
+
+## TASK-005 — 2026-06-11T21:30:00Z
+Implemented `pkg::outdated` in `src/commands/pkg.rs`. Fans out to all allowed backends; for brew calls `brew_outdated` (binary resolved via `brew_path()`), for mise iterates all `mise/mise*.toml` files calling `mise_outdated` per config. Missing binary prints a skip note and continues; results are printed under `==> brew outdated` / `==> mise outdated` headers with `name  current → latest` format.
+Files: ~src/commands/pkg.rs
+Decisions: Renamed `crate::commands::{brew,mise}` imports to `brew_cmd`/`mise_cmd` to avoid shadowing the `crate::homebrew` and `crate::mise` crates needed by the new implementation. Reused `mise_cmd::all_misefiles` to discover config files consistently with the install/uninstall path.
+
+## TASK-008 — 2026-06-11T24:00:00Z
+Added unit tests for `parse_brew_outdated_json` (in `src/homebrew.rs`) and `parse_mise_outdated_json` (in `src/mise.rs`) using realistic JSON fixture strings. Added three integration tests in `tests/integration.rs` for missing-binary paths: `pkg_outdated`, `pkg_upgrade`, and `pkg_search` all exit 0 with a skip note when PATH is empty. Added a `#[ignore]` test `mise_upgrade_rewrites_pinned_version` that validates the pin-rewrite contract but is skipped without a live `mise` binary and network access.
+Files: ~tests/integration.rs, ~src/homebrew.rs, ~src/mise.rs
+Decisions: The mise pin-rewrite test is marked `#[ignore]` because it requires `mise` to be installed and network access to resolve a newer tool version — unsuitable for offline CI. The test structure is present and documents the contract.
+
+## REVIEW — 2026-06-11T00:00:00Z
+Added 2 review tasks (task-010..task-011).
+
+## TASK-009 — 2026-06-11T25:00:00Z
+Documented `haven pkg outdated`, `haven pkg upgrade [name]`, and `haven pkg search <term>` in CLAUDE.md, CHANGELOG.md (under [Unreleased]), docs/reference/commands.md, docs/COMMANDS.md, and docs/guides/packages.md. All three files note the distinction between `haven upgrade` (binary self-update) and `haven pkg upgrade` (package upgrade).
+Files: ~CLAUDE.md, ~CHANGELOG.md, ~docs/reference/commands.md, ~docs/COMMANDS.md, ~docs/guides/packages.md
+
+## TASK-010 — 2026-06-11T26:00:00Z
+Moved OutdatedPackage from homebrew.rs to commands/pkg.rs; updated homebrew.rs and mise.rs imports; removed 6 spurious #[allow(dead_code)] attributes.
+Files: ~src/homebrew.rs, ~src/mise.rs, ~src/commands/pkg.rs
+
+## TASK-011 — 2026-06-11T27:00:00Z
+Replaced 6 binary-resolution match blocks with let-else in commands/pkg.rs.
+Files: ~src/commands/pkg.rs
+
+## REVIEW (round 2) — 2026-06-11T00:00:00Z
+Added 1 review task (task-012).
+
+## TASK-012 — 2026-06-11T28:00:00Z
+Created src/packages.rs with OutdatedPackage; updated 3 import sites; command layer no longer has circular dep with backend modules.
+Files: +src/packages.rs, ~src/main.rs, ~src/homebrew.rs, ~src/mise.rs, ~src/commands/pkg.rs

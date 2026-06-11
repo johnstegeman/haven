@@ -4950,7 +4950,10 @@ fn pkg_mise_install_creates_mise_toml() {
         .success();
 
     let mise_toml = repo.path().join("mise").join("mise.toml");
-    assert!(mise_toml.exists(), "mise/mise.toml should have been created");
+    assert!(
+        mise_toml.exists(),
+        "mise/mise.toml should have been created"
+    );
     let content = fs::read_to_string(&mise_toml).unwrap();
     assert!(
         content.contains("node = \"latest\""),
@@ -5006,7 +5009,10 @@ fn pkg_mise_install_version_pinned() {
         .success();
 
     let mise_toml = repo.path().join("mise").join("mise.toml");
-    assert!(mise_toml.exists(), "mise/mise.toml should have been created");
+    assert!(
+        mise_toml.exists(),
+        "mise/mise.toml should have been created"
+    );
     let content = fs::read_to_string(&mise_toml).unwrap();
     assert!(
         content.contains("node = \"22\""),
@@ -5022,11 +5028,7 @@ fn pkg_mise_uninstall_removes_entry() {
 
     let mise_dir = repo.path().join("mise");
     fs::create_dir_all(&mise_dir).unwrap();
-    fs::write(
-        mise_dir.join("mise.toml"),
-        "[tools]\nnode = \"latest\"\n",
-    )
-    .unwrap();
+    fs::write(mise_dir.join("mise.toml"), "[tools]\nnode = \"latest\"\n").unwrap();
 
     cmd(&repo)
         .args(["pkg", "uninstall", "node", "--mise"])
@@ -5071,11 +5073,7 @@ fn pkg_dual_backend_uninstall() {
 
     let mise_dir = repo.path().join("mise");
     fs::create_dir_all(&mise_dir).unwrap();
-    fs::write(
-        mise_dir.join("mise.toml"),
-        "[tools]\nnode = \"latest\"\n",
-    )
-    .unwrap();
+    fs::write(mise_dir.join("mise.toml"), "[tools]\nnode = \"latest\"\n").unwrap();
 
     let brew_bin = make_mock_brew();
     let mise_bin = make_mock_mise();
@@ -5104,4 +5102,62 @@ fn pkg_dual_backend_uninstall() {
         !mise_content.contains("node"),
         "mise/mise.toml should no longer contain node, got: {mise_content}"
     );
+}
+
+// ─── pkg outdated / upgrade / search — binary-missing paths ──────────────────
+
+/// Set up a repo with both brew and mise in [packages].backends so the
+/// outdated/upgrade/search commands fan out to both backends.
+fn setup_dual_backend_repo() -> TempDir {
+    let repo = TempDir::new().unwrap();
+    cmd(&repo).arg("init").assert().success();
+    fs::write(
+        repo.path().join("haven.toml"),
+        "[profile.default]\nmodules = []\n\n[packages]\nbackends = [\"brew\", \"mise\"]\n",
+    )
+    .unwrap();
+
+    // Seed a minimal mise config so the outdated path has something to scan.
+    let mise_dir = repo.path().join("mise");
+    fs::create_dir_all(&mise_dir).unwrap();
+    fs::write(mise_dir.join("mise.toml"), "[tools]\nnode = \"20.0.0\"\n").unwrap();
+
+    repo
+}
+
+#[test]
+fn pkg_outdated_missing_binaries_exits_success_with_skip_notes() {
+    let repo = setup_dual_backend_repo();
+
+    // PATH is empty — neither brew nor mise will be found.
+    cmd(&repo)
+        .args(["pkg", "outdated"])
+        .env("PATH", "")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("skipping").or(predicate::str::contains("not available")));
+}
+
+#[test]
+fn pkg_upgrade_missing_binaries_exits_success_with_skip_notes() {
+    let repo = setup_dual_backend_repo();
+
+    cmd(&repo)
+        .args(["pkg", "upgrade"])
+        .env("PATH", "")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("skipping").or(predicate::str::contains("not available")));
+}
+
+#[test]
+fn pkg_search_missing_binaries_exits_success_with_skip_notes() {
+    let repo = setup_dual_backend_repo();
+
+    cmd(&repo)
+        .args(["pkg", "search", "node"])
+        .env("PATH", "")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("skipping").or(predicate::str::contains("not available")));
 }

@@ -49,7 +49,8 @@ tasks:
       Result<Vec<String>>` that queries the mise registry — verify the correct
       subcommand (`mise registry` filtered, or equivalent) against the installed
       mise version. Both must tolerate a missing binary gracefully.
-    status: pending
+    status: completed
+    completed_at: "2026-06-11T19:30:00Z"
     dependencies: []
     acceptance_criteria:
       - "`mise_outdated` runs `mise outdated` with `MISE_CONFIG_FILE` set and parses the output"

@@ -7,3 +7,8 @@ Decisions: Fixed three pre-existing `cargo clippy -D warnings` failures (dead_co
 Added `OutdatedPackage` struct and `brew_outdated`, `brew_upgrade`, and `brew_search` functions to `src/homebrew.rs`. `brew_outdated` parses `brew outdated --json=v2` JSON for both formulae and casks; `brew_upgrade` upgrades one or all packages; `brew_search` filters section headers from brew search output.
 Files: ~src/homebrew.rs
 Decisions: Used `#[allow(dead_code)]` on new items (matching `mise.rs` pattern) since callers land in later tasks. Noted that `brew outdated` exits 1 when packages are outdated — this is normal, so empty stdout with non-zero exit is the actual error signal.
+
+## TASK-003 — 2026-06-11T19:30:00Z
+Added `mise_outdated` and `mise_search` to `src/mise.rs`. `mise_outdated` runs `mise outdated --json` with `MISE_CONFIG_FILE` set and parses the JSON object (keys are tool names, values have `current`/`latest` fields). `mise_search` runs `mise registry` and filters the full tool listing by substring match since `mise registry <name>` only does exact lookups.
+Files: ~src/mise.rs
+Decisions: Used `mise outdated --json` (not table output) for reliable parsing. Used `mise registry` full listing with local substring filter rather than `mise registry <term>` which is exact-name only.

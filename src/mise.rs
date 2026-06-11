@@ -15,6 +15,8 @@ use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 use toml_edit::{DocumentMut, Item, Table, Value};
 
+use crate::homebrew::OutdatedPackage;
+
 /// Find the `mise` binary. Checks PATH first, then `~/.local/bin/mise`.
 pub fn mise_path() -> Option<PathBuf> {
     // PATH lookup via `which`.
@@ -165,6 +167,83 @@ pub fn mise_uninstall(mise: &Path, name: &str) -> Result<()> {
         .stderr(std::process::Stdio::inherit())
         .status();
     Ok(())
+}
+
+/// Run `mise outdated --json` with `MISE_CONFIG_FILE=<config>` and return all
+/// outdated tools.
+///
+/// `mise outdated` exits 0 whether or not packages are outdated.
+#[allow(dead_code)]
+pub fn mise_outdated(mise: &str, config: &Path) -> Result<Vec<OutdatedPackage>> {
+    let out = std::process::Command::new(mise)
+        .args(["outdated", "--json"])
+        .env("MISE_CONFIG_FILE", config)
+        .output()
+        .with_context(|| format!("Cannot run `{} outdated --json` — is mise installed?", mise))?;
+
+    if !out.status.success() {
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        anyhow::bail!("`{} outdated --json` failed: {}", mise, stderr.trim());
+    }
+
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    if stdout.trim().is_empty() {
+        return Ok(Vec::new());
+    }
+
+    parse_mise_outdated_json(&stdout)
+}
+
+fn parse_mise_outdated_json(json: &str) -> Result<Vec<OutdatedPackage>> {
+    let v: serde_json::Value =
+        serde_json::from_str(json).context("Failed to parse `mise outdated --json` output")?;
+
+    let Some(obj) = v.as_object() else {
+        return Ok(Vec::new());
+    };
+
+    let mut result = Vec::new();
+    for (name, entry) in obj {
+        let current = entry["current"].as_str().unwrap_or("?").to_string();
+        let latest = entry["latest"].as_str().unwrap_or("?").to_string();
+        result.push(OutdatedPackage {
+            name: name.clone(),
+            current_version: current,
+            latest_version: latest,
+        });
+    }
+    Ok(result)
+}
+
+/// Query the mise registry for tools whose name contains `term`.
+///
+/// Uses `mise registry` (lists all tools) and filters locally.  `mise registry
+/// <name>` only works for exact names, so substring search requires the full
+/// listing.
+#[allow(dead_code)]
+pub fn mise_search(mise: &str, term: &str) -> Result<Vec<String>> {
+    let out = std::process::Command::new(mise)
+        .arg("registry")
+        .output()
+        .with_context(|| format!("Cannot run `{} registry` — is mise installed?", mise))?;
+
+    if !out.status.success() {
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        anyhow::bail!("`{} registry` failed: {}", mise, stderr.trim());
+    }
+
+    let lower_term = term.to_lowercase();
+    Ok(String::from_utf8_lossy(&out.stdout)
+        .lines()
+        .filter_map(|line| {
+            let tool_name = line.split_whitespace().next()?;
+            if tool_name.to_lowercase().contains(&lower_term) {
+                Some(tool_name.to_string())
+            } else {
+                None
+            }
+        })
+        .collect())
 }
 
 fn load_or_create_doc(path: &Path) -> Result<DocumentMut> {

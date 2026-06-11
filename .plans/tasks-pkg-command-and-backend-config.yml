@@ -94,7 +94,7 @@ tasks:
       Brewfile changes; (3) unknown backend name in `[packages]` config is rejected; (4)
       `haven pkg install` and `haven pkg uninstall` produce the same Brewfile mutations as the
       old `haven brew` tests did (migrate existing brew install/uninstall test cases).
-    status: pending
+    status: completed
     dependencies:
       - task-004
     acceptance_criteria:
@@ -103,4 +103,4 @@ tasks:
       - "Integration test verifies `--mise` flag exits non-zero with clean error, no Brewfile written"
       - "Integration test verifies unknown backend name in config produces an error"
       - "`cargo test --test integration` passes for all new and migrated tests"
-    completed_at: null
+    completed_at: "2026-06-11T00:00:00Z"

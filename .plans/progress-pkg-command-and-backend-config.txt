@@ -14,3 +14,7 @@ Files: ~src/main.rs, ~.plans/tasks-pkg-command-and-backend-config.yml
 ## TASK-004 — 2026-06-11T00:00:00Z
 Replaced all user-facing `haven brew` references with `haven pkg` across docs, source code, README, CHANGELOG, and CLAUDE.md; added `[packages]` config section and `haven pkg` command documentation to CLAUDE.md.
 Files: ~CLAUDE.md, ~README.md, ~CHANGELOG.md, ~CHEZMOI_TODO.md, ~src/commands/brew.rs, ~src/commands/list.rs, ~src/commands/init.rs, ~docs/COMMANDS.md, ~docs/concepts.md, ~docs/guide.md, ~docs/guides/packages.md, ~docs/index.md, ~docs/from-chezmoi.md, ~docs/getting-started/quickstart.md, ~docs/reference/commands.md, ~docs/for-chezmoi-users/commands.md, ~docs/for-chezmoi-users/gaps.md, ~docs/releases/v0.1.0.md, ~.plans/tasks-pkg-command-and-backend-config.yml
+
+## TASK-005 — 2026-06-11T00:00:00Z
+Added 6 integration tests covering pkg backend resolution: default brew backend adds to Brewfile, --brew overrides mise-default to brew, mise-default without --brew errors with "not yet available", --mise flag errors without touching the Brewfile, unknown backend name in config is rejected, and uninstall removes the formula from the Brewfile. Tests use a mock brew binary on PATH to avoid real Homebrew invocations.
+Files: ~tests/integration.rs

@@ -115,7 +115,7 @@ tasks:
       three `#[allow(dead_code)]` attributes (on the two constants and on the `impl PackagesConfig`
       block) — they were added during task-001 development before task-002 called the methods, and
       are now suppressing a live lint signal unnecessarily.
-    status: pending
+    status: completed
     dependencies:
       - task-005
     acceptance_criteria:
@@ -123,7 +123,7 @@ tasks:
       - "No `#[allow(dead_code)]` annotations remain in the `PackagesConfig` section"
       - "`cargo clippy --all-targets` passes cleanly with no new warnings"
       - "`cargo test --test integration` passes"
-    completed_at: null
+    completed_at: "2026-06-11T00:00:00Z"
     source: review
 
   - id: task-007
@@ -136,12 +136,12 @@ tasks:
       already owns, and signals to readers that this is reachable runtime behavior. Replace both
       with `other => unreachable!("backend '{}' passed resolve_backend but has no handler", other)`
       to make the invariant explicit at the call site.
-    status: pending
+    status: completed
     dependencies:
       - task-005
     acceptance_criteria:
       - "Both `other => bail!(...)` arms in `src/commands/pkg.rs` are replaced with `unreachable!(...)`"
       - "`cargo clippy --all-targets` passes cleanly"
       - "`cargo test --test integration` passes"
-    completed_at: null
+    completed_at: "2026-06-11T00:00:00Z"
     source: review

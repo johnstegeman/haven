@@ -38,7 +38,7 @@ pub fn install(
     match backend.as_str() {
         "brew" => brew::install(repo_root, name, cask, module),
         "mise" => bail!("mise backend not yet available"),
-        other => bail!("unhandled backend '{}'", other),
+        other => unreachable!("backend '{}' passed resolve_backend but has no handler", other),
     }
 }
 
@@ -54,6 +54,6 @@ pub fn uninstall(
     match backend.as_str() {
         "brew" => brew::uninstall(repo_root, name, cask),
         "mise" => bail!("mise backend not yet available"),
-        other => bail!("unhandled backend '{}'", other),
+        other => unreachable!("backend '{}' passed resolve_backend but has no handler", other),
     }
 }

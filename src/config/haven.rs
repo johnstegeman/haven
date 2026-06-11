@@ -51,10 +51,7 @@ pub struct SecurityConfig {
     pub allow: Vec<String>,
 }
 
-#[allow(dead_code)]
 const KNOWN_BACKENDS: &[&str] = &["brew", "mise"];
-#[allow(dead_code)]
-const DEFAULT_BACKENDS: &[&str] = &["brew", "mise"];
 
 /// Package backend settings in `haven.toml`.
 ///
@@ -70,7 +67,6 @@ pub struct PackagesConfig {
     pub backends: Vec<String>,
 }
 
-#[allow(dead_code)]
 impl PackagesConfig {
     /// Returns the resolved ordered list of allowed backends.
     ///
@@ -78,7 +74,7 @@ impl PackagesConfig {
     /// Errors if any entry is not a known backend name.
     pub fn allowed_backends(&self) -> Result<Vec<String>> {
         if self.backends.is_empty() {
-            return Ok(DEFAULT_BACKENDS.iter().map(|s| s.to_string()).collect());
+            return Ok(KNOWN_BACKENDS.iter().map(|s| s.to_string()).collect());
         }
         for b in &self.backends {
             if !KNOWN_BACKENDS.contains(&b.as_str()) {

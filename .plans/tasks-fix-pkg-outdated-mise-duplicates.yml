@@ -33,7 +33,7 @@ tasks:
       "mise not available — skipping (..)" note, on empty print "mise: nothing outdated",
       otherwise print the "==> mise outdated" header followed by one row per tool.
       Leave upgrade() and search() unchanged.
-    status: pending
+    status: completed
     dependencies:
       - task-001
     acceptance_criteria:
@@ -42,4 +42,4 @@ tasks:
       - "Missing-binary skip note, nothing-outdated message, and header gating are preserved"
       - "upgrade() and search() are not modified"
       - "pkg_outdated_missing_binaries_exits_success_with_skip_notes integration test still passes"
-    completed_at: null
+    completed_at: 2026-06-12T00:00:00Z

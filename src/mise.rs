@@ -203,8 +203,6 @@ pub fn mise_outdated(mise: &str, config: &Path) -> Result<Vec<OutdatedPackage>> 
 /// mise merges the global config into every invocation, so running `mise outdated`
 /// once per haven config file yields duplicate rows for any tool shared via the
 /// global config. We keep the first occurrence of each tool name.
-// task-002 wires this into `pkg outdated`; no caller yet.
-#[allow(dead_code)]
 pub fn mise_outdated_all(mise: &str, configs: &[PathBuf]) -> Result<Vec<OutdatedPackage>> {
     let mut all = Vec::new();
     for config in configs {

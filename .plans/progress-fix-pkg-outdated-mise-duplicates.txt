@@ -1,3 +1,7 @@
 ## TASK-001 — 2026-06-12T00:00:00Z
 Added `mise_outdated_all` aggregator and pure `dedupe_outdated` helper in src/mise.rs (keeps first occurrence per tool name across config invocations), plus a unit test. `mise_outdated_all` carries `#[allow(dead_code)]` until task-002 wires it into pkg outdated.
 Files: ~src/mise.rs, ~.plans/tasks-fix-pkg-outdated-mise-duplicates.yml, +.plans/progress-fix-pkg-outdated-mise-duplicates.txt
+
+## TASK-002 — 2026-06-12T00:00:00Z
+Rewrote the "mise" arm of pkg `outdated()` to call `mise_outdated_all` once instead of looping per config, so each outdated tool prints exactly once; removed the now-stale `#[allow(dead_code)]` from `mise_outdated_all`. Header/empty/error semantics preserved.
+Files: ~src/commands/pkg.rs, ~src/mise.rs, ~.plans/tasks-fix-pkg-outdated-mise-duplicates.yml, ~.plans/progress-fix-pkg-outdated-mise-duplicates.txt

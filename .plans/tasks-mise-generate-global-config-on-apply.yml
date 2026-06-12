@@ -72,3 +72,29 @@ tasks:
       - 'Test asserts `[settings]` from pre-existing global config is preserved'
       - '`cargo test --test integration` passes'
     completed_at: "2026-06-12T00:00:00Z"
+
+  - id: task-004
+    title: 'Fix dead dry-run branch and stale print_dry_run_module in apply.rs'
+    description: |
+      Two related issues in `src/commands/apply.rs`. (1) The module loop has an early
+      `continue` when `opts.dry_run` is true, so `mise_config_paths` is never populated
+      in dry-run mode. The post-loop `if opts.dry_run` branch that was meant to print the
+      merge preview is therefore permanently dead code. Fix: collect module mise config
+      paths even in dry-run mode (do not `continue` before the collection step), so the
+      dry-run output is actually reachable and correctly lists which configs would be merged.
+      (2) `print_dry_run_module` still prints `mise install --config-file <path>` per module,
+      describing the old per-module behavior. Update it to reflect the new behavior: it should
+      note that the module's mise config will be merged into the global config on apply, not
+      installed individually. Also fix the `ModuleState { files: 0 }` hardcode — restore an
+      accurate count (1 if the module has a mise config, 0 otherwise, matching the previous
+      `module_applied` logic). Run `cargo build` and `cargo test` and verify all pass.
+    status: pending
+    dependencies:
+      - task-003
+    acceptance_criteria:
+      - '`mise_config_paths` is populated during dry-run so the preview branch is reachable'
+      - '`print_dry_run_module` describes the new merge behavior, not the old per-module install'
+      - '`ModuleState.files` is accurate (not hardcoded 0)'
+      - '`cargo build` and `cargo test` pass'
+    completed_at: null
+    source: review

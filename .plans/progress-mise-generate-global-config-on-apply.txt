@@ -9,3 +9,6 @@ Files: ~src/commands/apply.rs, ~.plans/tasks-mise-generate-global-config-on-appl
 ## TASK-003 — 2026-06-12T00:00:00Z
 Added integration test for merge_module_tools_into_global end-to-end behavior. Test sets up two modules (shell, ai) each with a distinct mise config, runs apply with a mock mise binary, and asserts the global ~/.config/mise/config.toml contains all merged tools plus the preserved [settings] section.
 Files: ~tests/integration.rs, ~.plans/tasks-mise-generate-global-config-on-apply.yml, ~.plans/progress-mise-generate-global-config-on-apply.txt
+
+## REVIEW — 2026-06-12T00:00:00Z
+Added 1 review task (task-004).

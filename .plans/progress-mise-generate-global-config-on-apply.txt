@@ -1,0 +1,32 @@
+## TASK-001 — 2026-06-12T00:00:00Z
+Added merge_module_tools_into_global() to src/mise.rs with 4 unit tests. Merges [tools] from multiple module configs into global mise config, preserving other sections.
+Files: ~src/mise.rs, ~.plans/tasks-mise-generate-global-config-on-apply.yml, +.plans/progress-mise-generate-global-config-on-apply.txt
+
+## TASK-002 — 2026-06-12T00:00:00Z
+Wired merge_module_tools_into_global into apply.rs. Module loop now collects mise config paths; single install_tools(None) runs after merge. dry-run prints paths that would be merged.
+Files: ~src/commands/apply.rs, ~.plans/tasks-mise-generate-global-config-on-apply.yml, ~.plans/progress-mise-generate-global-config-on-apply.txt
+
+## TASK-003 — 2026-06-12T00:00:00Z
+Added integration test for merge_module_tools_into_global end-to-end behavior. Test sets up two modules (shell, ai) each with a distinct mise config, runs apply with a mock mise binary, and asserts the global ~/.config/mise/config.toml contains all merged tools plus the preserved [settings] section.
+Files: ~tests/integration.rs, ~.plans/tasks-mise-generate-global-config-on-apply.yml, ~.plans/progress-mise-generate-global-config-on-apply.txt
+
+## REVIEW — 2026-06-12T00:00:00Z
+Added 1 review task (task-004).
+
+## REVIEW (round 2) — 2026-06-12T00:00:00Z
+Added 1 review task (task-005).
+
+## REVIEW (round 3) — 2026-06-12T00:00:00Z
+Added 1 review task (task-006).
+
+## TASK-004 — 2026-06-12T00:00:00Z
+Fixed dead dry-run branch (mise_config_paths now populated in dry-run), updated print_dry_run_module to describe merge behavior, restored accurate ModuleState.files count.
+Files: ~src/commands/apply.rs, ~.plans/tasks-mise-generate-global-config-on-apply.yml, ~.plans/progress-mise-generate-global-config-on-apply.txt
+
+## TASK-005 — 2026-06-12T00:00:00Z
+Moved mise path collection past requires_op guard so skipped modules don't contribute tools. Fixed indentation in collection block.
+Files: ~src/commands/apply.rs, ~.plans/tasks-mise-generate-global-config-on-apply.yml, ~.plans/progress-mise-generate-global-config-on-apply.txt
+
+## TASK-006 — 2026-06-12T00:00:00Z
+Restructured module loop: collection now after op guard, before dry-run continue. Replaced has_mise_config with length-delta. Dry-run preview branch is now reachable. Op guard computes op_skip flag without early-continuing in dry-run; collection guarded by !op_skip; dry-run prints plan for all non-empty modules (including op-gated); real apply skips via op_skip continue.
+Files: ~src/commands/apply.rs, ~.plans/tasks-mise-generate-global-config-on-apply.yml, ~.plans/progress-mise-generate-global-config-on-apply.txt

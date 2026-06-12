@@ -315,7 +315,7 @@ pub fn run(opts: &ApplyOptions<'_>) -> Result<ApplyOutcome> {
     }
 
     let mut lock = crate::lock::LockFile::load(opts.repo_root)?;
-    let mut module_applied = 0usize;
+    let mut mise_config_paths: Vec<PathBuf> = Vec::new();
 
     // AI / mise / externals — only when apply_ai is set.
     if opts.apply_ai {
@@ -325,51 +325,86 @@ pub fn run(opts: &ApplyOptions<'_>) -> Result<ApplyOutcome> {
                 continue;
             }
 
+            // ── 1Password guard ──────────────────────────────────────────────
+            // Check op availability before collecting paths so op-gated modules
+            // that would be skipped on real apply are excluded from the merge.
+            // In dry-run mode we still collect paths (before the dry-run continue
+            // below) so the post-loop preview block can report which configs would
+            // be merged. Op-skipped modules are excluded from collection in both
+            // modes.
+            let op_skip = if module.requires_op {
+                let op_ok = crate::onepassword::op_path()
+                    .map(|p| crate::onepassword::is_authenticated(&p))
+                    .unwrap_or(false);
+                if !op_ok {
+                    if !opts.dry_run {
+                        let reason = if crate::onepassword::op_path().is_none() {
+                            "op CLI not installed"
+                        } else {
+                            "not signed into 1Password (run: op signin)"
+                        };
+                        eprintln!("warning: [{}] skipped — {}", module_name, reason);
+                    }
+                    true
+                } else {
+                    false
+                }
+            } else {
+                false
+            };
+
+            // ── Mise ─────────────────────────────────────────────────────────
+            // Collect the mise config path only when the module would not be
+            // op-skipped, and before the dry-run continue so that the post-loop
+            // dry-run preview branch sees the collected paths.
+            let mise_before = mise_config_paths.len();
+            if !op_skip {
+                if let Some(mise_cfg) = &module.mise {
+                    if let Some(config) = &mise_cfg.config {
+                        mise_config_paths.push(opts.repo_root.join(config));
+                    }
+                }
+            }
+            let mise_files = mise_config_paths.len() - mise_before;
+
             if opts.dry_run {
                 print_dry_run_module(module_name, &module, opts);
                 continue;
             }
 
-            // ── 1Password guard ──────────────────────────────────────────────
-            if module.requires_op {
-                let op_ok = crate::onepassword::op_path()
-                    .map(|p| crate::onepassword::is_authenticated(&p))
-                    .unwrap_or(false);
-                if !op_ok {
-                    let reason = if crate::onepassword::op_path().is_none() {
-                        "op CLI not installed"
-                    } else {
-                        "not signed into 1Password (run: op signin)"
-                    };
-                    eprintln!("warning: [{}] skipped — {}", module_name, reason);
-                    continue;
-                }
-            }
-
-            // ── Mise ─────────────────────────────────────────────────────────
-            if let Some(mise_cfg) = &module.mise {
-                match crate::mise::mise_path() {
-                    None => {
-                        println!("  [mise] mise not found — install from https://mise.jdx.dev");
-                    }
-                    Some(mise) => {
-                        let config_path = mise_cfg.config.as_ref().map(|c| opts.repo_root.join(c));
-                        println!("  Installing mise tools…");
-                        crate::mise::install_tools(&mise, config_path.as_deref())
-                            .context("mise install failed")?;
-                        println!("  ✓ mise tools installed");
-                        module_applied += 1;
-                    }
-                }
+            if op_skip {
+                continue;
             }
 
             state.modules.insert(
                 module_name.clone(),
                 ModuleState {
                     status: "clean".into(),
-                    files: module_applied,
+                    files: mise_files,
                 },
             );
+        }
+
+        // Merge all module mise configs into the global mise config and install once.
+        if !mise_config_paths.is_empty() {
+            if opts.dry_run {
+                println!(
+                    "  [dry-run] mise global config would be updated with tools from {} module config(s)",
+                    mise_config_paths.len()
+                );
+                for path in &mise_config_paths {
+                    println!("    {}", path.display());
+                }
+            } else if let Some(mise) = crate::mise::mise_path() {
+                let global_mise = crate::mise::mise_global_config_path()?;
+                crate::mise::merge_module_tools_into_global(&mise_config_paths, &global_mise)
+                    .context("failed to merge mise module configs")?;
+                println!("  Installing mise tools…");
+                crate::mise::install_tools(&mise, None).context("mise install failed")?;
+                println!("  ✓ mise tools installed");
+            } else {
+                println!("  [mise] mise not found — install from https://mise.jdx.dev");
+            }
         }
     }
 
@@ -1672,12 +1707,12 @@ fn print_dry_run_module(module_name: &str, module: &ModuleConfig, _opts: &ApplyO
             println!("[{}]", module_name);
             has_output = true;
         }
-        let config_hint = mise_cfg
-            .config
-            .as_ref()
-            .map(|c| format!(" --config-file {}", c))
-            .unwrap_or_default();
-        println!("  mise install{}", config_hint);
+        if let Some(config) = &mise_cfg.config {
+            println!(
+                "  [mise] {}  (will be merged into ~/.config/mise/config.toml on apply)",
+                config
+            );
+        }
     }
     if has_output {
         println!();

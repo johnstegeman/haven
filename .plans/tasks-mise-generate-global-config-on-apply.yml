@@ -1,0 +1,146 @@
+feature: mise-generate-global-config-on-apply
+prd: ./prd-mise-generate-global-config-on-apply.md
+created_at: "2026-06-12T00:00:00Z"
+updated_at: "2026-06-12T00:00:00Z"
+
+tasks:
+  - id: task-001
+    title: 'Add merge_module_tools_into_global() to src/mise.rs'
+    description: |
+      Add a new public function `merge_module_tools_into_global(module_configs: &[PathBuf],
+      global_config: &Path) -> Result<()>` to `src/mise.rs`. It reads the `[tools]` table
+      from each path in `module_configs` using the existing `parse_mise_tools()` function,
+      merges them into one ordered map (later entries overwrite earlier ones for duplicate
+      keys), then loads the global config with `load_or_create_doc()`, replaces its `[tools]`
+      table entirely with the merged entries using `toml_edit`, preserving all other sections
+      (e.g. `[settings]`), and writes the result back to disk. If `module_configs` is empty,
+      clear the `[tools]` table (write an empty table). Add unit tests covering: merge of two
+      module configs, preservation of `[settings]`, empty input clears tools, duplicate key
+      resolution (last wins). Run `cargo test` and verify all pass.
+    status: completed
+    dependencies: []
+    acceptance_criteria:
+      - '`merge_module_tools_into_global()` is public and in `src/mise.rs`'
+      - 'Merges `[tools]` from multiple module config files correctly'
+      - 'Preserves `[settings]` and other sections in the global config'
+      - 'Duplicate tool keys: last module in the slice wins'
+      - 'Unit tests pass (`cargo test`)'
+    completed_at: "2026-06-12T00:00:00Z"
+
+  - id: task-002
+    title: 'Wire merge step into apply.rs and replace per-module mise install'
+    description: |
+      Update `src/commands/apply.rs` to collect each active module's resolved mise config
+      path during the module loop (where `module.mise.config` is set), then after the loop
+      call `crate::mise::merge_module_tools_into_global(&collected_paths, &global_mise_config)`
+      where `global_mise_config` is `~/.config/mise/config.toml` (expand via the existing
+      `expand_tilde("~/.config/mise/config.toml")` helper). Replace the per-module
+      `install_tools(&mise, config_path.as_deref())` call with collecting the path only;
+      after the merge, run `crate::mise::install_tools(&mise, None)` once (no
+      MISE_CONFIG_FILE, so mise uses the global config). In `--dry-run` mode, print the
+      merged `[tools]` content that would be written without calling
+      `merge_module_tools_into_global()` or `install_tools()`. Run `cargo build` and
+      `cargo test` and verify they pass.
+    status: completed
+    dependencies:
+      - task-001
+    acceptance_criteria:
+      - 'Module loop collects mise config paths instead of running install per module'
+      - '`merge_module_tools_into_global()` called once after the module loop'
+      - 'Single `install_tools(&mise, None)` runs after the merge'
+      - '`--dry-run` prints merged `[tools]` without writing or installing'
+      - '`cargo build` and `cargo test` pass'
+    completed_at: "2026-06-12T00:00:00Z"
+
+  - id: task-003
+    title: 'Add integration test for mise global config generation'
+    description: |
+      Add an integration test to `tests/integration.rs` that verifies the end-to-end
+      behavior: set up a test haven repo with two modules each having a mise config file
+      containing distinct tools, run `haven apply` (using the test harness pattern already
+      established in the file — `cmd(repo)`, temp home dir), and assert that the generated
+      `~/.config/mise/config.toml` contains the merged `[tools]` from both modules and that
+      any pre-existing `[settings]` in the global config is preserved. Mirror the patterns
+      used by existing integration tests (e.g. how brew or mise tests mock the binary and
+      use `cmd_home`). Run `cargo test --test integration` and verify all pass.
+    status: completed
+    dependencies:
+      - task-002
+    acceptance_criteria:
+      - 'Integration test exists for the merge behavior'
+      - 'Test asserts merged `[tools]` from two modules appear in global config'
+      - 'Test asserts `[settings]` from pre-existing global config is preserved'
+      - '`cargo test --test integration` passes'
+    completed_at: "2026-06-12T00:00:00Z"
+
+  - id: task-004
+    title: 'Fix dead dry-run branch and stale print_dry_run_module in apply.rs'
+    description: |
+      Two related issues in `src/commands/apply.rs`. (1) The module loop has an early
+      `continue` when `opts.dry_run` is true, so `mise_config_paths` is never populated
+      in dry-run mode. The post-loop `if opts.dry_run` branch that was meant to print the
+      merge preview is therefore permanently dead code. Fix: collect module mise config
+      paths even in dry-run mode (do not `continue` before the collection step), so the
+      dry-run output is actually reachable and correctly lists which configs would be merged.
+      (2) `print_dry_run_module` still prints `mise install --config-file <path>` per module,
+      describing the old per-module behavior. Update it to reflect the new behavior: it should
+      note that the module's mise config will be merged into the global config on apply, not
+      installed individually. Also fix the `ModuleState { files: 0 }` hardcode — restore an
+      accurate count (1 if the module has a mise config, 0 otherwise, matching the previous
+      `module_applied` logic). Run `cargo build` and `cargo test` and verify all pass.
+    status: completed
+    dependencies:
+      - task-003
+    acceptance_criteria:
+      - '`mise_config_paths` is populated during dry-run so the preview branch is reachable'
+      - '`print_dry_run_module` describes the new merge behavior, not the old per-module install'
+      - '`ModuleState.files` is accurate (not hardcoded 0)'
+      - '`cargo build` and `cargo test` pass'
+    completed_at: "2026-06-12T00:00:00Z"
+    source: review
+
+  - id: task-005
+    title: 'Move mise path collection to after the requires_op guard in apply.rs'
+    description: |
+      In `src/commands/apply.rs`, the mise config path is currently pushed to
+      `mise_config_paths` before the `requires_op` guard is checked. This means that when
+      a module has `requires_op = true` and op is unavailable, the module is skipped (via
+      `continue`) but its mise tools have already been added to the merge list — so they
+      still end up in `~/.config/mise/config.toml`. Fix: move the `mise_config_paths.push`
+      (and the `has_mise_config = true` flag) to after the op guard so that op-gated modules
+      that are skipped are excluded from the merge. Also fix the indentation inconsistency
+      in the comment block at the top of the mise collection section (it was inserted at the
+      wrong indent level). Run `cargo build` and `cargo test` and verify all pass.
+    status: completed
+    dependencies:
+      - task-004
+    acceptance_criteria:
+      - 'Mise config path is only collected for modules that pass the `requires_op` guard'
+      - 'Op-gated skipped modules do not contribute tools to the global mise config'
+      - 'Indentation in the mise collection block is consistent with surrounding code'
+      - '`cargo build` and `cargo test` pass'
+    completed_at: "2026-06-12T00:00:00Z"
+    source: review
+
+  - id: task-006
+    title: 'Move mise path collection before the dry-run continue in apply.rs'
+    description: |
+      The module loop in `src/commands/apply.rs` still has `continue` in the dry-run branch
+      before `mise_config_paths.push()`. Even after task-004 and task-005, the collection
+      block lives after the dry-run early exit, so `mise_config_paths` is never populated
+      in dry-run mode and the post-loop dry-run preview branch is dead. Fix: restructure
+      the loop body so the order is: (1) op guard check and continue if skipped, (2) mise
+      path collection, (3) dry-run continue. This way dry-run sees the collected paths
+      while op-gated modules are still excluded. Also inline the `has_mise_config` boolean
+      using the vec length delta instead of a one-use sentinel. Run `cargo build` and
+      `cargo test` and verify all pass.
+    status: completed
+    dependencies:
+      - task-005
+    acceptance_criteria:
+      - '`mise_config_paths` is populated in dry-run mode (collection before dry-run continue)'
+      - 'Op-gated modules still excluded (collection after op guard)'
+      - '`has_mise_config` boolean replaced with length-delta check'
+      - '`cargo build` and `cargo test` pass'
+    completed_at: "2026-06-12T00:00:00Z"
+    source: review

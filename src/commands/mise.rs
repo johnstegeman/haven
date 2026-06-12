@@ -17,9 +17,6 @@ use crate::mise;
 
 /// `haven pkg install <name> [--module <module>]` (mise backend)
 pub fn install(repo_root: &Path, name: &str, module_filter: Option<&str>) -> Result<()> {
-    let mise_bin =
-        mise::mise_path().context("mise not found. Install it from https://mise.jdx.dev")?;
-
     let (tool_name, version) = mise::parse_tool_spec(name);
 
     let target = resolve_install_target(repo_root, module_filter)?;
@@ -39,16 +36,20 @@ pub fn install(repo_root: &Path, name: &str, module_filter: Option<&str>) -> Res
     }
 
     println!();
-    mise::install_tools(&mise_bin, Some(&target))?;
+    let all_files = all_misefiles(repo_root)?;
+    let global_config = crate::mise::mise_global_config_path()?;
+    crate::mise::merge_module_tools_into_global(&all_files, &global_config)
+        .context("failed to update global mise config")?;
+    if let Some(mise_bin) = crate::mise::mise_path() {
+        crate::mise::install_tools(&mise_bin, None)
+            .context("mise install failed")?;
+    }
 
     Ok(())
 }
 
 /// `haven pkg uninstall <name>` (mise backend)
 pub fn uninstall(repo_root: &Path, name: &str) -> Result<()> {
-    let mise_bin =
-        mise::mise_path().context("mise not found. Install it from https://mise.jdx.dev")?;
-
     let (tool_name, _) = mise::parse_tool_spec(name);
 
     let misefiles = all_misefiles(repo_root)?;
@@ -81,7 +82,15 @@ pub fn uninstall(repo_root: &Path, name: &str) -> Result<()> {
     }
 
     println!();
-    mise::mise_uninstall(&mise_bin, &tool_name)?;
+    let global_config = crate::mise::mise_global_config_path()?;
+    crate::mise::merge_module_tools_into_global(&misefiles, &global_config)
+        .context("failed to update global mise config")?;
+
+    if let Some(mise_bin) = mise::mise_path() {
+        mise::mise_uninstall(&mise_bin, &tool_name).context("mise uninstall failed")?;
+    } else {
+        println!("  [mise] mise not found — uninstall skipped (run: haven apply to sync)");
+    }
 
     Ok(())
 }

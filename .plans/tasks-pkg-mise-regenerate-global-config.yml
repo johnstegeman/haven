@@ -1,0 +1,92 @@
+feature: pkg-mise-regenerate-global-config
+prd: ./prd-pkg-mise-regenerate-global-config.md
+created_at: "2026-06-12T00:00:00Z"
+updated_at: "2026-06-12T00:00:00Z"
+
+tasks:
+  - id: task-001
+    title: 'Update install() to merge global config after adding a mise tool'
+    description: |
+      In `src/commands/mise.rs`, update the `install()` function so that after
+      `mise::add_to_misefile()` writes the tool entry to the module config, it
+      calls `all_misefiles(repo_root)` to collect all module mise paths, calls
+      `crate::mise::merge_module_tools_into_global(&all_files, &global_config)` to
+      regenerate `~/.config/mise/config.toml`, then calls
+      `crate::mise::install_tools(&bin, None)` (passing `None` instead of the
+      per-module config path) so mise installs from the global config. The global
+      config path is `expand_tilde("~/.config/mise/config.toml")?`. Gate the binary
+      calls on `crate::mise::mise_path()` returning `Some`. Run `cargo build` and
+      `cargo test` and verify all pass.
+    status: completed
+    dependencies: []
+    acceptance_criteria:
+      - '`install()` calls `merge_module_tools_into_global` after `add_to_misefile`'
+      - '`install_tools` is called with `None` (not `Some(module_path)`)'
+      - '`cargo build` and `cargo test` pass'
+    completed_at: "2026-06-12T00:00:00Z"
+
+  - id: task-002
+    title: 'Update uninstall() to merge global config after removing a mise tool'
+    description: |
+      In `src/commands/mise.rs`, update the `uninstall()` function so that after
+      all `mise::remove_from_misefile()` calls, it calls
+      `crate::mise::merge_module_tools_into_global(&all_files, &global_config)` to
+      regenerate `~/.config/mise/config.toml` before running `mise_uninstall`.
+      The `all_files` variable is already collected at the top of `uninstall()` via
+      `all_misefiles(repo_root)`. The global config path is
+      `expand_tilde("~/.config/mise/config.toml")?`. Run `cargo build` and
+      `cargo test` and verify all pass.
+    status: completed
+    dependencies:
+      - task-001
+    acceptance_criteria:
+      - '`uninstall()` calls `merge_module_tools_into_global` after all `remove_from_misefile` calls'
+      - 'Global config is regenerated before `mise_uninstall` runs'
+      - '`cargo build` and `cargo test` pass'
+    completed_at: "2026-06-12T00:00:00Z"
+
+  - id: task-003
+    title: 'Add integration test for global config update after pkg install --mise'
+    description: |
+      Add an integration test to `tests/integration.rs` verifying that after
+      `haven pkg install <name> --mise`, `~/.config/mise/config.toml` contains
+      the installed tool in its `[tools]` section. Mirror the pattern of existing
+      mise pkg tests (mock mise binary, use `cmd_home`, write a module TOML with
+      a mise config reference, assert the global config file content). Optionally
+      also test `haven pkg uninstall <name> --mise` removes the tool from the
+      global config. Run `cargo test --test integration` and verify all pass.
+    status: completed
+    dependencies:
+      - task-002
+    acceptance_criteria:
+      - 'Integration test exists for `pkg install --mise` updating global config'
+      - 'Test asserts the installed tool appears in `~/.config/mise/config.toml`'
+      - '`cargo test --test integration` passes'
+    completed_at: "2026-06-12T00:00:00Z"
+
+  - id: task-004
+    title: 'Fix asymmetric binary handling, extract global config path, clean imports'
+    description: |
+      Three issues in `src/commands/mise.rs` and `src/mise.rs`. (1) `install()` silently
+      skips `mise install` when the binary is absent (`if let Some`), while `uninstall()`
+      hard-errors at the top before any file writes can happen. Make them consistent: move
+      `uninstall()`'s `mise_path()` check to just before the `mise_uninstall` call and
+      make it a soft-skip with a printed note, matching `install()`'s pattern. (2) The
+      string `"~/.config/mise/config.toml"` is expanded via `expand_tilde` in three places
+      (commands/mise.rs twice, commands/apply.rs once). Extract a `pub fn
+      mise_global_config_path() -> Result<PathBuf>` in `src/mise.rs` that wraps the
+      expand_tilde call, and replace all three call-sites with it. (3) `commands/mise.rs`
+      spells out `crate::config::module::expand_tilde` fully at both call-sites instead of
+      using the existing import. After adding `mise_global_config_path()` in (2), this
+      becomes moot (no more direct expand_tilde calls). Run `cargo build` and `cargo test`
+      and verify all pass.
+    status: completed
+    dependencies:
+      - task-003
+    acceptance_criteria:
+      - '`uninstall()` soft-skips `mise_uninstall` when binary absent, consistent with install()'
+      - '`pub fn mise_global_config_path() -> Result<PathBuf>` exists in src/mise.rs'
+      - 'All three `expand_tilde("~/.config/mise/config.toml")` call-sites replaced'
+      - '`cargo build` and `cargo test` pass'
+    completed_at: "2026-06-12T00:00:00Z"
+    source: review

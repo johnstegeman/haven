@@ -1,0 +1,45 @@
+feature: fix-pkg-outdated-mise-duplicates
+prd: ./prd-fix-pkg-outdated-mise-duplicates.md
+created_at: 2026-06-12T00:00:00Z
+updated_at: 2026-06-12T00:00:00Z
+
+tasks:
+  - id: task-001
+    title: 'Add mise_outdated_all aggregator + dedupe_outdated helper in src/mise.rs'
+    description: |
+      Add a pure helper `dedupe_outdated(Vec<OutdatedPackage>) -> Vec<OutdatedPackage>`
+      that keeps the first occurrence of each tool name (HashSet<String> seen-set
+      filter, preserving order). Add `mise_outdated_all(mise: &str, configs: &[PathBuf])
+      -> Result<Vec<OutdatedPackage>>` that runs the existing `mise_outdated` once per
+      config, concatenates the results, and returns `dedupe_outdated(all)`. Import
+      `std::path::PathBuf`. Add a `#[cfg(test)]` unit test near the existing
+      `parse_mise_outdated_json_*` tests covering the dedup behavior.
+    status: completed
+    dependencies: []
+    acceptance_criteria:
+      - "dedupe_outdated keeps exactly one entry per tool name, in first-seen order"
+      - "mise_outdated_all loops over configs, concatenates, and returns the deduped union"
+      - "A #[cfg(test)] unit test feeds awscli x5, uv x5, kubectl x1 and asserts result is [awscli, uv, kubectl]"
+      - "cargo test passes; cargo clippy --all-targets is clean"
+    completed_at: 2026-06-12T00:00:00Z
+
+  - id: task-002
+    title: 'Use mise_outdated_all in pkg outdated() so each tool prints once'
+    description: |
+      Simplify the "mise" arm of `outdated()` in src/commands/pkg.rs to call
+      `mise_lib::mise_outdated_all(&mise_str, &misefiles)` once instead of looping over
+      each config and printing inside the loop. Print the returned list a single time,
+      preserving the existing header/empty/error semantics: on Err print the
+      "mise not available — skipping (..)" note, on empty print "mise: nothing outdated",
+      otherwise print the "==> mise outdated" header followed by one row per tool.
+      Leave upgrade() and search() unchanged.
+    status: completed
+    dependencies:
+      - task-001
+    acceptance_criteria:
+      - "outdated()'s mise arm calls mise_outdated_all once; no per-config print loop remains"
+      - "Each outdated mise tool prints exactly once"
+      - "Missing-binary skip note, nothing-outdated message, and header gating are preserved"
+      - "upgrade() and search() are not modified"
+      - "pkg_outdated_missing_binaries_exits_success_with_skip_notes integration test still passes"
+    completed_at: 2026-06-12T00:00:00Z

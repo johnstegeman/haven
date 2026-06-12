@@ -127,27 +127,18 @@ pub fn outdated(repo_root: &Path, cfg: &HavenConfig) -> Result<()> {
                     println!("mise: no config files found");
                     continue;
                 }
-                let mut any_outdated = false;
-                for config_path in &misefiles {
-                    match mise_lib::mise_outdated(&mise_str, config_path) {
-                        Err(e) => println!("mise not available — skipping ({})", e),
-                        Ok(pkgs) if pkgs.is_empty() => {}
-                        Ok(pkgs) => {
-                            if !any_outdated {
-                                println!("==> mise outdated");
-                                any_outdated = true;
-                            }
-                            for pkg in pkgs {
-                                println!(
-                                    "  {}  {} → {}",
-                                    pkg.name, pkg.current_version, pkg.latest_version
-                                );
-                            }
+                match mise_lib::mise_outdated_all(&mise_str, &misefiles) {
+                    Err(e) => println!("mise not available — skipping ({})", e),
+                    Ok(pkgs) if pkgs.is_empty() => println!("mise: nothing outdated"),
+                    Ok(pkgs) => {
+                        println!("==> mise outdated");
+                        for pkg in pkgs {
+                            println!(
+                                "  {}  {} → {}",
+                                pkg.name, pkg.current_version, pkg.latest_version
+                            );
                         }
                     }
-                }
-                if !any_outdated {
-                    println!("mise: nothing outdated");
                 }
             }
             other => unreachable!("unknown backend '{}'", other),

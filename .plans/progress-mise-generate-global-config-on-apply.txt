@@ -19,3 +19,7 @@ Added 1 review task (task-005).
 ## TASK-004 — 2026-06-12T00:00:00Z
 Fixed dead dry-run branch (mise_config_paths now populated in dry-run), updated print_dry_run_module to describe merge behavior, restored accurate ModuleState.files count.
 Files: ~src/commands/apply.rs, ~.plans/tasks-mise-generate-global-config-on-apply.yml, ~.plans/progress-mise-generate-global-config-on-apply.txt
+
+## TASK-005 — 2026-06-12T00:00:00Z
+Moved mise path collection past requires_op guard so skipped modules don't contribute tools. Fixed indentation in collection block.
+Files: ~src/commands/apply.rs, ~.plans/tasks-mise-generate-global-config-on-apply.yml, ~.plans/progress-mise-generate-global-config-on-apply.txt

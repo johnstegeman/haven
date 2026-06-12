@@ -325,17 +325,6 @@ pub fn run(opts: &ApplyOptions<'_>) -> Result<ApplyOutcome> {
                 continue;
             }
 
-                // ── Mise ─────────────────────────────────────────────────────────
-            // Collect the mise config path in both dry-run and real modes so the
-            // post-loop merge-preview branch is reachable in dry-run.
-            let mut has_mise_config = false;
-            if let Some(mise_cfg) = &module.mise {
-                if let Some(config) = &mise_cfg.config {
-                    mise_config_paths.push(opts.repo_root.join(config));
-                    has_mise_config = true;
-                }
-            }
-
             if opts.dry_run {
                 print_dry_run_module(module_name, &module, opts);
                 continue;
@@ -354,6 +343,17 @@ pub fn run(opts: &ApplyOptions<'_>) -> Result<ApplyOutcome> {
                     };
                     eprintln!("warning: [{}] skipped — {}", module_name, reason);
                     continue;
+                }
+            }
+
+            // ── Mise ─────────────────────────────────────────────────────────
+            // Collect the mise config path only for modules that pass the op
+            // guard so that op-gated skipped modules are excluded from the merge.
+            let mut has_mise_config = false;
+            if let Some(mise_cfg) = &module.mise {
+                if let Some(config) = &mise_cfg.config {
+                    mise_config_paths.push(opts.repo_root.join(config));
+                    has_mise_config = true;
                 }
             }
 

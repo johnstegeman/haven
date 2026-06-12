@@ -111,7 +111,7 @@ tasks:
       that are skipped are excluded from the merge. Also fix the indentation inconsistency
       in the comment block at the top of the mise collection section (it was inserted at the
       wrong indent level). Run `cargo build` and `cargo test` and verify all pass.
-    status: pending
+    status: completed
     dependencies:
       - task-004
     acceptance_criteria:
@@ -119,5 +119,5 @@ tasks:
       - 'Op-gated skipped modules do not contribute tools to the global mise config'
       - 'Indentation in the mise collection block is consistent with surrounding code'
       - '`cargo build` and `cargo test` pass'
-    completed_at: null
+    completed_at: "2026-06-12T00:00:00Z"
     source: review

@@ -5161,3 +5161,77 @@ fn pkg_search_missing_binaries_exits_success_with_skip_notes() {
         .success()
         .stdout(predicate::str::contains("skipping").or(predicate::str::contains("not available")));
 }
+
+// ─── apply: mise global config merge ─────────────────────────────────────────
+
+#[test]
+fn apply_generates_mise_global_config() {
+    let repo = TempDir::new().unwrap();
+    let home = TempDir::new().unwrap();
+    let bin_dir = make_mock_mise();
+    let original_path = std::env::var("PATH").unwrap_or_default();
+    let new_path = format!("{}:{}", bin_dir.path().display(), original_path);
+
+    cmd(&repo).arg("init").assert().success();
+
+    // Two modules, each with a distinct mise config file.
+    fs::create_dir_all(repo.path().join("mise")).unwrap();
+    fs::write(
+        repo.path().join("mise").join("mise.shell.toml"),
+        "[tools]\nzoxide = \"latest\"\nbat = \"latest\"\n",
+    )
+    .unwrap();
+    fs::write(
+        repo.path().join("mise").join("mise.ai.toml"),
+        "[tools]\nclaude-code = \"latest\"\n",
+    )
+    .unwrap();
+
+    fs::create_dir_all(repo.path().join("modules")).unwrap();
+    fs::write(
+        repo.path().join("modules").join("shell.toml"),
+        "[mise]\nconfig = \"mise/mise.shell.toml\"\nrequires_op = false\n",
+    )
+    .unwrap();
+    fs::write(
+        repo.path().join("modules").join("ai.toml"),
+        "[mise]\nconfig = \"mise/mise.ai.toml\"\nrequires_op = false\n",
+    )
+    .unwrap();
+
+    fs::write(
+        repo.path().join("haven.toml"),
+        "[profile.default]\nmodules = [\"shell\", \"ai\"]\n",
+    )
+    .unwrap();
+
+    // Pre-populate the global mise config with a [settings] section.
+    let mise_config_dir = home.path().join(".config").join("mise");
+    fs::create_dir_all(&mise_config_dir).unwrap();
+    let global_config = mise_config_dir.join("config.toml");
+    fs::write(&global_config, "[settings]\nauto_install = true\n").unwrap();
+
+    cmd_home(&repo, &home)
+        .args(["apply", "--on-conflict", "overwrite"])
+        .env("PATH", &new_path)
+        .assert()
+        .success();
+
+    let content = fs::read_to_string(&global_config).unwrap();
+    assert!(
+        content.contains("zoxide"),
+        "global config should contain zoxide, got: {content}"
+    );
+    assert!(
+        content.contains("bat"),
+        "global config should contain bat, got: {content}"
+    );
+    assert!(
+        content.contains("claude-code"),
+        "global config should contain claude-code, got: {content}"
+    );
+    assert!(
+        content.contains("auto_install = true"),
+        "global config should preserve [settings] auto_install = true, got: {content}"
+    );
+}

@@ -63,7 +63,7 @@ tasks:
       any pre-existing `[settings]` in the global config is preserved. Mirror the patterns
       used by existing integration tests (e.g. how brew or mise tests mock the binary and
       use `cmd_home`). Run `cargo test --test integration` and verify all pass.
-    status: pending
+    status: completed
     dependencies:
       - task-002
     acceptance_criteria:
@@ -71,4 +71,4 @@ tasks:
       - 'Test asserts merged `[tools]` from two modules appear in global config'
       - 'Test asserts `[settings]` from pre-existing global config is preserved'
       - '`cargo test --test integration` passes'
-    completed_at: null
+    completed_at: "2026-06-12T00:00:00Z"

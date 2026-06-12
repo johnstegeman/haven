@@ -17,6 +17,11 @@ use toml_edit::{DocumentMut, Item, Table, Value};
 
 use crate::packages::OutdatedPackage;
 
+/// Canonical path for the global mise config written by haven.
+pub fn mise_global_config_path() -> anyhow::Result<std::path::PathBuf> {
+    crate::config::module::expand_tilde("~/.config/mise/config.toml")
+}
+
 /// Find the `mise` binary. Checks PATH first, then `~/.local/bin/mise`.
 pub fn mise_path() -> Option<PathBuf> {
     // PATH lookup via `which`.

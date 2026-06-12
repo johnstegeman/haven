@@ -13,3 +13,7 @@ Files: ~tests/integration.rs, ~.plans/tasks-pkg-mise-regenerate-global-config.ym
 
 ## REVIEW — 2026-06-12T00:00:00Z
 Added 1 review task (task-004).
+
+## TASK-004 — 2026-06-12T00:00:00Z
+Added mise_global_config_path() to src/mise.rs; replaced 3 expand_tilde call-sites; made uninstall() soft-skip mise_uninstall when binary absent, matching install().
+Files: ~src/mise.rs, ~src/commands/mise.rs, ~src/commands/apply.rs, ~.plans/tasks-pkg-mise-regenerate-global-config.yml, ~.plans/progress-pkg-mise-regenerate-global-config.txt

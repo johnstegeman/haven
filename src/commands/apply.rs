@@ -396,7 +396,7 @@ pub fn run(opts: &ApplyOptions<'_>) -> Result<ApplyOutcome> {
                     println!("    {}", path.display());
                 }
             } else if let Some(mise) = crate::mise::mise_path() {
-                let global_mise = expand_tilde("~/.config/mise/config.toml")?;
+                let global_mise = crate::mise::mise_global_config_path()?;
                 crate::mise::merge_module_tools_into_global(&mise_config_paths, &global_mise)
                     .context("failed to merge mise module configs")?;
                 println!("  Installing mise tools…");

@@ -80,7 +80,7 @@ tasks:
       using the existing import. After adding `mise_global_config_path()` in (2), this
       becomes moot (no more direct expand_tilde calls). Run `cargo build` and `cargo test`
       and verify all pass.
-    status: pending
+    status: completed
     dependencies:
       - task-003
     acceptance_criteria:
@@ -88,5 +88,5 @@ tasks:
       - '`pub fn mise_global_config_path() -> Result<PathBuf>` exists in src/mise.rs'
       - 'All three `expand_tilde("~/.config/mise/config.toml")` call-sites replaced'
       - '`cargo build` and `cargo test` pass'
-    completed_at: null
+    completed_at: "2026-06-12T00:00:00Z"
     source: review

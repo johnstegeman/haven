@@ -1487,11 +1487,9 @@ fn packages_toml_with_mise_section_parses() {
         "--profile",
         "default",
     ]);
-    c.assert()
-        .success()
-        .stdout(predicate::str::contains(
-            "will be merged into ~/.config/mise/config.toml on apply",
-        ));
+    c.assert().success().stdout(predicate::str::contains(
+        "will be merged into ~/.config/mise/config.toml on apply",
+    ));
 }
 
 #[test]
@@ -5323,11 +5321,7 @@ fn pkg_uninstall_mise_updates_global_config() {
     let mise_config_dir = home.path().join(".config").join("mise");
     fs::create_dir_all(&mise_config_dir).unwrap();
     let global_config = mise_config_dir.join("config.toml");
-    fs::write(
-        &global_config,
-        "[tools]\nripgrep = \"latest\"\n",
-    )
-    .unwrap();
+    fs::write(&global_config, "[tools]\nripgrep = \"latest\"\n").unwrap();
 
     cmd_home(&repo, &home)
         .args(["pkg", "uninstall", "ripgrep", "--mise"])

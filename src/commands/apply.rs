@@ -317,8 +317,8 @@ pub fn run(opts: &ApplyOptions<'_>) -> Result<ApplyOutcome> {
     let mut lock = crate::lock::LockFile::load(opts.repo_root)?;
     let mut mise_config_paths: Vec<PathBuf> = Vec::new();
 
-    // AI / mise / externals — only when apply_ai is set.
-    if opts.apply_ai {
+    // Module loop: collect mise config paths (apply_files) and update module state (apply_ai).
+    if opts.apply_ai || opts.apply_files {
         for module_name in &sorted {
             let module = ModuleConfig::load(opts.repo_root, module_name)?;
             if module.is_empty() {
@@ -368,7 +368,9 @@ pub fn run(opts: &ApplyOptions<'_>) -> Result<ApplyOutcome> {
             let mise_files = mise_config_paths.len() - mise_before;
 
             if opts.dry_run {
-                print_dry_run_module(module_name, &module, opts);
+                if opts.apply_ai {
+                    print_dry_run_module(module_name, &module, opts);
+                }
                 continue;
             }
 
@@ -376,18 +378,20 @@ pub fn run(opts: &ApplyOptions<'_>) -> Result<ApplyOutcome> {
                 continue;
             }
 
-            state.modules.insert(
-                module_name.clone(),
-                ModuleState {
-                    status: "clean".into(),
-                    files: mise_files,
-                },
-            );
+            if opts.apply_ai {
+                state.modules.insert(
+                    module_name.clone(),
+                    ModuleState {
+                        status: "clean".into(),
+                        files: mise_files,
+                    },
+                );
+            }
         }
 
-        // Merge all module mise configs into the global mise config and install once.
+        // Merge all module mise configs into the global mise config and optionally install.
         if !mise_config_paths.is_empty() {
-            if opts.dry_run {
+            if opts.dry_run && opts.apply_ai {
                 println!(
                     "  [dry-run] mise global config would be updated with tools from {} module config(s)",
                     mise_config_paths.len()
@@ -395,15 +399,35 @@ pub fn run(opts: &ApplyOptions<'_>) -> Result<ApplyOutcome> {
                 for path in &mise_config_paths {
                     println!("    {}", path.display());
                 }
-            } else if let Some(mise) = crate::mise::mise_path() {
+            } else if !opts.dry_run {
                 let global_mise = crate::mise::mise_global_config_path()?;
                 crate::mise::merge_module_tools_into_global(&mise_config_paths, &global_mise)
                     .context("failed to merge mise module configs")?;
-                println!("  Installing mise tools…");
-                crate::mise::install_tools(&mise, None).context("mise install failed")?;
-                println!("  ✓ mise tools installed");
-            } else {
-                println!("  [mise] mise not found — install from https://mise.jdx.dev");
+                // Keep the tracked SHA in sync so conflict detection doesn't fire on
+                // the next apply for the globally-managed mise config.
+                if state
+                    .applied_files
+                    .contains_key("~/.config/mise/config.toml")
+                {
+                    let bytes = std::fs::read(&global_mise).with_context(|| {
+                        format!("Cannot read {} after merge", global_mise.display())
+                    })?;
+                    state.applied_files.insert(
+                        "~/.config/mise/config.toml".to_string(),
+                        AppliedFileEntry {
+                            sha256: crate::fs::sha256_of_bytes(&bytes),
+                        },
+                    );
+                }
+                if opts.apply_ai {
+                    if let Some(mise) = crate::mise::mise_path() {
+                        println!("  Installing mise tools…");
+                        crate::mise::install_tools(&mise, None).context("mise install failed")?;
+                        println!("  ✓ mise tools installed");
+                    } else {
+                        println!("  [mise] mise not found — install from https://mise.jdx.dev");
+                    }
+                }
             }
         }
     }
@@ -816,9 +840,7 @@ fn apply_entry(
                 let source_text = std::fs::read_to_string(&entry.src)
                     .with_context(|| format!("Cannot read template {}", entry.src.display()))?;
                 let rendered = crate::template::render(&source_text, template_ctx)
-                    .with_context(|| {
-                        format!("Cannot render template '{}'", entry.src.display())
-                    })?;
+                    .with_context(|| format!("Cannot render template '{}'", entry.src.display()))?;
                 Some(rendered)
             } else {
                 None
@@ -914,9 +936,10 @@ fn apply_entry(
                                     Err(_) => false,
                                 },
                                 None => {
-                                    let src_bytes = std::fs::read(&entry.src).with_context(
-                                        || format!("Cannot read {}", entry.src.display()),
-                                    )?;
+                                    let src_bytes =
+                                        std::fs::read(&entry.src).with_context(|| {
+                                            format!("Cannot read {}", entry.src.display())
+                                        })?;
                                     // Strip the haven section from dest before comparing so that
                                     // haven-appended content doesn't make a plain file look changed.
                                     match std::str::from_utf8(&dest_bytes) {
@@ -1118,44 +1141,40 @@ fn print_dry_run_entry(entry: &SourceEntry, dest_root: &Path) {
     };
 
     match entry.kind {
-        EntryKind::ExternalDir => {
-            match parse_extdir_content(&entry.src) {
-                Ok(content) => {
-                    let ref_hint = content.ref_name.as_deref().unwrap_or("default branch");
-                    println!(
-                        "  [extdir] clone {} → {}  ({})",
-                        content.url,
-                        dest.display(),
-                        ref_hint
-                    );
-                }
-                Err(_) => {
-                    println!("  [extdir] {}  (marker unreadable)", dest.display());
-                }
+        EntryKind::ExternalDir => match parse_extdir_content(&entry.src) {
+            Ok(content) => {
+                let ref_hint = content.ref_name.as_deref().unwrap_or("default branch");
+                println!(
+                    "  [extdir] clone {} → {}  ({})",
+                    content.url,
+                    dest.display(),
+                    ref_hint
+                );
             }
-        }
-        EntryKind::ExternalFile => {
-            match parse_extfile_content(&entry.src) {
-                Ok(content) => {
-                    let ref_hint = content.ref_name.as_deref().unwrap_or("latest");
-                    let type_hint = if content.kind == "archive" {
-                        "extract"
-                    } else {
-                        "download"
-                    };
-                    println!(
-                        "  [extfile] {} {} → {}  ({})",
-                        type_hint,
-                        content.url,
-                        dest.display(),
-                        ref_hint
-                    );
-                }
-                Err(_) => {
-                    println!("  [extfile] {}  (marker unreadable)", dest.display());
-                }
+            Err(_) => {
+                println!("  [extdir] {}  (marker unreadable)", dest.display());
             }
-        }
+        },
+        EntryKind::ExternalFile => match parse_extfile_content(&entry.src) {
+            Ok(content) => {
+                let ref_hint = content.ref_name.as_deref().unwrap_or("latest");
+                let type_hint = if content.kind == "archive" {
+                    "extract"
+                } else {
+                    "download"
+                };
+                println!(
+                    "  [extfile] {} {} → {}  ({})",
+                    type_hint,
+                    content.url,
+                    dest.display(),
+                    ref_hint
+                );
+            }
+            Err(_) => {
+                println!("  [extfile] {}  (marker unreadable)", dest.display());
+            }
+        },
         EntryKind::Symlink | EntryKind::PlainFile => {
             let mut tags: Vec<&str> = Vec::new();
             if entry.template {

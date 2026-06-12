@@ -17,7 +17,7 @@ tasks:
       `sha256_of_bytes`, (3) `install_tools(&mise, None)` and the "mise not found" warning are
       only executed when `opts.apply_ai` is true. Run `cargo build` and `cargo test` and verify
       all pass.
-    status: pending
+    status: completed
     dependencies: []
     acceptance_criteria:
       - "Module loop and merge block run when `apply_files || apply_ai` is true"
@@ -26,7 +26,7 @@ tasks:
       - "`state.applied_files[\"~/.config/mise/config.toml\"]` is updated with post-merge SHA when tracked"
       - "`mise install` only runs when `apply_ai` is true"
       - "`cargo build` and `cargo test` pass"
-    completed_at: null
+    completed_at: "2026-06-12T00:00:00Z"
 
   - id: task-002
     title: "Integration tests for apply --files mise sync and false conflict fix"

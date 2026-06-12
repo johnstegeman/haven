@@ -41,8 +41,7 @@ pub fn install(repo_root: &Path, name: &str, module_filter: Option<&str>) -> Res
     crate::mise::merge_module_tools_into_global(&all_files, &global_config)
         .context("failed to update global mise config")?;
     if let Some(mise_bin) = crate::mise::mise_path() {
-        crate::mise::install_tools(&mise_bin, None)
-            .context("mise install failed")?;
+        crate::mise::install_tools(&mise_bin, None).context("mise install failed")?;
     }
 
     Ok(())

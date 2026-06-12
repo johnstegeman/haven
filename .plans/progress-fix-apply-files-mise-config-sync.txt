@@ -1,0 +1,3 @@
+## TASK-001 — 2026-06-12T00:00:00Z
+Expanded the module loop and mise merge block to run when `apply_files || apply_ai`, re-gated dry-run output and module state tracking on `apply_ai`, removed the `mise_path()` guard from `merge_module_tools_into_global`, added post-merge SHA tracking update to prevent false conflicts, and gated `mise install` on `apply_ai`.
+Files: ~src/commands/apply.rs, ~.plans/tasks-fix-apply-files-mise-config-sync.yml

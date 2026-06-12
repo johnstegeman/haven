@@ -121,3 +121,26 @@ tasks:
       - '`cargo build` and `cargo test` pass'
     completed_at: "2026-06-12T00:00:00Z"
     source: review
+
+  - id: task-006
+    title: 'Move mise path collection before the dry-run continue in apply.rs'
+    description: |
+      The module loop in `src/commands/apply.rs` still has `continue` in the dry-run branch
+      before `mise_config_paths.push()`. Even after task-004 and task-005, the collection
+      block lives after the dry-run early exit, so `mise_config_paths` is never populated
+      in dry-run mode and the post-loop dry-run preview branch is dead. Fix: restructure
+      the loop body so the order is: (1) op guard check and continue if skipped, (2) mise
+      path collection, (3) dry-run continue. This way dry-run sees the collected paths
+      while op-gated modules are still excluded. Also inline the `has_mise_config` boolean
+      using the vec length delta instead of a one-use sentinel. Run `cargo build` and
+      `cargo test` and verify all pass.
+    status: pending
+    dependencies:
+      - task-005
+    acceptance_criteria:
+      - '`mise_config_paths` is populated in dry-run mode (collection before dry-run continue)'
+      - 'Op-gated modules still excluded (collection after op guard)'
+      - '`has_mise_config` boolean replaced with length-delta check'
+      - '`cargo build` and `cargo test` pass'
+    completed_at: null
+    source: review

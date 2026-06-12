@@ -98,3 +98,26 @@ tasks:
       - '`cargo build` and `cargo test` pass'
     completed_at: "2026-06-12T00:00:00Z"
     source: review
+
+  - id: task-005
+    title: 'Move mise path collection to after the requires_op guard in apply.rs'
+    description: |
+      In `src/commands/apply.rs`, the mise config path is currently pushed to
+      `mise_config_paths` before the `requires_op` guard is checked. This means that when
+      a module has `requires_op = true` and op is unavailable, the module is skipped (via
+      `continue`) but its mise tools have already been added to the merge list — so they
+      still end up in `~/.config/mise/config.toml`. Fix: move the `mise_config_paths.push`
+      (and the `has_mise_config = true` flag) to after the op guard so that op-gated modules
+      that are skipped are excluded from the merge. Also fix the indentation inconsistency
+      in the comment block at the top of the mise collection section (it was inserted at the
+      wrong indent level). Run `cargo build` and `cargo test` and verify all pass.
+    status: pending
+    dependencies:
+      - task-004
+    acceptance_criteria:
+      - 'Mise config path is only collected for modules that pass the `requires_op` guard'
+      - 'Op-gated skipped modules do not contribute tools to the global mise config'
+      - 'Indentation in the mise collection block is consistent with surrounding code'
+      - '`cargo build` and `cargo test` pass'
+    completed_at: null
+    source: review

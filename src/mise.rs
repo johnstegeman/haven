@@ -290,6 +290,52 @@ pub fn mise_upgrade(mise: &str, config: &Path, name: Option<&str>) -> Result<()>
     Ok(())
 }
 
+/// Merge `[tools]` from all `module_configs` into a single global mise config.
+///
+/// Entries from later configs overwrite earlier ones for duplicate keys.
+/// All other sections in `global_config` (e.g. `[settings]`) are preserved.
+/// If `module_configs` is empty, the `[tools]` table is cleared.
+pub fn merge_module_tools_into_global(
+    module_configs: &[PathBuf],
+    global_config: &Path,
+) -> Result<()> {
+    // Build merged tools map, preserving insertion order; later entries win.
+    let mut merged: Vec<(String, Item)> = Vec::new();
+
+    for config_path in module_configs {
+        if !config_path.exists() {
+            continue;
+        }
+        let doc = load_or_create_doc(config_path)?;
+        let Some(tools_table) = doc.get("tools").and_then(|t| t.as_table()) else {
+            continue;
+        };
+        for (key, item) in tools_table.iter() {
+            // Remove any existing entry for this key, then push the new value.
+            merged.retain(|(k, _)| k != key);
+            merged.push((key.to_string(), item.clone()));
+        }
+    }
+
+    let mut doc = load_or_create_doc(global_config)?;
+
+    // Replace the [tools] table entirely.
+    doc.remove("tools");
+    let mut new_tools = Table::new();
+    for (key, item) in merged {
+        new_tools.insert(&key, item);
+    }
+    doc.insert("tools", Item::Table(new_tools));
+
+    if let Some(parent) = global_config.parent() {
+        std::fs::create_dir_all(parent)
+            .with_context(|| format!("Cannot create {}", parent.display()))?;
+    }
+    std::fs::write(global_config, doc.to_string())
+        .with_context(|| format!("Cannot write {}", global_config.display()))?;
+    Ok(())
+}
+
 fn load_or_create_doc(path: &Path) -> Result<DocumentMut> {
     if !path.exists() {
         return Ok(DocumentMut::new());
@@ -480,6 +526,75 @@ mod tests {
         assert_eq!(pkgs[0].name, "node");
         assert_eq!(pkgs[0].current_version, "?");
         assert_eq!(pkgs[0].latest_version, "?");
+    }
+
+    #[test]
+    fn merge_two_module_configs_into_global() {
+        let dir = TempDir::new().unwrap();
+        let mod1 = dir.path().join("mod1.toml");
+        let mod2 = dir.path().join("mod2.toml");
+        let global = dir.path().join("global.toml");
+
+        std::fs::write(&mod1, "[tools]\nnode = \"22\"\n").unwrap();
+        std::fs::write(&mod2, "[tools]\npython = \"3.12\"\n").unwrap();
+
+        merge_module_tools_into_global(&[mod1, mod2], &global).unwrap();
+
+        let tools = parse_mise_tools(&global).unwrap();
+        assert_eq!(tools.len(), 2);
+        assert!(tools.iter().any(|(k, v)| k == "node" && v == "22"));
+        assert!(tools.iter().any(|(k, v)| k == "python" && v == "3.12"));
+    }
+
+    #[test]
+    fn merge_preserves_settings_section() {
+        let dir = TempDir::new().unwrap();
+        let mod1 = dir.path().join("mod1.toml");
+        let global = dir.path().join("global.toml");
+
+        std::fs::write(&mod1, "[tools]\nnode = \"22\"\n").unwrap();
+        std::fs::write(
+            &global,
+            "[settings]\nexperimental = true\n\n[tools]\nold = \"1\"\n",
+        )
+        .unwrap();
+
+        merge_module_tools_into_global(&[mod1], &global).unwrap();
+
+        let content = std::fs::read_to_string(&global).unwrap();
+        assert!(content.contains("experimental = true"));
+        assert!(content.contains("node"));
+        assert!(!content.contains("old"));
+    }
+
+    #[test]
+    fn merge_empty_configs_clears_tools() {
+        let dir = TempDir::new().unwrap();
+        let global = dir.path().join("global.toml");
+
+        std::fs::write(&global, "[tools]\nnode = \"22\"\n").unwrap();
+
+        merge_module_tools_into_global(&[], &global).unwrap();
+
+        let tools = parse_mise_tools(&global).unwrap();
+        assert!(tools.is_empty());
+    }
+
+    #[test]
+    fn merge_duplicate_key_last_wins() {
+        let dir = TempDir::new().unwrap();
+        let mod1 = dir.path().join("mod1.toml");
+        let mod2 = dir.path().join("mod2.toml");
+        let global = dir.path().join("global.toml");
+
+        std::fs::write(&mod1, "[tools]\nnode = \"20\"\n").unwrap();
+        std::fs::write(&mod2, "[tools]\nnode = \"22\"\n").unwrap();
+
+        merge_module_tools_into_global(&[mod1, mod2], &global).unwrap();
+
+        let tools = parse_mise_tools(&global).unwrap();
+        assert_eq!(tools.len(), 1);
+        assert!(tools.iter().any(|(k, v)| k == "node" && v == "22"));
     }
 
     /// Verifies that `mise_upgrade` rewrites the pinned version in a mise.toml.

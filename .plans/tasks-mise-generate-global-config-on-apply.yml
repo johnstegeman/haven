@@ -17,7 +17,7 @@ tasks:
       clear the `[tools]` table (write an empty table). Add unit tests covering: merge of two
       module configs, preservation of `[settings]`, empty input clears tools, duplicate key
       resolution (last wins). Run `cargo test` and verify all pass.
-    status: pending
+    status: completed
     dependencies: []
     acceptance_criteria:
       - '`merge_module_tools_into_global()` is public and in `src/mise.rs`'
@@ -25,7 +25,7 @@ tasks:
       - 'Preserves `[settings]` and other sections in the global config'
       - 'Duplicate tool keys: last module in the slice wins'
       - 'Unit tests pass (`cargo test`)'
-    completed_at: null
+    completed_at: "2026-06-12T00:00:00Z"
 
   - id: task-002
     title: 'Wire merge step into apply.rs and replace per-module mise install'

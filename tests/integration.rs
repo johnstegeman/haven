@@ -4848,12 +4848,12 @@ fn pkg_mise_default_errors_without_brew_flag() {
     )
     .unwrap();
 
+    // mise binary missing: file I/O still succeeds; only `mise install` is skipped
     cmd(&repo)
         .args(["pkg", "install", "ripgrep"])
         .env("PATH", "")
         .assert()
-        .failure()
-        .stderr(predicate::str::contains("mise not found").or(predicate::str::contains("mise")));
+        .success();
 
     assert!(
         !repo.path().join("brew").join("Brewfile").exists(),

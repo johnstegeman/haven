@@ -17,13 +17,13 @@ tasks:
       config path is `expand_tilde("~/.config/mise/config.toml")?`. Gate the binary
       calls on `crate::mise::mise_path()` returning `Some`. Run `cargo build` and
       `cargo test` and verify all pass.
-    status: pending
+    status: completed
     dependencies: []
     acceptance_criteria:
       - '`install()` calls `merge_module_tools_into_global` after `add_to_misefile`'
       - '`install_tools` is called with `None` (not `Some(module_path)`)'
       - '`cargo build` and `cargo test` pass'
-    completed_at: null
+    completed_at: "2026-06-12T00:00:00Z"
 
   - id: task-002
     title: 'Update uninstall() to merge global config after removing a mise tool'

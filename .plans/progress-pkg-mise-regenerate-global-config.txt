@@ -1,0 +1,4 @@
+## TASK-001 — 2026-06-12T00:00:00Z
+Updated install() to call merge_module_tools_into_global + install_tools(None) after add_to_misefile.
+Updated pkg_mise_default_errors_without_brew_flag test to expect success (REQ-F-003: missing mise binary only skips install, file I/O still runs).
+Files: ~src/commands/mise.rs, ~tests/integration.rs, ~.plans/tasks-pkg-mise-regenerate-global-config.yml, +.plans/progress-pkg-mise-regenerate-global-config.txt

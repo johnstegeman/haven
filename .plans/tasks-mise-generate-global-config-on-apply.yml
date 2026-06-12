@@ -1,0 +1,74 @@
+feature: mise-generate-global-config-on-apply
+prd: ./prd-mise-generate-global-config-on-apply.md
+created_at: "2026-06-12T00:00:00Z"
+updated_at: "2026-06-12T00:00:00Z"
+
+tasks:
+  - id: task-001
+    title: 'Add merge_module_tools_into_global() to src/mise.rs'
+    description: |
+      Add a new public function `merge_module_tools_into_global(module_configs: &[PathBuf],
+      global_config: &Path) -> Result<()>` to `src/mise.rs`. It reads the `[tools]` table
+      from each path in `module_configs` using the existing `parse_mise_tools()` function,
+      merges them into one ordered map (later entries overwrite earlier ones for duplicate
+      keys), then loads the global config with `load_or_create_doc()`, replaces its `[tools]`
+      table entirely with the merged entries using `toml_edit`, preserving all other sections
+      (e.g. `[settings]`), and writes the result back to disk. If `module_configs` is empty,
+      clear the `[tools]` table (write an empty table). Add unit tests covering: merge of two
+      module configs, preservation of `[settings]`, empty input clears tools, duplicate key
+      resolution (last wins). Run `cargo test` and verify all pass.
+    status: pending
+    dependencies: []
+    acceptance_criteria:
+      - '`merge_module_tools_into_global()` is public and in `src/mise.rs`'
+      - 'Merges `[tools]` from multiple module config files correctly'
+      - 'Preserves `[settings]` and other sections in the global config'
+      - 'Duplicate tool keys: last module in the slice wins'
+      - 'Unit tests pass (`cargo test`)'
+    completed_at: null
+
+  - id: task-002
+    title: 'Wire merge step into apply.rs and replace per-module mise install'
+    description: |
+      Update `src/commands/apply.rs` to collect each active module's resolved mise config
+      path during the module loop (where `module.mise.config` is set), then after the loop
+      call `crate::mise::merge_module_tools_into_global(&collected_paths, &global_mise_config)`
+      where `global_mise_config` is `~/.config/mise/config.toml` (expand via the existing
+      `expand_tilde("~/.config/mise/config.toml")` helper). Replace the per-module
+      `install_tools(&mise, config_path.as_deref())` call with collecting the path only;
+      after the merge, run `crate::mise::install_tools(&mise, None)` once (no
+      MISE_CONFIG_FILE, so mise uses the global config). In `--dry-run` mode, print the
+      merged `[tools]` content that would be written without calling
+      `merge_module_tools_into_global()` or `install_tools()`. Run `cargo build` and
+      `cargo test` and verify they pass.
+    status: pending
+    dependencies:
+      - task-001
+    acceptance_criteria:
+      - 'Module loop collects mise config paths instead of running install per module'
+      - '`merge_module_tools_into_global()` called once after the module loop'
+      - 'Single `install_tools(&mise, None)` runs after the merge'
+      - '`--dry-run` prints merged `[tools]` without writing or installing'
+      - '`cargo build` and `cargo test` pass'
+    completed_at: null
+
+  - id: task-003
+    title: 'Add integration test for mise global config generation'
+    description: |
+      Add an integration test to `tests/integration.rs` that verifies the end-to-end
+      behavior: set up a test haven repo with two modules each having a mise config file
+      containing distinct tools, run `haven apply` (using the test harness pattern already
+      established in the file — `cmd(repo)`, temp home dir), and assert that the generated
+      `~/.config/mise/config.toml` contains the merged `[tools]` from both modules and that
+      any pre-existing `[settings]` in the global config is preserved. Mirror the patterns
+      used by existing integration tests (e.g. how brew or mise tests mock the binary and
+      use `cmd_home`). Run `cargo test --test integration` and verify all pass.
+    status: pending
+    dependencies:
+      - task-002
+    acceptance_criteria:
+      - 'Integration test exists for the merge behavior'
+      - 'Test asserts merged `[tools]` from two modules appear in global config'
+      - 'Test asserts `[settings]` from pre-existing global config is preserved'
+      - '`cargo test --test integration` passes'
+    completed_at: null

@@ -325,6 +325,17 @@ pub fn run(opts: &ApplyOptions<'_>) -> Result<ApplyOutcome> {
                 continue;
             }
 
+                // ── Mise ─────────────────────────────────────────────────────────
+            // Collect the mise config path in both dry-run and real modes so the
+            // post-loop merge-preview branch is reachable in dry-run.
+            let mut has_mise_config = false;
+            if let Some(mise_cfg) = &module.mise {
+                if let Some(config) = &mise_cfg.config {
+                    mise_config_paths.push(opts.repo_root.join(config));
+                    has_mise_config = true;
+                }
+            }
+
             if opts.dry_run {
                 print_dry_run_module(module_name, &module, opts);
                 continue;
@@ -346,18 +357,11 @@ pub fn run(opts: &ApplyOptions<'_>) -> Result<ApplyOutcome> {
                 }
             }
 
-            // ── Mise ─────────────────────────────────────────────────────────
-            if let Some(mise_cfg) = &module.mise {
-                if let Some(config) = &mise_cfg.config {
-                    mise_config_paths.push(opts.repo_root.join(config));
-                }
-            }
-
             state.modules.insert(
                 module_name.clone(),
                 ModuleState {
                     status: "clean".into(),
-                    files: 0,
+                    files: if has_mise_config { 1 } else { 0 },
                 },
             );
         }
@@ -1684,12 +1688,12 @@ fn print_dry_run_module(module_name: &str, module: &ModuleConfig, _opts: &ApplyO
             println!("[{}]", module_name);
             has_output = true;
         }
-        let config_hint = mise_cfg
-            .config
-            .as_ref()
-            .map(|c| format!(" --config-file {}", c))
-            .unwrap_or_default();
-        println!("  mise install{}", config_hint);
+        if let Some(config) = &mise_cfg.config {
+            println!(
+                "  [mise] {}  (will be merged into ~/.config/mise/config.toml on apply)",
+                config
+            );
+        }
     }
     if has_output {
         println!();

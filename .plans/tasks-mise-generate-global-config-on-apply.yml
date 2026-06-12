@@ -88,7 +88,7 @@ tasks:
       installed individually. Also fix the `ModuleState { files: 0 }` hardcode — restore an
       accurate count (1 if the module has a mise config, 0 otherwise, matching the previous
       `module_applied` logic). Run `cargo build` and `cargo test` and verify all pass.
-    status: pending
+    status: completed
     dependencies:
       - task-003
     acceptance_criteria:
@@ -96,5 +96,5 @@ tasks:
       - '`print_dry_run_module` describes the new merge behavior, not the old per-module install'
       - '`ModuleState.files` is accurate (not hardcoded 0)'
       - '`cargo build` and `cargo test` pass'
-    completed_at: null
+    completed_at: "2026-06-12T00:00:00Z"
     source: review

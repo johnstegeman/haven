@@ -1489,7 +1489,9 @@ fn packages_toml_with_mise_section_parses() {
     ]);
     c.assert()
         .success()
-        .stdout(predicate::str::contains("mise install"));
+        .stdout(predicate::str::contains(
+            "will be merged into ~/.config/mise/config.toml on apply",
+        ));
 }
 
 #[test]

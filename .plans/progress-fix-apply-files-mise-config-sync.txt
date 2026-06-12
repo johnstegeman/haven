@@ -1,0 +1,7 @@
+## TASK-001 — 2026-06-12T00:00:00Z
+Expanded the module loop and mise merge block to run when `apply_files || apply_ai`, re-gated dry-run output and module state tracking on `apply_ai`, removed the `mise_path()` guard from `merge_module_tools_into_global`, added post-merge SHA tracking update to prevent false conflicts, and gated `mise install` on `apply_ai`.
+Files: ~src/commands/apply.rs, ~.plans/tasks-fix-apply-files-mise-config-sync.yml
+
+## TASK-002 — 2026-06-12T01:00:00Z
+Added two integration tests: `apply_files_flag_merges_mise_tools_into_global_config` verifies that `haven apply --files` merges module mise tools into the global config, and `apply_files_no_false_conflict_after_merge` verifies no false conflict warning on a second full apply after the post-merge SHA tracking fix.
+Files: ~tests/integration.rs, ~.plans/tasks-fix-apply-files-mise-config-sync.yml, ~.plans/progress-fix-apply-files-mise-config-sync.txt

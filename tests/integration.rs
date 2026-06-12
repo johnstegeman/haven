@@ -1487,11 +1487,9 @@ fn packages_toml_with_mise_section_parses() {
         "--profile",
         "default",
     ]);
-    c.assert()
-        .success()
-        .stdout(predicate::str::contains(
-            "will be merged into ~/.config/mise/config.toml on apply",
-        ));
+    c.assert().success().stdout(predicate::str::contains(
+        "will be merged into ~/.config/mise/config.toml on apply",
+    ));
 }
 
 #[test]
@@ -5323,11 +5321,7 @@ fn pkg_uninstall_mise_updates_global_config() {
     let mise_config_dir = home.path().join(".config").join("mise");
     fs::create_dir_all(&mise_config_dir).unwrap();
     let global_config = mise_config_dir.join("config.toml");
-    fs::write(
-        &global_config,
-        "[tools]\nripgrep = \"latest\"\n",
-    )
-    .unwrap();
+    fs::write(&global_config, "[tools]\nripgrep = \"latest\"\n").unwrap();
 
     cmd_home(&repo, &home)
         .args(["pkg", "uninstall", "ripgrep", "--mise"])
@@ -5340,4 +5334,113 @@ fn pkg_uninstall_mise_updates_global_config() {
         !content.contains("ripgrep"),
         "global config should no longer contain ripgrep after uninstall, got: {content}"
     );
+}
+
+// ─── apply --files: mise global config merge ──────────────────────────────────
+
+#[test]
+fn apply_files_flag_merges_mise_tools_into_global_config() {
+    let repo = TempDir::new().unwrap();
+    let home = TempDir::new().unwrap();
+
+    cmd(&repo).arg("init").assert().success();
+
+    fs::create_dir_all(repo.path().join("mise")).unwrap();
+    fs::write(
+        repo.path().join("mise").join("mise.packages.toml"),
+        "[tools]\nnode = \"22\"\n",
+    )
+    .unwrap();
+
+    fs::write(
+        repo.path().join("modules").join("packages.toml"),
+        "[mise]\nconfig = \"mise/mise.packages.toml\"\n",
+    )
+    .unwrap();
+
+    fs::write(
+        repo.path().join("haven.toml"),
+        "[profile.default]\nmodules = [\"packages\"]\n",
+    )
+    .unwrap();
+
+    let source_mise_dir = repo
+        .path()
+        .join("source")
+        .join("dot_config")
+        .join("mise");
+    fs::create_dir_all(&source_mise_dir).unwrap();
+    fs::write(
+        source_mise_dir.join("config.toml"),
+        "[settings]\n# base config\n",
+    )
+    .unwrap();
+
+    cmd_home(&repo, &home)
+        .args(["apply", "--profile", "default", "--files"])
+        .assert()
+        .success();
+
+    let global_config = home.path().join(".config").join("mise").join("config.toml");
+    assert!(global_config.exists(), "global mise config should exist");
+    let content = fs::read_to_string(&global_config).unwrap();
+    assert!(
+        content.contains("node = \"22\""),
+        "global config should contain node = \"22\" after --files apply, got: {content}"
+    );
+}
+
+#[test]
+fn apply_files_no_false_conflict_after_merge() {
+    let repo = TempDir::new().unwrap();
+    let home = TempDir::new().unwrap();
+    let bin_dir = make_mock_mise();
+    let original_path = std::env::var("PATH").unwrap_or_default();
+    let new_path = format!("{}:{}", bin_dir.path().display(), original_path);
+
+    cmd(&repo).arg("init").assert().success();
+
+    fs::create_dir_all(repo.path().join("mise")).unwrap();
+    fs::write(
+        repo.path().join("mise").join("mise.packages.toml"),
+        "[tools]\nnode = \"22\"\n",
+    )
+    .unwrap();
+
+    fs::write(
+        repo.path().join("modules").join("packages.toml"),
+        "[mise]\nconfig = \"mise/mise.packages.toml\"\n",
+    )
+    .unwrap();
+
+    fs::write(
+        repo.path().join("haven.toml"),
+        "[profile.default]\nmodules = [\"packages\"]\n\n[vcs]\nbackend = \"git\"\n",
+    )
+    .unwrap();
+
+    let source_mise_dir = repo
+        .path()
+        .join("source")
+        .join("dot_config")
+        .join("mise");
+    fs::create_dir_all(&source_mise_dir).unwrap();
+    fs::write(
+        source_mise_dir.join("config.toml"),
+        "[settings]\n# base config\n",
+    )
+    .unwrap();
+
+    cmd_home(&repo, &home)
+        .args(["apply", "--profile", "default"])
+        .env("PATH", &new_path)
+        .assert()
+        .success();
+
+    cmd_home(&repo, &home)
+        .args(["apply", "--profile", "default"])
+        .env("PATH", &new_path)
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("was edited since last apply").not());
 }

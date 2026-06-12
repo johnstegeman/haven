@@ -1,0 +1,50 @@
+feature: fix-apply-files-mise-config-sync
+prd: ./prd-fix-apply-files-mise-config-sync.md
+created_at: "2026-06-12T00:00:00Z"
+updated_at: "2026-06-12T00:00:00Z"
+
+tasks:
+  - id: task-001
+    title: "Run mise merge when apply_files is true and track post-merge SHA"
+    description: |
+      In `src/commands/apply.rs`, change the outer condition on the module loop and mise merge
+      block from `if opts.apply_ai` to `if opts.apply_ai || opts.apply_files`. Inside the loop,
+      re-gate `print_dry_run_module()`, `state.modules.insert()`, and the dry-run merge preview
+      to only fire when `opts.apply_ai` is true. Restructure the non-dry-run merge block so
+      that (1) `merge_module_tools_into_global()` always runs when configs exist (no `mise_path()`
+      guard around it), (2) after the merge, if `state.applied_files` contains the key
+      `"~/.config/mise/config.toml"`, read the post-merge file and update its SHA using
+      `sha256_of_bytes`, (3) `install_tools(&mise, None)` and the "mise not found" warning are
+      only executed when `opts.apply_ai` is true. Run `cargo build` and `cargo test` and verify
+      all pass.
+    status: completed
+    dependencies: []
+    acceptance_criteria:
+      - "Module loop and merge block run when `apply_files || apply_ai` is true"
+      - "`print_dry_run_module`, `state.modules.insert`, dry-run preview still gated on `apply_ai`"
+      - "`merge_module_tools_into_global` runs without a `mise_path()` guard"
+      - "`state.applied_files[\"~/.config/mise/config.toml\"]` is updated with post-merge SHA when tracked"
+      - "`mise install` only runs when `apply_ai` is true"
+      - "`cargo build` and `cargo test` pass"
+    completed_at: "2026-06-12T00:00:00Z"
+
+  - id: task-002
+    title: "Integration tests for apply --files mise sync and false conflict fix"
+    description: |
+      Add two integration tests to `tests/integration.rs`. Test 1: create a haven repo with a
+      module that declares a mise config file containing `node = "22"`, add a source file at
+      `source/dot_config/mise/config.toml` with only `[settings]` (no tools), run
+      `haven apply --files`, and assert that `~/.config/mise/config.toml` contains `node = "22"`.
+      Test 2: same setup, run a full `haven apply`, then run `haven apply` again, and assert
+      stderr does NOT contain the conflict-skip warning for `~/.config/mise/config.toml` (proving
+      the SHA tracking fix prevents false conflicts). Mirror the `cmd_home` pattern and mock-mise
+      approach used by existing `packages_toml_with_mise_section_parses` and related tests.
+      Run `cargo test --test integration` and verify all pass.
+    status: completed
+    dependencies:
+      - task-001
+    acceptance_criteria:
+      - "Integration test verifies `apply --files` writes merged tools to global mise config"
+      - "Integration test verifies no conflict warning after full `apply` + second `apply`"
+      - "`cargo test --test integration` passes"
+    completed_at: "2026-06-12T01:00:00Z"

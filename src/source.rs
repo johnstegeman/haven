@@ -688,7 +688,11 @@ mod tests {
         assert!(e.dirs[0].exact, "expected exact dir flag on ~/.config");
         // exact_ on a dir must not contaminate the file entry's kind — SourceEntry has no
         // `exact` field, so the file cannot accidentally become an ExternalDir or Symlink.
-        assert_eq!(e.kind, EntryKind::PlainFile, "exact_ on dir must not affect file kind");
+        assert_eq!(
+            e.kind,
+            EntryKind::PlainFile,
+            "exact_ on dir must not affect file kind"
+        );
     }
 
     #[test]

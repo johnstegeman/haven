@@ -144,8 +144,7 @@ pub fn run(opts: &DiffOptions<'_>) -> Result<bool> {
                                 continue;
                             }
                             Ok(rendered) => {
-                                let target =
-                                    std::path::PathBuf::from(rendered.trim().to_string());
+                                let target = std::path::PathBuf::from(rendered.trim().to_string());
                                 let kind = match check_drift_link_template(
                                     &entry.src,
                                     &template_ctx,
@@ -214,18 +213,14 @@ pub fn run(opts: &DiffOptions<'_>) -> Result<bool> {
                                 section_lines.push(format!("  ! {}", label));
                             }
                             DriftKind::Modified => {
-                                let src_text = std::fs::read_to_string(&entry.src)
-                                    .with_context(|| {
+                                let src_text =
+                                    std::fs::read_to_string(&entry.src).with_context(|| {
                                         format!("Cannot read {}", entry.src.display())
                                     })?;
-                                let rendered =
-                                    crate::template::render(&src_text, &template_ctx)
-                                        .with_context(|| {
-                                            format!(
-                                                "Cannot render template {}",
-                                                entry.src.display()
-                                            )
-                                        })?;
+                                let rendered = crate::template::render(&src_text, &template_ctx)
+                                    .with_context(|| {
+                                        format!("Cannot render template {}", entry.src.display())
+                                    })?;
                                 let dest_text =
                                     read_text_or_notice(&dest, label, &mut section_lines);
                                 if let Some(dest_str) = dest_text {
@@ -256,16 +251,14 @@ pub fn run(opts: &DiffOptions<'_>) -> Result<bool> {
                                 let src_bytes = std::fs::read(&entry.src).with_context(|| {
                                     format!("Cannot read {}", entry.src.display())
                                 })?;
-                                let dest_bytes = std::fs::read(&dest).with_context(|| {
-                                    format!("Cannot read {}", dest.display())
-                                })?;
+                                let dest_bytes = std::fs::read(&dest)
+                                    .with_context(|| format!("Cannot read {}", dest.display()))?;
 
                                 if is_binary(&src_bytes) || is_binary(&dest_bytes) {
                                     section_lines
                                         .push(format!("  M {}  (binary files differ)", label));
                                 } else {
-                                    let src_text =
-                                        String::from_utf8_lossy(&src_bytes).into_owned();
+                                    let src_text = String::from_utf8_lossy(&src_bytes).into_owned();
                                     let dest_text = crate::claude_md::strip_haven_section(
                                         &String::from_utf8_lossy(&dest_bytes),
                                     );

@@ -328,9 +328,10 @@ pub fn run(opts: &ApplyOptions<'_>) -> Result<ApplyOutcome> {
             // ── 1Password guard ──────────────────────────────────────────────
             // Check op availability before collecting paths so op-gated modules
             // that would be skipped on real apply are excluded from the merge.
-            // In dry-run mode we still show the plan but do not collect paths
-            // (op would not be available in a CI dry-run either), so we skip
-            // both the collection and the real work but still print the plan.
+            // In dry-run mode we still collect paths (before the dry-run continue
+            // below) so the post-loop preview block can report which configs would
+            // be merged. Op-skipped modules are excluded from collection in both
+            // modes.
             let op_skip = if module.requires_op {
                 let op_ok = crate::onepassword::op_path()
                     .map(|p| crate::onepassword::is_authenticated(&p))

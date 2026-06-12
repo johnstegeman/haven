@@ -10,3 +10,6 @@ Files: ~src/commands/mise.rs, ~.plans/tasks-pkg-mise-regenerate-global-config.ym
 ## TASK-003 — 2026-06-12T00:00:00Z
 Added pkg_install_mise_updates_global_config and pkg_uninstall_mise_updates_global_config integration tests.
 Files: ~tests/integration.rs, ~.plans/tasks-pkg-mise-regenerate-global-config.yml, ~.plans/progress-pkg-mise-regenerate-global-config.txt
+
+## REVIEW — 2026-06-12T00:00:00Z
+Added 1 review task (task-004).

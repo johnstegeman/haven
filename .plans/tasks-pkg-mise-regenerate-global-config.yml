@@ -63,3 +63,30 @@ tasks:
       - 'Test asserts the installed tool appears in `~/.config/mise/config.toml`'
       - '`cargo test --test integration` passes'
     completed_at: "2026-06-12T00:00:00Z"
+
+  - id: task-004
+    title: 'Fix asymmetric binary handling, extract global config path, clean imports'
+    description: |
+      Three issues in `src/commands/mise.rs` and `src/mise.rs`. (1) `install()` silently
+      skips `mise install` when the binary is absent (`if let Some`), while `uninstall()`
+      hard-errors at the top before any file writes can happen. Make them consistent: move
+      `uninstall()`'s `mise_path()` check to just before the `mise_uninstall` call and
+      make it a soft-skip with a printed note, matching `install()`'s pattern. (2) The
+      string `"~/.config/mise/config.toml"` is expanded via `expand_tilde` in three places
+      (commands/mise.rs twice, commands/apply.rs once). Extract a `pub fn
+      mise_global_config_path() -> Result<PathBuf>` in `src/mise.rs` that wraps the
+      expand_tilde call, and replace all three call-sites with it. (3) `commands/mise.rs`
+      spells out `crate::config::module::expand_tilde` fully at both call-sites instead of
+      using the existing import. After adding `mise_global_config_path()` in (2), this
+      becomes moot (no more direct expand_tilde calls). Run `cargo build` and `cargo test`
+      and verify all pass.
+    status: pending
+    dependencies:
+      - task-003
+    acceptance_criteria:
+      - '`uninstall()` soft-skips `mise_uninstall` when binary absent, consistent with install()'
+      - '`pub fn mise_global_config_path() -> Result<PathBuf>` exists in src/mise.rs'
+      - 'All three `expand_tilde("~/.config/mise/config.toml")` call-sites replaced'
+      - '`cargo build` and `cargo test` pass'
+    completed_at: null
+    source: review

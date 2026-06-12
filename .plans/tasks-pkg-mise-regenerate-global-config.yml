@@ -55,11 +55,11 @@ tasks:
       a mise config reference, assert the global config file content). Optionally
       also test `haven pkg uninstall <name> --mise` removes the tool from the
       global config. Run `cargo test --test integration` and verify all pass.
-    status: pending
+    status: completed
     dependencies:
       - task-002
     acceptance_criteria:
       - 'Integration test exists for `pkg install --mise` updating global config'
       - 'Test asserts the installed tool appears in `~/.config/mise/config.toml`'
       - '`cargo test --test integration` passes'
-    completed_at: null
+    completed_at: "2026-06-12T00:00:00Z"

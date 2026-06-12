@@ -14,14 +14,14 @@ tasks:
       config, concatenates the results, and returns `dedupe_outdated(all)`. Import
       `std::path::PathBuf`. Add a `#[cfg(test)]` unit test near the existing
       `parse_mise_outdated_json_*` tests covering the dedup behavior.
-    status: pending
+    status: completed
     dependencies: []
     acceptance_criteria:
       - "dedupe_outdated keeps exactly one entry per tool name, in first-seen order"
       - "mise_outdated_all loops over configs, concatenates, and returns the deduped union"
       - "A #[cfg(test)] unit test feeds awscli x5, uv x5, kubectl x1 and asserts result is [awscli, uv, kubectl]"
       - "cargo test passes; cargo clippy --all-targets is clean"
-    completed_at: null
+    completed_at: 2026-06-12T00:00:00Z
 
   - id: task-002
     title: 'Use mise_outdated_all in pkg outdated() so each tool prints once'

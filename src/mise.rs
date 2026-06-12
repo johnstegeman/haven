@@ -198,6 +198,28 @@ pub fn mise_outdated(mise: &str, config: &Path) -> Result<Vec<OutdatedPackage>> 
     parse_mise_outdated_json(&stdout)
 }
 
+/// Run `mise_outdated` once per haven config file and return the deduplicated union.
+///
+/// mise merges the global config into every invocation, so running `mise outdated`
+/// once per haven config file yields duplicate rows for any tool shared via the
+/// global config. We keep the first occurrence of each tool name.
+// task-002 wires this into `pkg outdated`; no caller yet.
+#[allow(dead_code)]
+pub fn mise_outdated_all(mise: &str, configs: &[PathBuf]) -> Result<Vec<OutdatedPackage>> {
+    let mut all = Vec::new();
+    for config in configs {
+        all.extend(mise_outdated(mise, config)?);
+    }
+    Ok(dedupe_outdated(all))
+}
+
+fn dedupe_outdated(pkgs: Vec<OutdatedPackage>) -> Vec<OutdatedPackage> {
+    let mut seen = std::collections::HashSet::new();
+    pkgs.into_iter()
+        .filter(|p| seen.insert(p.name.clone()))
+        .collect()
+}
+
 fn parse_mise_outdated_json(json: &str) -> Result<Vec<OutdatedPackage>> {
     let v: serde_json::Value =
         serde_json::from_str(json).context("Failed to parse `mise outdated --json` output")?;
@@ -531,6 +553,31 @@ mod tests {
         assert_eq!(pkgs[0].name, "node");
         assert_eq!(pkgs[0].current_version, "?");
         assert_eq!(pkgs[0].latest_version, "?");
+    }
+
+    #[test]
+    fn dedupe_outdated_keeps_first_occurrence_in_order() {
+        let mk = |name: &str| OutdatedPackage {
+            name: name.to_string(),
+            current_version: "1".to_string(),
+            latest_version: "2".to_string(),
+        };
+        let input = vec![
+            mk("awscli"),
+            mk("uv"),
+            mk("awscli"),
+            mk("uv"),
+            mk("awscli"),
+            mk("uv"),
+            mk("kubectl"),
+            mk("awscli"),
+            mk("uv"),
+            mk("awscli"),
+            mk("uv"),
+        ];
+        let result = dedupe_outdated(input);
+        let names: Vec<&str> = result.iter().map(|p| p.name.as_str()).collect();
+        assert_eq!(names, vec!["awscli", "uv", "kubectl"]);
     }
 
     #[test]

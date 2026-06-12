@@ -1,3 +1,7 @@
 ## TASK-001 — 2026-06-12T00:00:00Z
 Added merge_module_tools_into_global() to src/mise.rs with 4 unit tests. Merges [tools] from multiple module configs into global mise config, preserving other sections.
 Files: ~src/mise.rs, ~.plans/tasks-mise-generate-global-config-on-apply.yml, +.plans/progress-mise-generate-global-config-on-apply.txt
+
+## TASK-002 — 2026-06-12T00:00:00Z
+Wired merge_module_tools_into_global into apply.rs. Module loop now collects mise config paths; single install_tools(None) runs after merge. dry-run prints paths that would be merged.
+Files: ~src/commands/apply.rs, ~.plans/tasks-mise-generate-global-config-on-apply.yml, ~.plans/progress-mise-generate-global-config-on-apply.txt

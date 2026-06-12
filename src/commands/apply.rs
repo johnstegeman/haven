@@ -315,7 +315,7 @@ pub fn run(opts: &ApplyOptions<'_>) -> Result<ApplyOutcome> {
     }
 
     let mut lock = crate::lock::LockFile::load(opts.repo_root)?;
-    let mut module_applied = 0usize;
+    let mut mise_config_paths: Vec<PathBuf> = Vec::new();
 
     // AI / mise / externals — only when apply_ai is set.
     if opts.apply_ai {
@@ -348,18 +348,8 @@ pub fn run(opts: &ApplyOptions<'_>) -> Result<ApplyOutcome> {
 
             // ── Mise ─────────────────────────────────────────────────────────
             if let Some(mise_cfg) = &module.mise {
-                match crate::mise::mise_path() {
-                    None => {
-                        println!("  [mise] mise not found — install from https://mise.jdx.dev");
-                    }
-                    Some(mise) => {
-                        let config_path = mise_cfg.config.as_ref().map(|c| opts.repo_root.join(c));
-                        println!("  Installing mise tools…");
-                        crate::mise::install_tools(&mise, config_path.as_deref())
-                            .context("mise install failed")?;
-                        println!("  ✓ mise tools installed");
-                        module_applied += 1;
-                    }
+                if let Some(config) = &mise_cfg.config {
+                    mise_config_paths.push(opts.repo_root.join(config));
                 }
             }
 
@@ -367,9 +357,31 @@ pub fn run(opts: &ApplyOptions<'_>) -> Result<ApplyOutcome> {
                 module_name.clone(),
                 ModuleState {
                     status: "clean".into(),
-                    files: module_applied,
+                    files: 0,
                 },
             );
+        }
+
+        // Merge all module mise configs into the global mise config and install once.
+        if !mise_config_paths.is_empty() {
+            if opts.dry_run {
+                println!(
+                    "  [dry-run] mise global config would be updated with tools from {} module config(s)",
+                    mise_config_paths.len()
+                );
+                for path in &mise_config_paths {
+                    println!("    {}", path.display());
+                }
+            } else if let Some(mise) = crate::mise::mise_path() {
+                let global_mise = expand_tilde("~/.config/mise/config.toml")?;
+                crate::mise::merge_module_tools_into_global(&mise_config_paths, &global_mise)
+                    .context("failed to merge mise module configs")?;
+                println!("  Installing mise tools…");
+                crate::mise::install_tools(&mise, None).context("mise install failed")?;
+                println!("  ✓ mise tools installed");
+            } else {
+                println!("  [mise] mise not found — install from https://mise.jdx.dev");
+            }
         }
     }
 

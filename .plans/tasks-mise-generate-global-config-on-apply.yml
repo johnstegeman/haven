@@ -41,7 +41,7 @@ tasks:
       merged `[tools]` content that would be written without calling
       `merge_module_tools_into_global()` or `install_tools()`. Run `cargo build` and
       `cargo test` and verify they pass.
-    status: pending
+    status: completed
     dependencies:
       - task-001
     acceptance_criteria:
@@ -50,7 +50,7 @@ tasks:
       - 'Single `install_tools(&mise, None)` runs after the merge'
       - '`--dry-run` prints merged `[tools]` without writing or installing'
       - '`cargo build` and `cargo test` pass'
-    completed_at: null
+    completed_at: "2026-06-12T00:00:00Z"
 
   - id: task-003
     title: 'Add integration test for mise global config generation'

@@ -40,11 +40,11 @@ tasks:
       the SHA tracking fix prevents false conflicts). Mirror the `cmd_home` pattern and mock-mise
       approach used by existing `packages_toml_with_mise_section_parses` and related tests.
       Run `cargo test --test integration` and verify all pass.
-    status: pending
+    status: completed
     dependencies:
       - task-001
     acceptance_criteria:
       - "Integration test verifies `apply --files` writes merged tools to global mise config"
       - "Integration test verifies no conflict warning after full `apply` + second `apply`"
       - "`cargo test --test integration` passes"
-    completed_at: null
+    completed_at: "2026-06-12T01:00:00Z"

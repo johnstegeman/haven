@@ -36,14 +36,14 @@ tasks:
       `all_misefiles(repo_root)`. The global config path is
       `expand_tilde("~/.config/mise/config.toml")?`. Run `cargo build` and
       `cargo test` and verify all pass.
-    status: pending
+    status: completed
     dependencies:
       - task-001
     acceptance_criteria:
       - '`uninstall()` calls `merge_module_tools_into_global` after all `remove_from_misefile` calls'
       - 'Global config is regenerated before `mise_uninstall` runs'
       - '`cargo build` and `cargo test` pass'
-    completed_at: null
+    completed_at: "2026-06-12T00:00:00Z"
 
   - id: task-003
     title: 'Add integration test for global config update after pkg install --mise'

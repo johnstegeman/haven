@@ -85,6 +85,10 @@ pub fn uninstall(repo_root: &Path, name: &str) -> Result<()> {
     }
 
     println!();
+    let global_config = crate::config::module::expand_tilde("~/.config/mise/config.toml")?;
+    crate::mise::merge_module_tools_into_global(&misefiles, &global_config)
+        .context("failed to update global mise config")?;
+
     mise::mise_uninstall(&mise_bin, &tool_name)?;
 
     Ok(())

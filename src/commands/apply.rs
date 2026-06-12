@@ -325,43 +325,61 @@ pub fn run(opts: &ApplyOptions<'_>) -> Result<ApplyOutcome> {
                 continue;
             }
 
+            // ── 1Password guard ──────────────────────────────────────────────
+            // Check op availability before collecting paths so op-gated modules
+            // that would be skipped on real apply are excluded from the merge.
+            // In dry-run mode we still show the plan but do not collect paths
+            // (op would not be available in a CI dry-run either), so we skip
+            // both the collection and the real work but still print the plan.
+            let op_skip = if module.requires_op {
+                let op_ok = crate::onepassword::op_path()
+                    .map(|p| crate::onepassword::is_authenticated(&p))
+                    .unwrap_or(false);
+                if !op_ok {
+                    if !opts.dry_run {
+                        let reason = if crate::onepassword::op_path().is_none() {
+                            "op CLI not installed"
+                        } else {
+                            "not signed into 1Password (run: op signin)"
+                        };
+                        eprintln!("warning: [{}] skipped — {}", module_name, reason);
+                    }
+                    true
+                } else {
+                    false
+                }
+            } else {
+                false
+            };
+
+            // ── Mise ─────────────────────────────────────────────────────────
+            // Collect the mise config path only when the module would not be
+            // op-skipped, and before the dry-run continue so that the post-loop
+            // dry-run preview branch sees the collected paths.
+            let mise_before = mise_config_paths.len();
+            if !op_skip {
+                if let Some(mise_cfg) = &module.mise {
+                    if let Some(config) = &mise_cfg.config {
+                        mise_config_paths.push(opts.repo_root.join(config));
+                    }
+                }
+            }
+            let mise_files = mise_config_paths.len() - mise_before;
+
             if opts.dry_run {
                 print_dry_run_module(module_name, &module, opts);
                 continue;
             }
 
-            // ── 1Password guard ──────────────────────────────────────────────
-            if module.requires_op {
-                let op_ok = crate::onepassword::op_path()
-                    .map(|p| crate::onepassword::is_authenticated(&p))
-                    .unwrap_or(false);
-                if !op_ok {
-                    let reason = if crate::onepassword::op_path().is_none() {
-                        "op CLI not installed"
-                    } else {
-                        "not signed into 1Password (run: op signin)"
-                    };
-                    eprintln!("warning: [{}] skipped — {}", module_name, reason);
-                    continue;
-                }
-            }
-
-            // ── Mise ─────────────────────────────────────────────────────────
-            // Collect the mise config path only for modules that pass the op
-            // guard so that op-gated skipped modules are excluded from the merge.
-            let mut has_mise_config = false;
-            if let Some(mise_cfg) = &module.mise {
-                if let Some(config) = &mise_cfg.config {
-                    mise_config_paths.push(opts.repo_root.join(config));
-                    has_mise_config = true;
-                }
+            if op_skip {
+                continue;
             }
 
             state.modules.insert(
                 module_name.clone(),
                 ModuleState {
                     status: "clean".into(),
-                    files: if has_mise_config { 1 } else { 0 },
+                    files: mise_files,
                 },
             );
         }

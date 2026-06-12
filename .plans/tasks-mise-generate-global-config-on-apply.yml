@@ -134,7 +134,7 @@ tasks:
       while op-gated modules are still excluded. Also inline the `has_mise_config` boolean
       using the vec length delta instead of a one-use sentinel. Run `cargo build` and
       `cargo test` and verify all pass.
-    status: pending
+    status: completed
     dependencies:
       - task-005
     acceptance_criteria:
@@ -142,5 +142,5 @@ tasks:
       - 'Op-gated modules still excluded (collection after op guard)'
       - '`has_mise_config` boolean replaced with length-delta check'
       - '`cargo build` and `cargo test` pass'
-    completed_at: null
+    completed_at: "2026-06-12T00:00:00Z"
     source: review

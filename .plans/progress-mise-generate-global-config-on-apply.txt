@@ -26,3 +26,7 @@ Files: ~src/commands/apply.rs, ~.plans/tasks-mise-generate-global-config-on-appl
 ## TASK-005 — 2026-06-12T00:00:00Z
 Moved mise path collection past requires_op guard so skipped modules don't contribute tools. Fixed indentation in collection block.
 Files: ~src/commands/apply.rs, ~.plans/tasks-mise-generate-global-config-on-apply.yml, ~.plans/progress-mise-generate-global-config-on-apply.txt
+
+## TASK-006 — 2026-06-12T00:00:00Z
+Restructured module loop: collection now after op guard, before dry-run continue. Replaced has_mise_config with length-delta. Dry-run preview branch is now reachable. Op guard computes op_skip flag without early-continuing in dry-run; collection guarded by !op_skip; dry-run prints plan for all non-empty modules (including op-gated); real apply skips via op_skip continue.
+Files: ~src/commands/apply.rs, ~.plans/tasks-mise-generate-global-config-on-apply.yml, ~.plans/progress-mise-generate-global-config-on-apply.txt

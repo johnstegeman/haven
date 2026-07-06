@@ -96,6 +96,19 @@ pub fn run(opts: &DiffOptions<'_>) -> Result<bool> {
         let entries = scan(&source_dir, &ignore)?;
         let mut section_lines: Vec<String> = Vec::new();
 
+        // The global mise config's destination is written by `apply` as the
+        // bare source content merged with `[tools]` from active modules'
+        // mise configs — it is never a byte-for-byte copy of source. Precompute
+        // the expected merge inputs here so the file loop below can compare
+        // against what `apply` would actually produce, instead of raw source,
+        // avoiding a false "modified" report on every diff.
+        let mise_global_path = crate::mise::mise_global_config_path().ok();
+        let mise_config_paths: Vec<PathBuf> = HavenConfig::load(opts.repo_root)
+            .ok()
+            .and_then(|c| c.resolve_modules(opts.profile).ok())
+            .map(|mods| crate::mise::active_mise_config_paths(opts.repo_root, &sort_modules(&mods)))
+            .unwrap_or_default();
+
         for entry in &entries {
             let dest_expanded = expand_tilde(&entry.dest_tilde)?;
             let dest = resolve_dest(dest_expanded, opts.dest_root);
@@ -238,7 +251,38 @@ pub fn run(opts: &DiffOptions<'_>) -> Result<bool> {
                             }
                         }
                     } else {
-                        let kind = check_drift_haven_aware(&entry.src, &dest);
+                        // If this entry is the global mise config and at least one
+                        // active module declares mise tools, the destination `apply`
+                        // produces is source merged with `[tools]` — compute that
+                        // expected text instead of comparing raw source to dest.
+                        let is_mise_global = !mise_config_paths.is_empty()
+                            && mise_global_path.as_deref() == Some(dest.as_path());
+                        let expected_src_text = if is_mise_global {
+                            std::fs::read_to_string(&entry.src)
+                                .ok()
+                                .and_then(|base| {
+                                    crate::mise::merge_tools_into_text(&mise_config_paths, &base)
+                                        .ok()
+                                })
+                        } else {
+                            None
+                        };
+
+                        let kind = if let Some(expected) = &expected_src_text {
+                            if !entry.src.exists() {
+                                DriftKind::SourceMissing
+                            } else if !dest.exists() {
+                                DriftKind::Missing
+                            } else {
+                                match std::fs::read_to_string(&dest) {
+                                    Ok(dest_text) if &dest_text == expected => DriftKind::Clean,
+                                    _ => DriftKind::Modified,
+                                }
+                            }
+                        } else {
+                            check_drift_haven_aware(&entry.src, &dest)
+                        };
+
                         match kind {
                             DriftKind::Clean => {}
                             DriftKind::Missing => {
@@ -248,23 +292,16 @@ pub fn run(opts: &DiffOptions<'_>) -> Result<bool> {
                                 section_lines.push(format!("  ! {}", label));
                             }
                             DriftKind::Modified => {
-                                let src_bytes = std::fs::read(&entry.src).with_context(|| {
-                                    format!("Cannot read {}", entry.src.display())
-                                })?;
                                 let dest_bytes = std::fs::read(&dest)
                                     .with_context(|| format!("Cannot read {}", dest.display()))?;
 
-                                if is_binary(&src_bytes) || is_binary(&dest_bytes) {
-                                    section_lines
-                                        .push(format!("  M {}  (binary files differ)", label));
-                                } else {
-                                    let src_text = String::from_utf8_lossy(&src_bytes).into_owned();
+                                if let Some(src_text) = &expected_src_text {
                                     let dest_text = crate::claude_md::strip_haven_section(
                                         &String::from_utf8_lossy(&dest_bytes),
                                     );
                                     push_diff_output(
                                         &dest_text,
-                                        &src_text,
+                                        src_text,
                                         label,
                                         label,
                                         &format!("{} (source)", label),
@@ -272,6 +309,34 @@ pub fn run(opts: &DiffOptions<'_>) -> Result<bool> {
                                         use_color,
                                         &mut section_lines,
                                     );
+                                } else {
+                                    let src_bytes =
+                                        std::fs::read(&entry.src).with_context(|| {
+                                            format!("Cannot read {}", entry.src.display())
+                                        })?;
+
+                                    if is_binary(&src_bytes) || is_binary(&dest_bytes) {
+                                        section_lines.push(format!(
+                                            "  M {}  (binary files differ)",
+                                            label
+                                        ));
+                                    } else {
+                                        let src_text =
+                                            String::from_utf8_lossy(&src_bytes).into_owned();
+                                        let dest_text = crate::claude_md::strip_haven_section(
+                                            &String::from_utf8_lossy(&dest_bytes),
+                                        );
+                                        push_diff_output(
+                                            &dest_text,
+                                            &src_text,
+                                            label,
+                                            label,
+                                            &format!("{} (source)", label),
+                                            opts.stat_only,
+                                            use_color,
+                                            &mut section_lines,
+                                        );
+                                    }
                                 }
                             }
                         }

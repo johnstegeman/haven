@@ -81,6 +81,25 @@ fn init_already_initialized_is_noop() {
         .stdout(predicate::str::contains("already initialized"));
 }
 
+#[test]
+fn no_spurious_haven_toml_not_found_note_when_using_dir_flag() {
+    // Regression test: the pre-parse telemetry-config check used to resolve
+    // the repo via the default repo_root() (HAVEN_DIR / XDG default) instead
+    // of the actual --dir target, so it always found no haven.toml there and
+    // printed discover()'s "note: haven.toml not found" — even though the
+    // real --dir repo has a perfectly valid haven.toml.
+    let repo = TempDir::new().unwrap();
+    let home = TempDir::new().unwrap();
+
+    cmd(&repo).arg("init").assert().success();
+    assert!(repo.path().join("haven.toml").exists());
+
+    cmd_home(&repo, &home)
+        .arg("status")
+        .assert()
+        .stderr(predicate::str::contains("haven.toml not found").not());
+}
+
 // ─── init from source ────────────────────────────────────────────────────────
 
 /// Create a local git repo containing a minimal `haven.toml` and return its
@@ -5443,4 +5462,54 @@ fn apply_files_no_false_conflict_after_merge() {
         .assert()
         .success()
         .stderr(predicate::str::contains("was edited since last apply").not());
+}
+
+#[test]
+fn diff_no_false_drift_after_mise_merge() {
+    let repo = TempDir::new().unwrap();
+    let home = TempDir::new().unwrap();
+
+    cmd(&repo).arg("init").assert().success();
+
+    fs::create_dir_all(repo.path().join("mise")).unwrap();
+    fs::write(
+        repo.path().join("mise").join("mise.packages.toml"),
+        "[tools]\nnode = \"22\"\n",
+    )
+    .unwrap();
+
+    fs::write(
+        repo.path().join("modules").join("packages.toml"),
+        "[mise]\nconfig = \"mise/mise.packages.toml\"\n",
+    )
+    .unwrap();
+
+    fs::write(
+        repo.path().join("haven.toml"),
+        "[profile.default]\nmodules = [\"packages\"]\n",
+    )
+    .unwrap();
+
+    let source_mise_dir = repo.path().join("source").join("dot_config").join("mise");
+    fs::create_dir_all(&source_mise_dir).unwrap();
+    fs::write(
+        source_mise_dir.join("config.toml"),
+        "[settings]\n# base config\n",
+    )
+    .unwrap();
+
+    cmd_home(&repo, &home)
+        .args(["apply", "--profile", "default", "--files"])
+        .assert()
+        .success();
+
+    // The global mise config now contains merged [tools] that the bare
+    // source never had. `haven diff` should recognize this as the expected,
+    // apply-produced state — not report it as drift.
+    cmd_home(&repo, &home)
+        .args(["diff", "--profile", "default", "--files"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("✓ Everything up to date"))
+        .stdout(predicate::str::contains("mise/config.toml").not());
 }

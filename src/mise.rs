@@ -315,15 +315,17 @@ pub fn mise_upgrade(mise: &str, config: &Path, name: Option<&str>) -> Result<()>
     Ok(())
 }
 
-/// Merge `[tools]` from all `module_configs` into a single global mise config.
+/// Merge `[tools]` from all `module_configs` into `base_text` and return the
+/// resulting document text. Pure — touches disk only to read `module_configs`.
 ///
 /// Entries from later configs overwrite earlier ones for duplicate keys.
-/// All other sections in `global_config` (e.g. `[settings]`) are preserved.
+/// All other sections in `base_text` (e.g. `[settings]`) are preserved.
 /// If `module_configs` is empty, the `[tools]` table is cleared.
-pub fn merge_module_tools_into_global(
-    module_configs: &[PathBuf],
-    global_config: &Path,
-) -> Result<()> {
+///
+/// Shared by [`merge_module_tools_into_global`] (which writes the result to the
+/// live global config) and `haven diff`, which uses it to compute what the
+/// destination should contain without writing anything.
+pub fn merge_tools_into_text(module_configs: &[PathBuf], base_text: &str) -> Result<String> {
     // Build merged tools map, preserving insertion order; later entries win.
     let mut merged: Vec<(String, Item)> = Vec::new();
 
@@ -342,7 +344,13 @@ pub fn merge_module_tools_into_global(
         }
     }
 
-    let mut doc = load_or_create_doc(global_config)?;
+    let mut doc = if base_text.is_empty() {
+        DocumentMut::new()
+    } else {
+        base_text
+            .parse::<DocumentMut>()
+            .context("Invalid TOML in base mise config")?
+    };
 
     // Replace the [tools] table entirely.
     doc.remove("tools");
@@ -352,13 +360,66 @@ pub fn merge_module_tools_into_global(
     }
     doc.insert("tools", Item::Table(new_tools));
 
+    Ok(doc.to_string())
+}
+
+/// Merge `[tools]` from all `module_configs` into a single global mise config.
+///
+/// The current content of `global_config` (if any) is used as the base, so
+/// other sections (e.g. `[settings]`) are preserved.
+pub fn merge_module_tools_into_global(
+    module_configs: &[PathBuf],
+    global_config: &Path,
+) -> Result<()> {
+    let base_text = if global_config.exists() {
+        std::fs::read_to_string(global_config)
+            .with_context(|| format!("Cannot read {}", global_config.display()))?
+    } else {
+        String::new()
+    };
+    let merged_text = merge_tools_into_text(module_configs, &base_text)
+        .with_context(|| format!("Invalid TOML in {}", global_config.display()))?;
+
     if let Some(parent) = global_config.parent() {
         std::fs::create_dir_all(parent)
             .with_context(|| format!("Cannot create {}", parent.display()))?;
     }
-    std::fs::write(global_config, doc.to_string())
+    std::fs::write(global_config, merged_text)
         .with_context(|| format!("Cannot write {}", global_config.display()))?;
     Ok(())
+}
+
+/// Resolve the mise config paths that `haven apply` would merge into the
+/// global mise config for the given (already profile-resolved, sorted) modules.
+///
+/// Mirrors the 1Password guard in the apply module loop — a module gated by
+/// `requires_op` is skipped when `op` is unavailable or unauthenticated — so
+/// this returns the same set `apply` would use, keeping `haven diff` in sync
+/// with what a real apply would produce.
+pub fn active_mise_config_paths(repo_root: &Path, sorted_modules: &[String]) -> Vec<PathBuf> {
+    let mut paths = Vec::new();
+    for module_name in sorted_modules {
+        let Ok(module) = crate::config::ModuleConfig::load(repo_root, module_name) else {
+            continue;
+        };
+        if module.is_empty() {
+            continue;
+        }
+        if module.requires_op {
+            let op_ok = crate::onepassword::op_path()
+                .map(|p| crate::onepassword::is_authenticated(&p))
+                .unwrap_or(false);
+            if !op_ok {
+                continue;
+            }
+        }
+        if let Some(mise_cfg) = &module.mise {
+            if let Some(config) = &mise_cfg.config {
+                paths.push(repo_root.join(config));
+            }
+        }
+    }
+    paths
 }
 
 fn load_or_create_doc(path: &Path) -> Result<DocumentMut> {

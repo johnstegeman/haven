@@ -32,7 +32,7 @@ mod vcs;
 use anyhow::{Context, Result};
 use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::{generate, Shell};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Subcommand)]
 enum AiAction {
@@ -985,8 +985,9 @@ fn main() {
     let raw_args: Vec<String> = std::env::args().skip(1).collect();
     let cmd_name = cmd_name_from_args(&raw_args);
     let flags = flags_from_args(&raw_args);
+    let dir_override = dir_from_args(&raw_args).map(PathBuf::from);
 
-    let config_enabled = try_load_telemetry_config();
+    let config_enabled = try_load_telemetry_config(dir_override.as_deref());
     let recorder = telemetry::Recorder::new(
         telemetry::is_enabled(config_enabled),
         cmd_name,
@@ -1021,6 +1022,22 @@ fn cmd_name_from_args(args: &[String]) -> String {
         }
     }
     "unknown".to_string()
+}
+
+/// Extract the value of a `--dir /path` or `--dir=/path` flag from raw CLI args.
+/// Returns `None` when `--dir` wasn't passed (callers should then fall back to
+/// `repo_root()`, matching how clap resolves `cli.dir` — flag, then `$HAVEN_DIR`).
+fn dir_from_args(args: &[String]) -> Option<String> {
+    let mut iter = args.iter();
+    while let Some(arg) = iter.next() {
+        if let Some(value) = arg.strip_prefix("--dir=") {
+            return Some(value.to_string());
+        }
+        if arg == "--dir" {
+            return iter.next().cloned();
+        }
+    }
+    None
 }
 
 /// Collect flag names (args starting with `-`) from raw CLI args.
@@ -1059,9 +1076,18 @@ fn set_telemetry_in_config(repo: &std::path::Path, enabled: bool) -> Result<()> 
 }
 
 /// Load the telemetry.enabled setting from haven.toml (best-effort, never panics).
-fn try_load_telemetry_config() -> bool {
+///
+/// `dir` must be the same repo directory the rest of the command will resolve
+/// (an explicit `--dir` override, or `None` to fall back to `repo_root()`).
+/// Resolving a different directory here would make `HavenConfig::load`'s
+/// `discover()` fallback print a spurious "haven.toml not found" note for a
+/// repo the user never asked about.
+fn try_load_telemetry_config(dir: Option<&Path>) -> bool {
     (|| -> Option<bool> {
-        let repo = repo_root().ok()?;
+        let repo = match dir {
+            Some(d) => d.to_path_buf(),
+            None => repo_root().ok()?,
+        };
         let cfg = HavenConfig::load(&repo).ok()?;
         Some(cfg.telemetry.enabled)
     })()
@@ -1172,7 +1198,7 @@ fn run() -> Result<()> {
         }
         Commands::Telemetry { action: None } => {
             // Bare `haven telemetry` — print status (no repo needed).
-            let is_on = telemetry::is_enabled(try_load_telemetry_config());
+            let is_on = telemetry::is_enabled(try_load_telemetry_config(cli.dir.as_deref()));
             println!(
                 "Telemetry is currently {}.",
                 if is_on { "enabled" } else { "disabled" }

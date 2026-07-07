@@ -34,7 +34,7 @@ use crate::config::module::expand_tilde;
 use crate::config::{sort_modules, HavenConfig, ModuleConfig};
 use crate::diff_util::{colorize_diff, stat_line, unified_diff};
 use crate::drift::{
-    check_drift_haven_aware, check_drift_link, check_drift_link_template, check_drift_template,
+    check_drift_link, check_drift_link_template, check_drift_mise_aware, check_drift_template,
     DriftKind,
 };
 use crate::ignore::IgnoreList;
@@ -255,33 +255,18 @@ pub fn run(opts: &DiffOptions<'_>) -> Result<bool> {
                         // active module declares mise tools, the destination `apply`
                         // produces is source merged with `[tools]` — compute that
                         // expected text instead of comparing raw source to dest.
-                        let is_mise_global = !mise_config_paths.is_empty()
-                            && mise_global_path.as_deref() == Some(dest.as_path());
-                        let expected_src_text = if is_mise_global {
-                            std::fs::read_to_string(&entry.src)
-                                .ok()
-                                .and_then(|base| {
-                                    crate::mise::merge_tools_into_text(&mise_config_paths, &base)
-                                        .ok()
-                                })
-                        } else {
-                            None
-                        };
+                        let expected_src_text = crate::mise::expected_config_text(
+                            &mise_config_paths,
+                            mise_global_path.as_deref(),
+                            &entry.src,
+                            &dest,
+                        );
 
-                        let kind = if let Some(expected) = &expected_src_text {
-                            if !entry.src.exists() {
-                                DriftKind::SourceMissing
-                            } else if !dest.exists() {
-                                DriftKind::Missing
-                            } else {
-                                match std::fs::read_to_string(&dest) {
-                                    Ok(dest_text) if &dest_text == expected => DriftKind::Clean,
-                                    _ => DriftKind::Modified,
-                                }
-                            }
-                        } else {
-                            check_drift_haven_aware(&entry.src, &dest)
-                        };
+                        let kind = check_drift_mise_aware(
+                            &entry.src,
+                            &dest,
+                            expected_src_text.as_deref(),
+                        );
 
                         match kind {
                             DriftKind::Clean => {}

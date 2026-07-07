@@ -83,6 +83,30 @@ pub fn check_drift_haven_aware(src: &Path, dest: &Path) -> DriftKind {
     }
 }
 
+/// Like [`check_drift_haven_aware`], but for entries where the destination is
+/// produced by merging `src` with extra content (currently: the global mise
+/// config merged with active modules' `[tools]`).
+///
+/// When `expected` is `Some`, compares `src`/`dest` existence and exact text
+/// equality against it directly — `dest` is expected to differ from raw
+/// `src`, so no haven-managed-section stripping applies here. When `expected`
+/// is `None`, falls back to [`check_drift_haven_aware`] for the normal case.
+pub fn check_drift_mise_aware(src: &Path, dest: &Path, expected: Option<&str>) -> DriftKind {
+    let Some(expected) = expected else {
+        return check_drift_haven_aware(src, dest);
+    };
+    if !src.exists() {
+        return DriftKind::SourceMissing;
+    }
+    if !dest.exists() {
+        return DriftKind::Missing;
+    }
+    match std::fs::read_to_string(dest) {
+        Ok(dest_text) if dest_text == expected => DriftKind::Clean,
+        _ => DriftKind::Modified,
+    }
+}
+
 /// Check drift for a plain (non-template, non-symlink) file.
 pub fn check_drift(src: &Path, dest: &Path) -> DriftKind {
     if !src.exists() {
@@ -180,5 +204,74 @@ pub fn check_drift_link_template(
         Ok(DriftKind::Modified)
     } else {
         Ok(DriftKind::Missing)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    #[test]
+    fn check_drift_mise_aware_source_missing_when_expected_given_but_src_absent() {
+        let dir = TempDir::new().unwrap();
+        let src = dir.path().join("does-not-exist.toml");
+        let dest = dir.path().join("dest.toml");
+        std::fs::write(&dest, "[tools]\nnode = \"22\"\n").unwrap();
+
+        let kind = check_drift_mise_aware(&src, &dest, Some("[tools]\nnode = \"22\"\n"));
+
+        assert_eq!(kind, DriftKind::SourceMissing);
+    }
+
+    #[test]
+    fn check_drift_mise_aware_missing_when_expected_given_but_dest_absent() {
+        let dir = TempDir::new().unwrap();
+        let src = dir.path().join("config.toml");
+        std::fs::write(&src, "[settings]\n").unwrap();
+        let dest = dir.path().join("dest.toml");
+
+        let kind = check_drift_mise_aware(&src, &dest, Some("[tools]\nnode = \"22\"\n"));
+
+        assert_eq!(kind, DriftKind::Missing);
+    }
+
+    #[test]
+    fn check_drift_mise_aware_clean_when_dest_matches_expected() {
+        let dir = TempDir::new().unwrap();
+        let src = dir.path().join("config.toml");
+        std::fs::write(&src, "[settings]\n").unwrap();
+        let dest = dir.path().join("dest.toml");
+        std::fs::write(&dest, "[tools]\nnode = \"22\"\n").unwrap();
+
+        let kind = check_drift_mise_aware(&src, &dest, Some("[tools]\nnode = \"22\"\n"));
+
+        assert_eq!(kind, DriftKind::Clean);
+    }
+
+    #[test]
+    fn check_drift_mise_aware_modified_when_dest_differs_from_expected() {
+        let dir = TempDir::new().unwrap();
+        let src = dir.path().join("config.toml");
+        std::fs::write(&src, "[settings]\n").unwrap();
+        let dest = dir.path().join("dest.toml");
+        std::fs::write(&dest, "[tools]\nnode = \"20\"\n").unwrap();
+
+        let kind = check_drift_mise_aware(&src, &dest, Some("[tools]\nnode = \"22\"\n"));
+
+        assert_eq!(kind, DriftKind::Modified);
+    }
+
+    #[test]
+    fn check_drift_mise_aware_falls_back_to_haven_aware_when_no_expected() {
+        let dir = TempDir::new().unwrap();
+        let src = dir.path().join("file.txt");
+        std::fs::write(&src, "same\n").unwrap();
+        let dest = dir.path().join("dest.txt");
+        std::fs::write(&dest, "same\n").unwrap();
+
+        let kind = check_drift_mise_aware(&src, &dest, None);
+
+        assert_eq!(kind, DriftKind::Clean);
     }
 }

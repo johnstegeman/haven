@@ -422,6 +422,30 @@ pub fn active_mise_config_paths(repo_root: &Path, sorted_modules: &[String]) -> 
     paths
 }
 
+/// Compute the text `apply` would actually write to `dest`, when `dest` is
+/// the global mise config and at least one active module declares `[tools]`.
+///
+/// Returns `None` when `dest` isn't the mise-merged destination (or no
+/// active module declares tools) — callers should fall back to comparing
+/// `src` and `dest` directly in that case. Shared by `haven diff` and
+/// `haven status` so both compare against the same merged content `apply`
+/// produces, instead of raw source, avoiding a false "modified" report.
+pub fn expected_config_text(
+    mise_config_paths: &[PathBuf],
+    mise_global_path: Option<&Path>,
+    src: &Path,
+    dest: &Path,
+) -> Option<String> {
+    if mise_config_paths.is_empty() {
+        return None;
+    }
+    if mise_global_path != Some(dest) {
+        return None;
+    }
+    let base = std::fs::read_to_string(src).ok()?;
+    merge_tools_into_text(mise_config_paths, &base).ok()
+}
+
 fn load_or_create_doc(path: &Path) -> Result<DocumentMut> {
     if !path.exists() {
         return Ok(DocumentMut::new());
@@ -737,5 +761,62 @@ mod tests {
             node_version, "20.0.0",
             "expected the pinned version to be bumped from 20.0.0, got: {node_version}"
         );
+    }
+
+    #[test]
+    fn expected_config_text_none_when_no_mise_config_paths() {
+        let dir = TempDir::new().unwrap();
+        let src = dir.path().join("config.toml");
+        std::fs::write(&src, "[settings]\n").unwrap();
+        let dest = dir.path().join("dest.toml");
+
+        let result = expected_config_text(&[], Some(dest.as_path()), &src, &dest);
+
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn expected_config_text_none_when_dest_is_not_global_mise_path() {
+        let dir = TempDir::new().unwrap();
+        let src = dir.path().join("config.toml");
+        std::fs::write(&src, "[settings]\n").unwrap();
+        let module_cfg = dir.path().join("mise.module.toml");
+        std::fs::write(&module_cfg, "[tools]\nnode = \"22\"\n").unwrap();
+        let dest = dir.path().join("dest.toml");
+        let other_global = dir.path().join("other.toml");
+
+        let result =
+            expected_config_text(&[module_cfg], Some(other_global.as_path()), &src, &dest);
+
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn expected_config_text_merges_when_dest_matches_global_path() {
+        let dir = TempDir::new().unwrap();
+        let src = dir.path().join("config.toml");
+        std::fs::write(&src, "[settings]\nfoo = 1\n").unwrap();
+        let module_cfg = dir.path().join("mise.module.toml");
+        std::fs::write(&module_cfg, "[tools]\nnode = \"22\"\n").unwrap();
+        let dest = dir.path().join("dest.toml");
+
+        let result = expected_config_text(&[module_cfg], Some(dest.as_path()), &src, &dest)
+            .expect("expected merged text");
+
+        assert!(result.contains("node = \"22\""));
+        assert!(result.contains("foo = 1"));
+    }
+
+    #[test]
+    fn expected_config_text_none_when_src_unreadable() {
+        let dir = TempDir::new().unwrap();
+        let src = dir.path().join("does-not-exist.toml");
+        let module_cfg = dir.path().join("mise.module.toml");
+        std::fs::write(&module_cfg, "[tools]\nnode = \"22\"\n").unwrap();
+        let dest = dir.path().join("dest.toml");
+
+        let result = expected_config_text(&[module_cfg], Some(dest.as_path()), &src, &dest);
+
+        assert_eq!(result, None);
     }
 }

@@ -5513,3 +5513,53 @@ fn diff_no_false_drift_after_mise_merge() {
         .stdout(predicate::str::contains("✓ Everything up to date"))
         .stdout(predicate::str::contains("mise/config.toml").not());
 }
+
+#[test]
+fn status_no_false_drift_after_mise_merge() {
+    let repo = TempDir::new().unwrap();
+    let home = TempDir::new().unwrap();
+
+    cmd(&repo).arg("init").assert().success();
+
+    fs::create_dir_all(repo.path().join("mise")).unwrap();
+    fs::write(
+        repo.path().join("mise").join("mise.packages.toml"),
+        "[tools]\nnode = \"22\"\n",
+    )
+    .unwrap();
+
+    fs::write(
+        repo.path().join("modules").join("packages.toml"),
+        "[mise]\nconfig = \"mise/mise.packages.toml\"\n",
+    )
+    .unwrap();
+
+    fs::write(
+        repo.path().join("haven.toml"),
+        "[profile.default]\nmodules = [\"packages\"]\n",
+    )
+    .unwrap();
+
+    let source_mise_dir = repo.path().join("source").join("dot_config").join("mise");
+    fs::create_dir_all(&source_mise_dir).unwrap();
+    fs::write(
+        source_mise_dir.join("config.toml"),
+        "[settings]\n# base config\n",
+    )
+    .unwrap();
+
+    cmd_home(&repo, &home)
+        .args(["apply", "--profile", "default", "--files"])
+        .assert()
+        .success();
+
+    // The global mise config now contains merged [tools] that the bare
+    // source never had. `haven status` should recognize this as the
+    // expected, apply-produced state — not report it as drift.
+    cmd_home(&repo, &home)
+        .args(["status", "--profile", "default", "--files"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("up to date"))
+        .stdout(predicate::str::contains("mise/config.toml").not());
+}

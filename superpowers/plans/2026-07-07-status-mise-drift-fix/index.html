@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        
+        
+        <link rel="canonical" href="https://johnstegeman.github.io/haven/superpowers/plans/2026-07-07-status-mise-drift-fix/">
+        <link rel="shortcut icon" href="../../../img/favicon.ico">
+        <title>Fix haven status mise-config false drift — Implementation Plan - haven</title>
+        <link href="../../../css/bootstrap.min.css" rel="stylesheet">
+        <link href="../../../css/fontawesome.min.css" rel="stylesheet">
+        <link href="../../../css/brands.min.css" rel="stylesheet">
+        <link href="../../../css/solid.min.css" rel="stylesheet">
+        <link href="../../../css/v4-font-face.min.css" rel="stylesheet">
+        <link href="../../../css/base.css" rel="stylesheet">
+        <link id="hljs-light" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" >
+        <link id="hljs-dark" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css" disabled>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script>hljs.highlightAll();</script> 
+    </head>
+
+    <body>
+        <div class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary">
+            <div class="container">
+                <a class="navbar-brand" href="../../..">haven</a>
+                <!-- Expander button -->
+                <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar-collapse" aria-controls="navbar-collapse" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <!-- Expanded navigation -->
+                <div id="navbar-collapse" class="navbar-collapse collapse">
+                        <!-- Main navigation -->
+                        <ul class="nav navbar-nav">
+                            <li class="nav-item">
+                                <a href="../../.." class="nav-link">Home</a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="../../../concepts/" class="nav-link">Concepts</a>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Getting Started</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../../getting-started/installation/" class="dropdown-item">Installation</a>
+</li>
+                                    
+<li>
+    <a href="../../../getting-started/quickstart/" class="dropdown-item">Quick Start</a>
+</li>
+                                    
+<li>
+    <a href="../../../getting-started/new-machine/" class="dropdown-item">New Machine Setup</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Guides</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../../guides/tracking-files/" class="dropdown-item">Tracking Files</a>
+</li>
+                                    
+<li>
+    <a href="../../../guides/packages/" class="dropdown-item">Managing Packages</a>
+</li>
+                                    
+<li>
+    <a href="../../../guides/ai-skills/" class="dropdown-item">AI Skills</a>
+</li>
+                                    
+<li>
+    <a href="../../../guides/templates/" class="dropdown-item">Templates & Secrets</a>
+</li>
+                                    
+<li>
+    <a href="../../../guides/profiles-modules/" class="dropdown-item">Profiles & Modules</a>
+</li>
+                                    
+<li>
+    <a href="../../../guides/security/" class="dropdown-item">Security Scanning</a>
+</li>
+                                    
+<li>
+    <a href="../../../guides/vcs/" class="dropdown-item">VCS Backend</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">For chezmoi Users</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../../for-chezmoi-users/" class="dropdown-item">Overview</a>
+</li>
+                                    
+<li>
+    <a href="../../../for-chezmoi-users/migration/" class="dropdown-item">Migration Guide</a>
+</li>
+                                    
+<li>
+    <a href="../../../for-chezmoi-users/commands/" class="dropdown-item">Command Equivalence</a>
+</li>
+                                    
+<li>
+    <a href="../../../for-chezmoi-users/templates/" class="dropdown-item">Template Conversion</a>
+</li>
+                                    
+<li>
+    <a href="../../../for-chezmoi-users/gaps/" class="dropdown-item">Feature Gaps</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Reference</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../../reference/commands/" class="dropdown-item">Command Reference</a>
+</li>
+                                    
+<li>
+    <a href="../../../reference/configuration/" class="dropdown-item">Configuration</a>
+</li>
+                                    
+<li>
+    <a href="../../../reference/skill-backends/" class="dropdown-item">Skill Backends</a>
+</li>
+                                    
+<li>
+    <a href="../../../reference/magic-names/" class="dropdown-item">Magic-Name Encoding</a>
+</li>
+                                    
+<li>
+    <a href="../../../reference/template-variables/" class="dropdown-item">Template Variables</a>
+</li>
+                                    
+<li>
+    <a href="../../../reference/environment/" class="dropdown-item">Environment Variables</a>
+</li>
+                                    
+<li>
+    <a href="../../../reference/repo-layout/" class="dropdown-item">Repo Layout</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item">
+                                <a href="../../../changelog/" class="nav-link">Changelog</a>
+                            </li>
+                        </ul>
+
+                    <ul class="nav navbar-nav ms-md-auto">
+                        <li class="nav-item">
+                            <a href="#" class="nav-link" data-bs-toggle="modal" data-bs-target="#mkdocs_search_modal">
+                                <i class="fa fa-search"></i> Search
+                            </a>
+                        </li>
+                            <li class="nav-item">
+                                <a href="https://github.com/johnstegeman/haven/edit/main/docs/superpowers/plans/2026-07-07-status-mise-drift-fix.md" class="nav-link">Edit on johnstegeman/haven
+                                    </a>
+                            </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="row">
+                    <div class="col-md-3"><div class="navbar-expand-md bs-sidebar hidden-print affix" role="complementary">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggler collapsed" data-bs-toggle="collapse" data-bs-target="#toc-collapse" title="Table of Contents">
+            <span class="fa fa-angle-down"></span>
+        </button>
+    </div>
+
+    
+    <div id="toc-collapse" class="navbar-collapse collapse card bg-body-tertiary">
+        <ul class="nav flex-column">
+            
+            <li class="nav-item" data-bs-level="1"><a href="#fix-haven-status-mise-config-false-drift-implementation-plan" class="nav-link">Fix haven status mise-config false drift — Implementation Plan</a>
+              <ul class="nav flex-column">
+            <li class="nav-item" data-bs-level="2"><a href="#self-review-notes" class="nav-link">Self-Review Notes</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+              </ul>
+            </li>
+        </ul>
+    </div>
+</div></div>
+                    <div class="col-md-9" role="main">
+
+<h1 id="fix-haven-status-mise-config-false-drift-implementation-plan">Fix <code>haven status</code> mise-config false drift — Implementation Plan<a class="headerlink" href="#fix-haven-status-mise-config-false-drift-implementation-plan" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>For agentic workers:</strong> REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (<code>- [ ]</code>) syntax for tracking.</p>
+</blockquote>
+<p><strong>Goal:</strong> Make <code>haven status</code> recognize the global mise config's merged content as clean, the same way <code>haven diff</code> already does, by extracting the merge-aware comparison logic into two shared functions both commands call.</p>
+<p><strong>Architecture:</strong> Add <code>mise::expected_config_text</code> (computes the text <code>apply</code> would write to the mise-merged destination) and <code>drift::check_drift_mise_aware</code> (resolves <code>DriftKind</code> from that expected text, falling back to the existing raw comparison when it doesn't apply). Rewire <code>diff.rs</code>'s inline logic to call these, then wire <code>status.rs</code> to call them too.</p>
+<p><strong>Tech Stack:</strong> Rust, existing <code>anyhow</code>/<code>toml_edit</code> deps, <code>assert_cmd</code>/<code>tempfile</code>/<code>predicates</code> for tests (already in use).</p>
+<p><strong>Spec:</strong> <code>docs/superpowers/specs/2026-07-07-status-mise-drift-fix-design.md</code></p>
+<hr />
+<h3 id="task-1-add-miseexpected_config_text">Task 1: Add <code>mise::expected_config_text</code><a class="headerlink" href="#task-1-add-miseexpected_config_text" title="Permanent link">&para;</a></h3>
+<p><strong>Files:</strong>
+- Modify: <code>src/mise.rs</code> (insert new function after <code>active_mise_config_paths</code>, which ends at line 423, before <code>load_or_create_doc</code> at line 425)
+- Modify: <code>src/mise.rs</code> tests module (starts line 435-436)</p>
+<ul>
+<li>[ ] <strong>Step 1: Write the failing unit tests</strong></li>
+</ul>
+<p>Add to the <code>mod tests</code> block in <code>src/mise.rs</code> (after the existing tests, before the closing <code>}</code> of the module):</p>
+<pre><code class="language-rust">    #[test]
+    fn expected_config_text_none_when_no_mise_config_paths() {
+        let dir = TempDir::new().unwrap();
+        let src = dir.path().join(&quot;config.toml&quot;);
+        std::fs::write(&amp;src, &quot;[settings]\n&quot;).unwrap();
+        let dest = dir.path().join(&quot;dest.toml&quot;);
+
+        let result = expected_config_text(&amp;[], Some(dest.as_path()), &amp;src, &amp;dest);
+
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn expected_config_text_none_when_dest_is_not_global_mise_path() {
+        let dir = TempDir::new().unwrap();
+        let src = dir.path().join(&quot;config.toml&quot;);
+        std::fs::write(&amp;src, &quot;[settings]\n&quot;).unwrap();
+        let module_cfg = dir.path().join(&quot;mise.module.toml&quot;);
+        std::fs::write(&amp;module_cfg, &quot;[tools]\nnode = \&quot;22\&quot;\n&quot;).unwrap();
+        let dest = dir.path().join(&quot;dest.toml&quot;);
+        let other_global = dir.path().join(&quot;other.toml&quot;);
+
+        let result =
+            expected_config_text(&amp;[module_cfg], Some(other_global.as_path()), &amp;src, &amp;dest);
+
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn expected_config_text_merges_when_dest_matches_global_path() {
+        let dir = TempDir::new().unwrap();
+        let src = dir.path().join(&quot;config.toml&quot;);
+        std::fs::write(&amp;src, &quot;[settings]\nfoo = 1\n&quot;).unwrap();
+        let module_cfg = dir.path().join(&quot;mise.module.toml&quot;);
+        std::fs::write(&amp;module_cfg, &quot;[tools]\nnode = \&quot;22\&quot;\n&quot;).unwrap();
+        let dest = dir.path().join(&quot;dest.toml&quot;);
+
+        let result = expected_config_text(&amp;[module_cfg], Some(dest.as_path()), &amp;src, &amp;dest)
+            .expect(&quot;expected merged text&quot;);
+
+        assert!(result.contains(&quot;node = \&quot;22\&quot;&quot;));
+        assert!(result.contains(&quot;foo = 1&quot;));
+    }
+
+    #[test]
+    fn expected_config_text_none_when_src_unreadable() {
+        let dir = TempDir::new().unwrap();
+        let src = dir.path().join(&quot;does-not-exist.toml&quot;);
+        let module_cfg = dir.path().join(&quot;mise.module.toml&quot;);
+        std::fs::write(&amp;module_cfg, &quot;[tools]\nnode = \&quot;22\&quot;\n&quot;).unwrap();
+        let dest = dir.path().join(&quot;dest.toml&quot;);
+
+        let result = expected_config_text(&amp;[module_cfg], Some(dest.as_path()), &amp;src, &amp;dest);
+
+        assert_eq!(result, None);
+    }
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Run the tests to verify they fail</strong></li>
+</ul>
+<p>Run: <code>cargo test --lib mise::tests::expected_config_text -- --nocapture</code>
+Expected: FAIL with <code>cannot find function 'expected_config_text' in this scope</code></p>
+<ul>
+<li>[ ] <strong>Step 3: Implement <code>expected_config_text</code></strong></li>
+</ul>
+<p>Insert into <code>src/mise.rs</code> immediately after <code>active_mise_config_paths</code> (after the closing <code>}</code> on line 423, before the doc comment for <code>load_or_create_doc</code>):</p>
+<pre><code class="language-rust">/// Compute the text `apply` would actually write to `dest`, when `dest` is
+/// the global mise config and at least one active module declares `[tools]`.
+///
+/// Returns `None` when `dest` isn't the mise-merged destination (or no
+/// active module declares tools) — callers should fall back to comparing
+/// `src` and `dest` directly in that case. Shared by `haven diff` and
+/// `haven status` so both compare against the same merged content `apply`
+/// produces, instead of raw source, avoiding a false &quot;modified&quot; report.
+pub fn expected_config_text(
+    mise_config_paths: &amp;[PathBuf],
+    mise_global_path: Option&lt;&amp;Path&gt;,
+    src: &amp;Path,
+    dest: &amp;Path,
+) -&gt; Option&lt;String&gt; {
+    if mise_config_paths.is_empty() {
+        return None;
+    }
+    if mise_global_path != Some(dest) {
+        return None;
+    }
+    let base = std::fs::read_to_string(src).ok()?;
+    merge_tools_into_text(mise_config_paths, &amp;base).ok()
+}
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 4: Run the tests to verify they pass</strong></li>
+</ul>
+<p>Run: <code>cargo test --lib mise::tests::expected_config_text</code>
+Expected: PASS (4 tests)</p>
+<ul>
+<li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git add src/mise.rs
+git commit -m &quot;$(cat &lt;&lt;'EOF'
+refactor: extract mise::expected_config_text for merge-aware comparison
+
+Pulls the merge-aware &quot;what would apply write here&quot; computation out
+of diff.rs so status.rs can reuse it in a later commit, instead of
+duplicating the logic and risking the same drift between the two
+commands that caused the status false-positive bug.
+EOF
+)&quot;
+</code></pre>
+<hr />
+<h3 id="task-2-add-driftcheck_drift_mise_aware">Task 2: Add <code>drift::check_drift_mise_aware</code><a class="headerlink" href="#task-2-add-driftcheck_drift_mise_aware" title="Permanent link">&para;</a></h3>
+<p><strong>Files:</strong>
+- Modify: <code>src/drift.rs</code> (insert new function after <code>check_drift_haven_aware</code>, which ends at line 84, before <code>check_drift</code> at line 86)
+- Modify: <code>src/drift.rs</code> (add a new <code>#[cfg(test)] mod tests</code> block at the end of the file — none exists yet)</p>
+<ul>
+<li>[ ] <strong>Step 1: Write the failing unit tests</strong></li>
+</ul>
+<p>Append to the end of <code>src/drift.rs</code>:</p>
+<pre><code class="language-rust">
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    #[test]
+    fn check_drift_mise_aware_source_missing_when_expected_given_but_src_absent() {
+        let dir = TempDir::new().unwrap();
+        let src = dir.path().join(&quot;does-not-exist.toml&quot;);
+        let dest = dir.path().join(&quot;dest.toml&quot;);
+        std::fs::write(&amp;dest, &quot;[tools]\nnode = \&quot;22\&quot;\n&quot;).unwrap();
+
+        let kind = check_drift_mise_aware(&amp;src, &amp;dest, Some(&quot;[tools]\nnode = \&quot;22\&quot;\n&quot;));
+
+        assert_eq!(kind, DriftKind::SourceMissing);
+    }
+
+    #[test]
+    fn check_drift_mise_aware_missing_when_expected_given_but_dest_absent() {
+        let dir = TempDir::new().unwrap();
+        let src = dir.path().join(&quot;config.toml&quot;);
+        std::fs::write(&amp;src, &quot;[settings]\n&quot;).unwrap();
+        let dest = dir.path().join(&quot;dest.toml&quot;);
+
+        let kind = check_drift_mise_aware(&amp;src, &amp;dest, Some(&quot;[tools]\nnode = \&quot;22\&quot;\n&quot;));
+
+        assert_eq!(kind, DriftKind::Missing);
+    }
+
+    #[test]
+    fn check_drift_mise_aware_clean_when_dest_matches_expected() {
+        let dir = TempDir::new().unwrap();
+        let src = dir.path().join(&quot;config.toml&quot;);
+        std::fs::write(&amp;src, &quot;[settings]\n&quot;).unwrap();
+        let dest = dir.path().join(&quot;dest.toml&quot;);
+        std::fs::write(&amp;dest, &quot;[tools]\nnode = \&quot;22\&quot;\n&quot;).unwrap();
+
+        let kind = check_drift_mise_aware(&amp;src, &amp;dest, Some(&quot;[tools]\nnode = \&quot;22\&quot;\n&quot;));
+
+        assert_eq!(kind, DriftKind::Clean);
+    }
+
+    #[test]
+    fn check_drift_mise_aware_modified_when_dest_differs_from_expected() {
+        let dir = TempDir::new().unwrap();
+        let src = dir.path().join(&quot;config.toml&quot;);
+        std::fs::write(&amp;src, &quot;[settings]\n&quot;).unwrap();
+        let dest = dir.path().join(&quot;dest.toml&quot;);
+        std::fs::write(&amp;dest, &quot;[tools]\nnode = \&quot;20\&quot;\n&quot;).unwrap();
+
+        let kind = check_drift_mise_aware(&amp;src, &amp;dest, Some(&quot;[tools]\nnode = \&quot;22\&quot;\n&quot;));
+
+        assert_eq!(kind, DriftKind::Modified);
+    }
+
+    #[test]
+    fn check_drift_mise_aware_falls_back_to_haven_aware_when_no_expected() {
+        let dir = TempDir::new().unwrap();
+        let src = dir.path().join(&quot;file.txt&quot;);
+        std::fs::write(&amp;src, &quot;same\n&quot;).unwrap();
+        let dest = dir.path().join(&quot;dest.txt&quot;);
+        std::fs::write(&amp;dest, &quot;same\n&quot;).unwrap();
+
+        let kind = check_drift_mise_aware(&amp;src, &amp;dest, None);
+
+        assert_eq!(kind, DriftKind::Clean);
+    }
+}
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Run the tests to verify they fail</strong></li>
+</ul>
+<p>Run: <code>cargo test --lib drift::tests -- --nocapture</code>
+Expected: FAIL with <code>cannot find function 'check_drift_mise_aware' in this scope</code></p>
+<ul>
+<li>[ ] <strong>Step 3: Implement <code>check_drift_mise_aware</code></strong></li>
+</ul>
+<p>Insert into <code>src/drift.rs</code> immediately after <code>check_drift_haven_aware</code> (after its closing <code>}</code> on line 84, before the doc comment for <code>check_drift</code> on line 86):</p>
+<pre><code class="language-rust">/// Like [`check_drift_haven_aware`], but for entries where the destination is
+/// produced by merging `src` with extra content (currently: the global mise
+/// config merged with active modules' `[tools]`).
+///
+/// When `expected` is `Some`, compares `src`/`dest` existence and exact text
+/// equality against it directly — `dest` is expected to differ from raw
+/// `src`, so no haven-managed-section stripping applies here. When `expected`
+/// is `None`, falls back to [`check_drift_haven_aware`] for the normal case.
+pub fn check_drift_mise_aware(src: &amp;Path, dest: &amp;Path, expected: Option&lt;&amp;str&gt;) -&gt; DriftKind {
+    let Some(expected) = expected else {
+        return check_drift_haven_aware(src, dest);
+    };
+    if !src.exists() {
+        return DriftKind::SourceMissing;
+    }
+    if !dest.exists() {
+        return DriftKind::Missing;
+    }
+    match std::fs::read_to_string(dest) {
+        Ok(dest_text) if dest_text == expected =&gt; DriftKind::Clean,
+        _ =&gt; DriftKind::Modified,
+    }
+}
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 4: Run the tests to verify they pass</strong></li>
+</ul>
+<p>Run: <code>cargo test --lib drift::tests</code>
+Expected: PASS (5 tests)</p>
+<ul>
+<li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git add src/drift.rs
+git commit -m &quot;$(cat &lt;&lt;'EOF'
+refactor: extract drift::check_drift_mise_aware for merge-aware drift
+
+Pulls the DriftKind decision that diff.rs makes for the mise-merged
+destination into a shared function, matching expected_config_text
+from the prior commit, so status.rs can reuse both in a later commit.
+EOF
+)&quot;
+</code></pre>
+<hr />
+<h3 id="task-3-rewire-diffrs-to-use-the-shared-functions">Task 3: Rewire <code>diff.rs</code> to use the shared functions<a class="headerlink" href="#task-3-rewire-diffrs-to-use-the-shared-functions" title="Permanent link">&para;</a></h3>
+<p><strong>Files:</strong>
+- Modify: <code>src/commands/diff.rs:254-284</code> (replace inline <code>is_mise_global</code>/<code>expected_src_text</code>/<code>kind</code> computation)
+- Modify: <code>src/commands/diff.rs:36-39</code> (drop now-unused <code>check_drift_haven_aware</code> import)</p>
+<ul>
+<li>[ ] <strong>Step 1: Replace the inline computation</strong></li>
+</ul>
+<p>In <code>src/commands/diff.rs</code>, replace this block (currently lines 254–284):</p>
+<pre><code class="language-rust">                        // If this entry is the global mise config and at least one
+                        // active module declares mise tools, the destination `apply`
+                        // produces is source merged with `[tools]` — compute that
+                        // expected text instead of comparing raw source to dest.
+                        let is_mise_global = !mise_config_paths.is_empty()
+                            &amp;&amp; mise_global_path.as_deref() == Some(dest.as_path());
+                        let expected_src_text = if is_mise_global {
+                            std::fs::read_to_string(&amp;entry.src)
+                                .ok()
+                                .and_then(|base| {
+                                    crate::mise::merge_tools_into_text(&amp;mise_config_paths, &amp;base)
+                                        .ok()
+                                })
+                        } else {
+                            None
+                        };
+
+                        let kind = if let Some(expected) = &amp;expected_src_text {
+                            if !entry.src.exists() {
+                                DriftKind::SourceMissing
+                            } else if !dest.exists() {
+                                DriftKind::Missing
+                            } else {
+                                match std::fs::read_to_string(&amp;dest) {
+                                    Ok(dest_text) if &amp;dest_text == expected =&gt; DriftKind::Clean,
+                                    _ =&gt; DriftKind::Modified,
+                                }
+                            }
+                        } else {
+                            check_drift_haven_aware(&amp;entry.src, &amp;dest)
+                        };
+</code></pre>
+<p>with:</p>
+<pre><code class="language-rust">                        // If this entry is the global mise config and at least one
+                        // active module declares mise tools, the destination `apply`
+                        // produces is source merged with `[tools]` — compute that
+                        // expected text instead of comparing raw source to dest.
+                        let expected_src_text = crate::mise::expected_config_text(
+                            &amp;mise_config_paths,
+                            mise_global_path.as_deref(),
+                            &amp;entry.src,
+                            &amp;dest,
+                        );
+
+                        let kind = check_drift_mise_aware(
+                            &amp;entry.src,
+                            &amp;dest,
+                            expected_src_text.as_deref(),
+                        );
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Update imports</strong></li>
+</ul>
+<p>In <code>src/commands/diff.rs</code>, replace the <code>crate::drift</code> import block:</p>
+<pre><code class="language-rust">use crate::drift::{
+    check_drift_haven_aware, check_drift_link, check_drift_link_template, check_drift_template,
+    DriftKind,
+};
+</code></pre>
+<p>with:</p>
+<pre><code class="language-rust">use crate::drift::{
+    check_drift_link, check_drift_link_template, check_drift_mise_aware, check_drift_template,
+    DriftKind,
+};
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 3: Build and confirm no warnings</strong></li>
+</ul>
+<p>Run: <code>cargo build 2&gt;&amp;1 | grep -E "warning|error"</code>
+Expected: no output (no unused-import warnings, no errors)</p>
+<ul>
+<li>[ ] <strong>Step 4: Run existing diff tests to confirm no regression</strong></li>
+</ul>
+<p>Run: <code>cargo test --test integration diff_</code>
+Expected: PASS, including <code>diff_no_false_drift_after_mise_merge</code></p>
+<ul>
+<li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git add src/commands/diff.rs
+git commit -m &quot;$(cat &lt;&lt;'EOF'
+refactor: rewire haven diff to use shared mise-aware drift helpers
+
+No behavior change — diff.rs now calls mise::expected_config_text and
+drift::check_drift_mise_aware instead of the equivalent inline logic,
+so status.rs can reuse the same code path in the next commit.
+EOF
+)&quot;
+</code></pre>
+<hr />
+<h3 id="task-4-wire-statusrs-to-use-the-shared-functions">Task 4: Wire <code>status.rs</code> to use the shared functions<a class="headerlink" href="#task-4-wire-statusrs-to-use-the-shared-functions" title="Permanent link">&para;</a></h3>
+<p><strong>Files:</strong>
+- Modify: <code>src/commands/status.rs:1-14</code> (imports)
+- Modify: <code>src/commands/status.rs:53-96</code> (precompute mise paths, use shared functions in the <code>PlainFile</code> branch)</p>
+<ul>
+<li>[ ] <strong>Step 1: Update imports</strong></li>
+</ul>
+<p>In <code>src/commands/status.rs</code>, replace:</p>
+<pre><code class="language-rust">use crate::drift::{
+    check_drift_haven_aware, check_drift_link, check_drift_link_template, check_drift_template,
+    drift_marker, DriftKind,
+};
+</code></pre>
+<p>with:</p>
+<pre><code class="language-rust">use crate::drift::{
+    check_drift_link, check_drift_link_template, check_drift_mise_aware, check_drift_template,
+    drift_marker, DriftKind,
+};
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Precompute mise paths before the file loop</strong></li>
+</ul>
+<p>In <code>src/commands/status.rs</code>, the file-drift section currently starts (lines 54–59):</p>
+<pre><code class="language-rust">    if show_files {
+        let source_dir = opts.repo_root.join(&quot;source&quot;);
+        let ignore = IgnoreList::load(opts.repo_root, &amp;template_ctx);
+        let entries = source::scan(&amp;source_dir, &amp;ignore)?;
+        source::warn_duplicate_destinations(&amp;entries);
+
+        let mut file_drift: Vec&lt;(String, String)&gt; = Vec::new();
+</code></pre>
+<p>Replace it with:</p>
+<pre><code class="language-rust">    if show_files {
+        let source_dir = opts.repo_root.join(&quot;source&quot;);
+        let ignore = IgnoreList::load(opts.repo_root, &amp;template_ctx);
+        let entries = source::scan(&amp;source_dir, &amp;ignore)?;
+        source::warn_duplicate_destinations(&amp;entries);
+
+        // The global mise config's destination is written by `apply` as the
+        // bare source content merged with `[tools]` from active modules'
+        // mise configs — it is never a byte-for-byte copy of source. Precompute
+        // the expected merge inputs here so the file loop below can compare
+        // against what `apply` would actually produce, instead of raw source,
+        // avoiding a false &quot;modified&quot; report on every status check.
+        let mise_global_path = crate::mise::mise_global_config_path().ok();
+        let mise_config_paths: Vec&lt;PathBuf&gt; =
+            crate::mise::active_mise_config_paths(opts.repo_root, &amp;sorted);
+
+        let mut file_drift: Vec&lt;(String, String)&gt; = Vec::new();
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 3: Use the shared functions in the <code>PlainFile</code> branch</strong></li>
+</ul>
+<p>In <code>src/commands/status.rs</code>, replace:</p>
+<pre><code class="language-rust">                EntryKind::PlainFile =&gt; {
+                    if entry.template {
+                        check_drift_template(&amp;entry.src, &amp;template_ctx, &amp;dest)?
+                    } else {
+                        check_drift_haven_aware(&amp;entry.src, &amp;dest)
+                    }
+                }
+</code></pre>
+<p>with:</p>
+<pre><code class="language-rust">                EntryKind::PlainFile =&gt; {
+                    if entry.template {
+                        check_drift_template(&amp;entry.src, &amp;template_ctx, &amp;dest)?
+                    } else {
+                        let expected = crate::mise::expected_config_text(
+                            &amp;mise_config_paths,
+                            mise_global_path.as_deref(),
+                            &amp;entry.src,
+                            &amp;dest,
+                        );
+                        check_drift_mise_aware(&amp;entry.src, &amp;dest, expected.as_deref())
+                    }
+                }
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 4: Build and confirm no warnings</strong></li>
+</ul>
+<p>Run: <code>cargo build 2&gt;&amp;1 | grep -E "warning|error"</code>
+Expected: no output</p>
+<p>Note: <code>PathBuf</code> is already imported in <code>src/commands/status.rs</code> (<code>use std::path::{Path, PathBuf};</code> at line 2) and <code>sorted</code> is already computed at line 45 (<code>let sorted = sort_modules(&amp;modules);</code>) before the <code>show_files</code> block — no additional imports needed.</p>
+<ul>
+<li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git add src/commands/status.rs
+git commit -m &quot;$(cat &lt;&lt;'EOF'
+fix: status false drift on mise config that apply merged with [tools]
+
+haven status compared the global mise config's destination against
+raw source, but apply always merges in [tools] from active modules —
+so status reported it modified even right after a clean apply. Same
+bug diff had before a134ded3; status now uses the same merge-aware
+comparison via the shared mise::expected_config_text /
+drift::check_drift_mise_aware helpers.
+EOF
+)&quot;
+</code></pre>
+<hr />
+<h3 id="task-5-integration-test-for-the-fix">Task 5: Integration test for the fix<a class="headerlink" href="#task-5-integration-test-for-the-fix" title="Permanent link">&para;</a></h3>
+<p><strong>Files:</strong>
+- Modify: <code>tests/integration.rs</code> (add new test near <code>diff_no_false_drift_after_mise_merge</code>, which ends at line 5515)</p>
+<ul>
+<li>[ ] <strong>Step 1: Write the failing integration test</strong></li>
+</ul>
+<p>Add to <code>tests/integration.rs</code> immediately after <code>diff_no_false_drift_after_mise_merge</code> (after its closing <code>}</code> at line 5515):</p>
+<pre><code class="language-rust">
+#[test]
+fn status_no_false_drift_after_mise_merge() {
+    let repo = TempDir::new().unwrap();
+    let home = TempDir::new().unwrap();
+
+    cmd(&amp;repo).arg(&quot;init&quot;).assert().success();
+
+    fs::create_dir_all(repo.path().join(&quot;mise&quot;)).unwrap();
+    fs::write(
+        repo.path().join(&quot;mise&quot;).join(&quot;mise.packages.toml&quot;),
+        &quot;[tools]\nnode = \&quot;22\&quot;\n&quot;,
+    )
+    .unwrap();
+
+    fs::write(
+        repo.path().join(&quot;modules&quot;).join(&quot;packages.toml&quot;),
+        &quot;[mise]\nconfig = \&quot;mise/mise.packages.toml\&quot;\n&quot;,
+    )
+    .unwrap();
+
+    fs::write(
+        repo.path().join(&quot;haven.toml&quot;),
+        &quot;[profile.default]\nmodules = [\&quot;packages\&quot;]\n&quot;,
+    )
+    .unwrap();
+
+    let source_mise_dir = repo.path().join(&quot;source&quot;).join(&quot;dot_config&quot;).join(&quot;mise&quot;);
+    fs::create_dir_all(&amp;source_mise_dir).unwrap();
+    fs::write(
+        source_mise_dir.join(&quot;config.toml&quot;),
+        &quot;[settings]\n# base config\n&quot;,
+    )
+    .unwrap();
+
+    cmd_home(&amp;repo, &amp;home)
+        .args([&quot;apply&quot;, &quot;--profile&quot;, &quot;default&quot;, &quot;--files&quot;])
+        .assert()
+        .success();
+
+    // The global mise config now contains merged [tools] that the bare
+    // source never had. `haven status` should recognize this as the
+    // expected, apply-produced state — not report it as drift.
+    cmd_home(&amp;repo, &amp;home)
+        .args([&quot;status&quot;, &quot;--profile&quot;, &quot;default&quot;, &quot;--files&quot;])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(&quot;up to date&quot;))
+        .stdout(predicate::str::contains(&quot;mise/config.toml&quot;).not());
+}
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Run the test to verify it fails</strong></li>
+</ul>
+<p>Run: <code>cargo test --test integration status_no_false_drift_after_mise_merge</code>
+Expected: FAIL — stdout contains <code>M .config/mise/config.toml</code> instead of "up to date"</p>
+<ul>
+<li>[ ] <strong>Step 3: Verify the test passes (implementation already done in Task 4)</strong></li>
+</ul>
+<p>Run: <code>cargo test --test integration status_no_false_drift_after_mise_merge</code>
+Expected: PASS</p>
+<ul>
+<li>[ ] <strong>Step 4: Run the full test suite</strong></li>
+</ul>
+<p>Run: <code>cargo test</code>
+Expected: all tests PASS (no regressions in <code>status_*</code> or <code>diff_*</code> tests)</p>
+<ul>
+<li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git add tests/integration.rs
+git commit -m &quot;$(cat &lt;&lt;'EOF'
+test: regression test for status mise-config false drift fix
+
+Mirrors diff_no_false_drift_after_mise_merge for the status command.
+EOF
+)&quot;
+</code></pre>
+<hr />
+<h2 id="self-review-notes">Self-Review Notes<a class="headerlink" href="#self-review-notes" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Spec coverage:</strong> All 4 spec items (mise.rs helper, drift.rs helper, diff.rs rewire, status.rs wiring) map to Tasks 1–4; spec's "Testing" section maps to Task 5.</li>
+<li><strong>Type consistency:</strong> <code>expected_config_text(&amp;[PathBuf], Option&lt;&amp;Path&gt;, &amp;Path, &amp;Path) -&gt; Option&lt;String&gt;</code> and <code>check_drift_mise_aware(&amp;Path, &amp;Path, Option&lt;&amp;str&gt;) -&gt; DriftKind</code> signatures are used identically in Tasks 1–4.</li>
+<li><strong>No behavior change to <code>diff</code>:</strong> Task 3 is a pure refactor — <code>diff_no_false_drift_after_mise_merge</code> (existing test) must still pass unchanged.</li>
+</ul></div>
+            </div>
+        </div>
+
+        <footer class="col-md-12">
+            <hr>
+            <p>Documentation built with <a href="https://www.mkdocs.org/">MkDocs</a>.</p>
+        </footer>
+        <script src="../../../js/bootstrap.bundle.min.js"></script>
+        <script>
+            var base_url = "../../..",
+                shortcuts = {"help": 191, "next": 78, "previous": 80, "search": 83};
+        </script>
+        <script src="../../../js/base.js"></script>
+        <script src="../../../search/main.js"></script>
+
+        <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>From here you can search these documents. Enter your search terms below.</p>
+                <form>
+                    <div class="form-group">
+                        <input type="search" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results" data-no-results-text="No results found"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+
+    </body>
+</html>

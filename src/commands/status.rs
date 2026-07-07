@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use crate::config::module::expand_tilde;
 use crate::config::{sort_modules, HavenConfig, ModuleConfig};
 use crate::drift::{
-    check_drift_haven_aware, check_drift_link, check_drift_link_template, check_drift_template,
+    check_drift_link, check_drift_link_template, check_drift_mise_aware, check_drift_template,
     drift_marker, DriftKind,
 };
 use crate::fs::sha256_of_bytes;
@@ -57,6 +57,16 @@ pub fn run(opts: &StatusOptions<'_>) -> Result<()> {
         let entries = source::scan(&source_dir, &ignore)?;
         source::warn_duplicate_destinations(&entries);
 
+        // The global mise config's destination is written by `apply` as the
+        // bare source content merged with `[tools]` from active modules'
+        // mise configs — it is never a byte-for-byte copy of source. Precompute
+        // the expected merge inputs here so the file loop below can compare
+        // against what `apply` would actually produce, instead of raw source,
+        // avoiding a false "modified" report on every status check.
+        let mise_global_path = crate::mise::mise_global_config_path().ok();
+        let mise_config_paths: Vec<PathBuf> =
+            crate::mise::active_mise_config_paths(opts.repo_root, &sorted);
+
         let mut file_drift: Vec<(String, String)> = Vec::new();
         for entry in &entries {
             let dest_expanded = expand_tilde(&entry.dest_tilde)?;
@@ -90,7 +100,13 @@ pub fn run(opts: &StatusOptions<'_>) -> Result<()> {
                     if entry.template {
                         check_drift_template(&entry.src, &template_ctx, &dest)?
                     } else {
-                        check_drift_haven_aware(&entry.src, &dest)
+                        let expected = crate::mise::expected_config_text(
+                            &mise_config_paths,
+                            mise_global_path.as_deref(),
+                            &entry.src,
+                            &dest,
+                        );
+                        check_drift_mise_aware(&entry.src, &dest, expected.as_deref())
                     }
                 }
             };
